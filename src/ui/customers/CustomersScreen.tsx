@@ -1045,7 +1045,7 @@ export function CustomersScreen({
       ) : null}
 
       {printOpen ? (
-        <ReportOverlayShell title="Customer List" onClose={() => setPrintOpen(false)}>
+        <ReportOverlayShell preview title="Customer List" onClose={() => setPrintOpen(false)}>
           <DocumentPreview
             title="Customer List"
             fileName="customers.pdf"

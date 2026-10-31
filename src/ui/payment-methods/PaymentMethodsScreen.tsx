@@ -941,7 +941,7 @@ export function PaymentMethodsScreen({
       ) : null}
 
       {printOpen ? (
-        <ReportOverlayShell title="Payment methods" onClose={() => setPrintOpen(false)}>
+        <ReportOverlayShell preview title="Payment methods" onClose={() => setPrintOpen(false)}>
           <DocumentPreview
             title="Payment methods"
             fileName="payment-methods.pdf"

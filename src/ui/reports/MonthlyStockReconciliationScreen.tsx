@@ -132,12 +132,17 @@ export function MonthlyStockReconciliationDocument({
         fileName={`monthly-stock-reconciliation-${report.asAtIso}.pdf`}
         page="portrait"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No reconciliation figures to display."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
       >
       <ReportDocumentShell
-      className="scr-document msr-document wpp-pack-page"
       isEmpty={empty}
       emptyMessage="No reconciliation figures to display."
       emptyHint={HIDE_ZERO_ROWS_HINT}
+      className="scr-document msr-document wpp-pack-page"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

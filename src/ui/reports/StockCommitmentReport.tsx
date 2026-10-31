@@ -146,12 +146,17 @@ export function StockCommitmentReportDocument({
         fileName={`stock-commitment-${report.asAtIso}.pdf`}
         page="portrait-weekly"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No stock or commitment quantities to display."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
       >
       <ReportDocumentShell
-      className="scr-document sr-stock-compact sr-stock-report wpp-pack-page weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No stock or commitment quantities to display."
       emptyHint={HIDE_ZERO_ROWS_HINT}
+      className="scr-document sr-stock-compact sr-stock-report wpp-pack-page weekly-report-tight"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

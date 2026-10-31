@@ -53,11 +53,15 @@ function ReportDocument({ report }: { report: BinCardReport }) {
         fileName={`bin-card-${report.productId}-${report.fromIso}-${report.toIso}.pdf`}
         page="portrait"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No movements in this period."
       >
       <ReportDocumentShell
-      className="scr-document bcr-document"
       isEmpty={empty}
       emptyMessage="No movements in this period."
+      className="scr-document bcr-document"
+      
+      
       showComments={false}
       showFooter={false}
       header={

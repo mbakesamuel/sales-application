@@ -1,8 +1,10 @@
 import type { ComponentChildren } from "preact";
+import { useEffect } from "preact/hooks";
 import { ReportAttributionFooter } from "./ReportAttributionFooter.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportEmptyMessage } from "./ReportEmptyMessage.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
+import { useReportPreviewEmptyRegister } from "./ReportPreviewEmptyContext.tsx";
 
 export function ReportDocumentShell({
   className = "scr-document",
@@ -29,6 +31,23 @@ export function ReportDocumentShell({
   header?: ComponentChildren;
   children: ComponentChildren;
 }) {
+  const registerEmpty = useReportPreviewEmptyRegister();
+
+  useEffect(() => {
+    if (!registerEmpty) {
+      return;
+    }
+    if (isEmpty) {
+      registerEmpty({
+        message: emptyMessage || "No data for this report.",
+        hint: emptyHint,
+      });
+    } else {
+      registerEmpty(null);
+    }
+    return () => registerEmpty(null);
+  }, [registerEmpty, isEmpty, emptyMessage, emptyHint]);
+
   if (isEmpty) {
     return (
       <div class={`${className} scr-document-empty`}>

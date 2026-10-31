@@ -33,11 +33,15 @@ export function DailySalesReportDocument({ report }: { report: DailySalesReport 
         fileName={`daily-sales-${report.reportDateIso}.pdf`}
         page="portrait"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No validated sales for this date."
       >
       <ReportDocumentShell
-      className="scr-document wpp-pack-page"
       isEmpty={empty}
       emptyMessage="No validated sales for this date."
+      className="scr-document wpp-pack-page"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}
@@ -229,9 +233,11 @@ export function DailySalesReportScreen({
       <div class="scr-toolbar no-print sbc-toolbar">
         <div class="dsr-filters">
           <label class="dsr-filter">
-            <span>Date</span>
             <input
               type="date"
+              placeholder="Date"
+              aria-label="Date"
+              title="Date"
               value={reportDateIso}
               min={postingPeriod?.startDate}
               max={postingPeriod?.endDate}
@@ -247,15 +253,12 @@ export function DailySalesReportScreen({
             />
             {!postingPeriod ? (
               <span>Open a financial month to pick a date.</span>
-            ) : (
-              <span>
-                Open month: {postingPeriod.monthName} {postingPeriod.financialYear}
-              </span>
-            )}
+            ) : null}
           </label>
           <label class="dsr-filter">
-            <span>Collection point</span>
             <select
+              aria-label="Collection point"
+              title="Collection point"
               value={salesPointId == null ? "" : String(salesPointId)}
               disabled={loading || report.scopedSalesPointId != null}
               onChange={(event) => {
@@ -264,7 +267,7 @@ export function DailySalesReportScreen({
               }}
             >
               {report.scopedSalesPointId == null ? (
-                <option value="">All collection points</option>
+                <option value="">Collection point</option>
               ) : null}
               {report.salesPointOptions.map((point) => (
                 <option key={point.id} value={String(point.id)}>

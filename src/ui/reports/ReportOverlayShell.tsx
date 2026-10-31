@@ -3,15 +3,17 @@ import { createPortal } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { X } from "lucide-react";
 import { getRouteLabel } from "../../shared/routeCatalog.ts";
-import { ReportPrintButton } from "./ReportChrome.tsx";
+import { ReportChromeProvider, ReportPrintButton } from "./ReportChrome.tsx";
 import "./ReportOverlayShell.css";
+
+const escapeCloseStack: Array<() => void> = [];
 
 interface ReportOverlayShellProps {
   reportId?: string;
   title?: string;
-  /** Report PDF pane: Print plus Close with an X. Other documents keep the outline Close only. */
+  /** Full-window PDF preview: dark chrome, Print + Close with X. Implies body portal. */
   preview?: boolean;
-  /** Portal to document.body above stock/form modals (z-index 130). */
+  /** Portal to document.body above stock/form modals (z-index 130). Implied by preview. */
   elevated?: boolean;
   onClose: () => void;
   children: ComponentChildren;
@@ -29,52 +31,71 @@ export function ReportOverlayShell({
   const [host, setHost] = useState<HTMLElement | null | undefined>(undefined);
   const displayTitle =
     title ?? (reportId != null ? getRouteLabel(reportId) : "Report");
+  const fullWindow = preview || elevated;
 
   useEffect(() => {
-    if (elevated) {
+    if (fullWindow) {
       setHost(document.body);
       return;
     }
     const node = anchorRef.current;
     const next = node?.closest(".home-content") ?? node?.closest(".home-main");
     setHost(next instanceof HTMLElement ? next : null);
-  }, [elevated]);
+  }, [fullWindow]);
 
   useEffect(() => {
+    escapeCloseStack.push(onClose);
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
+      if (event.key !== "Escape") return;
+      const top = escapeCloseStack[escapeCloseStack.length - 1];
+      if (top !== onClose) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onClose();
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      const index = escapeCloseStack.lastIndexOf(onClose);
+      if (index >= 0) escapeCloseStack.splice(index, 1);
+    };
   }, [onClose]);
+
+  const chrome = (
+    <div class="report-overlay-panel">
+      <div class="report-overlay-toolbar no-print">
+        <h2 class="report-overlay-title">{displayTitle}</h2>
+        {preview ? (
+          <div class="report-inline-actions">
+            <ReportPrintButton />
+            <button type="button" class="report-inline-close" onClick={onClose}>
+              <X size={16} aria-hidden="true" />
+              Close
+            </button>
+          </div>
+        ) : (
+          <button type="button" class="report-overlay-close" onClick={onClose}>
+            Close
+          </button>
+        )}
+      </div>
+      <div class="report-overlay-body">{children}</div>
+    </div>
+  );
 
   const panel = (
     <div
-      class={`report-overlay-backdrop${elevated ? " is-elevated" : ""}`}
+      class={[
+        "report-overlay-backdrop",
+        fullWindow ? "is-elevated" : "",
+        preview ? "is-preview" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       role="region"
       aria-label={displayTitle}
     >
-      <div class="report-overlay-panel">
-        <div class="report-overlay-toolbar no-print">
-          <h2 class="report-overlay-title">{displayTitle}</h2>
-          {preview ? (
-            <div class="report-inline-actions">
-              <ReportPrintButton />
-              <button type="button" class="report-inline-close" onClick={onClose}>
-                <X size={16} aria-hidden="true" />
-                Close
-              </button>
-            </div>
-          ) : (
-            <button type="button" class="report-overlay-close" onClick={onClose}>
-              Close
-            </button>
-          )}
-        </div>
-        <div class="report-overlay-body">{children}</div>
-      </div>
+      {preview ? <ReportChromeProvider>{chrome}</ReportChromeProvider> : chrome}
     </div>
   );
 

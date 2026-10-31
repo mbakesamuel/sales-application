@@ -65,7 +65,7 @@ export function ReceiptPrintView({
 
   if (error) {
     return (
-      <ReportOverlayShell elevated title="Stock receipt" onClose={onClose}>
+      <ReportOverlayShell preview title="Stock receipt" onClose={onClose}>
         <p class="sales-error">{error}</p>
       </ReportOverlayShell>
     );
@@ -73,7 +73,7 @@ export function ReceiptPrintView({
 
   if (!payload) {
     return (
-      <ReportOverlayShell elevated title="Stock receipt" onClose={onClose}>
+      <ReportOverlayShell preview title="Stock receipt" onClose={onClose}>
         <p class="sales-muted">Loading print view…</p>
       </ReportOverlayShell>
     );
@@ -81,7 +81,7 @@ export function ReceiptPrintView({
   const { receipt } = payload;
 
   return (
-    <ReportOverlayShell elevated title="Stock receipt" onClose={onClose}>
+    <ReportOverlayShell preview title="Stock receipt" onClose={onClose}>
         <DocumentPreview
           title="Stock receipt"
           fileName={`stock-receipt-${receipt.receiptNo}.pdf`}

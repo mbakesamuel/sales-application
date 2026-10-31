@@ -166,12 +166,17 @@ export function WeeklyDeliveriesReportDocument({
         fileName={`weekly-deliveries-${report.weekToIso}.pdf`}
         page="portrait-weekly"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No deliveries recorded for this week."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
       >
       <ReportDocumentShell
-      className="scr-document wpp-pack-page wd-weekly-deliveries weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No deliveries recorded for this week."
       emptyHint={HIDE_ZERO_ROWS_HINT}
+      className="scr-document wpp-pack-page wd-weekly-deliveries weekly-report-tight"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

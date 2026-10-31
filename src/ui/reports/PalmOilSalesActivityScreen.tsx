@@ -179,11 +179,15 @@ function ReportDocument({ report }: { report: PalmOilSalesActivityReport }) {
         page="landscape"
         bodyClass="posa-print-landscape"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No palm oil sales activity for this year."
       >
       <ReportDocumentShell
-      className="scr-document posa-document"
       isEmpty={empty}
       emptyMessage="No palm oil sales activity for this year."
+      className="scr-document posa-document"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

@@ -93,12 +93,17 @@ function ReportDocument({ report }: { report: MonthlyPaymentDeliveryReport }) {
         fileName={`monthly-payment-delivery-${report.asAtIso}.pdf`}
         page="portrait"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No payment or delivery data for this month."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
       >
       <ReportDocumentShell
-      className="scr-document mpd-document"
       isEmpty={empty}
       emptyMessage="No payment or delivery data for this month."
       emptyHint={HIDE_ZERO_ROWS_HINT}
+      className="scr-document mpd-document"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

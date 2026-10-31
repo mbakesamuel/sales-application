@@ -510,6 +510,13 @@
     border-bottom: 2px solid #111 !important;
   }
 
+  /* Stock Summary, Stock weekly, Commitments, Bottle oil stock: no rule above the table. */
+  body.scr-print-mode .sr-stock-report.scr-document .report-header,
+  body.scr-print-mode .cr-commitment-report.scr-document .report-header,
+  body.scr-print-mode .bos-bottle-oil-report.scr-document .report-header {
+    border-bottom: none !important;
+  }
+
   body.scr-print-mode .scr-document .report-header-logo-placeholder {
     border: 1px solid #ccc !important;
     background: #fff !important;

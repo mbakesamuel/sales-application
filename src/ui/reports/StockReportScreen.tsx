@@ -288,6 +288,9 @@ export function StockReportDocument({ report }: { report: StockReport }) {
         fileName={`stock-report-${report.asAtIso}.pdf`}
         page="portrait-weekly"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage={`No stock quantities to display as at ${formatDisplayDate(report.asAtIso)}.`}
+        emptyHint={HIDE_ZERO_ROWS_HINT}
       >
       <ReportDocumentShell
       className="scr-document sr-stock-compact sr-stock-report wpp-pack-page weekly-report-tight"

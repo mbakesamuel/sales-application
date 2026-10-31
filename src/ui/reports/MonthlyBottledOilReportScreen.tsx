@@ -34,11 +34,15 @@ function ReportDocument({ report }: { report: MonthlyBottledOilReport }) {
         page="landscape"
         bodyClass="mbo-print-landscape"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No Bottle Oil Ration or Public relation sales in this period."
       >
       <ReportDocumentShell
-      className="scr-document mbo-document"
       isEmpty={empty}
       emptyMessage="No Bottle Oil Ration or Public relation sales in this period."
+      className="scr-document mbo-document"
+      
+      
       showComments={false}
       showFooter={false}
       header={

@@ -833,7 +833,7 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
       ) : null}
 
       {printOpen ? (
-        <ReportOverlayShell title="Tax rates" onClose={() => setPrintOpen(false)}>
+        <ReportOverlayShell preview title="Tax rates" onClose={() => setPrintOpen(false)}>
           <DocumentPreview
             title="Tax rates"
             fileName="tax-rates.pdf"

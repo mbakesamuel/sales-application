@@ -873,7 +873,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
       ) : null}
 
       {printOpen ? (
-        <ReportOverlayShell title="Collection points" onClose={() => setPrintOpen(false)}>
+        <ReportOverlayShell preview title="Collection points" onClose={() => setPrintOpen(false)}>
           <DocumentPreview
             title="Collection points"
             fileName="sales-points.pdf"

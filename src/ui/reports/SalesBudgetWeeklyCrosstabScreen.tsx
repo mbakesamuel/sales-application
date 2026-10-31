@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
-import { formatDisplayDateTime } from "../../shared/formatDisplayDate.ts";
 import type { SalesBudgetWeeklyCrosstabReport } from "../../shared/reports.types.ts";
 import {
   CAL_MONTHS,
@@ -29,137 +28,215 @@ export function buildQtyMap(report: SalesBudgetWeeklyCrosstabReport): Map<string
   return map;
 }
 
-function formatGeneratedAt(iso: string): string {
-  return formatDisplayDateTime(iso);
+function productWeekTotal(
+  qtyMap: Map<string, number>,
+  weekLabel: string,
+  productCatId: number,
+): number {
+  let total = 0;
+  for (const month of CAL_MONTHS) {
+    total +=
+      qtyMap.get(salesBudgetCrosstabCellKey(weekLabel, productCatId, month)) ?? 0;
+  }
+  return total;
+}
+
+function productMonthTotals(
+  report: SalesBudgetWeeklyCrosstabReport,
+  productCatId: number,
+): { monthTotals: number[]; productGrandTotal: number } {
+  const monthTotals = CAL_MONTHS.map((month) => {
+    const index = report.cols.findIndex(
+      (col) => col.productCatId === productCatId && col.month === month,
+    );
+    return index >= 0 ? (report.colTotals[index] ?? 0) : 0;
+  });
+  const productGrandTotal = monthTotals.reduce((sum, value) => sum + value, 0);
+  return { monthTotals, productGrandTotal };
+}
+
+/**
+ * Exactly two pages when there are more than 26 weeks (e.g. 52 → 26 + 26).
+ * Last page is slightly smaller when the count is odd so totals still fit.
+ */
+function splitWeeksAcrossTwoPages<T>(weeks: T[]): T[][] {
+  if (weeks.length === 0) {
+    return [[]];
+  }
+  if (weeks.length <= 26) {
+    return [weeks];
+  }
+  const mid = Math.ceil(weeks.length / 2);
+  return [weeks.slice(0, mid), weeks.slice(mid)];
 }
 
 export function SalesBudgetWeeklyCrosstabDocument({
   report,
   qtyMap,
+  onNavigate,
 }: {
   report: SalesBudgetWeeklyCrosstabReport;
   qtyMap: Map<string, number>;
+  onNavigate?: (routeId: string) => void;
 }) {
   const emptyMessage = salesBudgetWeeklyCrosstabEmptyMessage(report);
 
   return (
     <DocumentPreview
-        title="Sales budget weekly"
-        fileName={`sales-budget-weekly-${report.reportYear}.pdf`}
-        page="landscape-tight"
-        bodyClass="mdr-print-landscape"
-        sourceKey={report}
-      >
-      <ReportDocumentShell
-      className="scr-document wpp-pack-page wpp-pack-crosstab"
+      title="Sales budget weekly"
+      fileName={`sales-budget-weekly-${report.reportYear}.pdf`}
+      page="landscape-tight"
+      bodyClass="mdr-print-landscape"
+      sourceKey={report}
       isEmpty={emptyMessage !== null}
       emptyMessage={emptyMessage ?? ""}
-      comments={report.comments}
-      signatoryName={report.settings.signatoryName}
-      signatoryTitle={report.settings.signatoryTitle}
-      header={
-        <ReportHeader
-          companyName={report.settings.companyName}
-          department={report.settings.department}
-          serviceName={report.settings.serviceName}
-          title="Sales budget — weekly phasing crosstab (kg)"
-        />
-      }
     >
-      <div>
-        <p class="sbc-intro">
-          Calendar year <strong>{report.reportYear}</strong>. Rows are ISO weeks; columns are
-          budget group × calendar month. Each cell is phased budget kg for days in that week within
-          that month (from Sales budgets).
-        </p>
-        <p class="sbc-intro-meta">Generated {formatGeneratedAt(report.generatedAtIso)}</p>
-      </div>
-
-      <div class="sbc-table-wrap">
-        <table class="sbc-table sbc-table-weekly">
-            <thead>
-              <tr>
-                <th rowSpan={2} class="sbc-sticky-col sbc-week-col">
-                  ISO week
-                </th>
-                {report.categoriesInReport.map((cat) => (
-                  <th
-                    key={cat.productCatId}
-                    colSpan={12}
-                    class="sbc-product-group"
-                  >
-                    {cat.label}
-                  </th>
-                ))}
-                <th rowSpan={2} class="sbc-num sbc-total-col">
-                  Row total
-                </th>
-              </tr>
-              <tr>
-                {report.categoriesInReport.map((cat) =>
-                  CAL_MONTHS.map((month) => (
-                    <th
-                      key={`${cat.productCatId}-${month}`}
-                      class="sbc-num sbc-month-head"
-                      title={monthName(month)}
-                    >
-                      {monthName(month).slice(0, 3)}
-                    </th>
-                  )),
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {report.sortedWeeks.map((week, rowIndex) => {
-                const rowTotal = report.rowTotals[rowIndex] ?? 0;
-                return (
-                  <tr key={week.label}>
-                    <td class="sbc-sticky-col sbc-week-col">{week.label}</td>
-                    {report.cols.map((col) => {
-                      const qty =
-                        qtyMap.get(
-                          salesBudgetCrosstabCellKey(
-                            week.label,
-                            col.productCatId,
-                            col.month,
-                          ),
-                        ) ?? 0;
-                      return (
-                        <td
-                          key={`${col.productCatId}-${col.month}`}
-                          class={`sbc-num sbc-month-head${qty === 0 ? " sbc-zero" : ""}`}
-                        >
-                          {qty === 0 ? "—" : formatPhasedQtyKgDisplay(qty)}
-                        </td>
-                      );
-                    })}
-                    <td class={`sbc-num sbc-total-col${rowTotal === 0 ? " sbc-zero" : ""}`}>
-                      {rowTotal === 0 ? "—" : formatPhasedQtyKgDisplay(rowTotal)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr class="sbc-foot">
-                <td class="sbc-sticky-col sbc-week-col">Column totals (kg)</td>
-                {report.colTotals.map((value, index) => (
-                  <td
-                    key={index}
-                    class={`sbc-num sbc-month-head${value === 0 ? " sbc-zero" : ""}`}
-                  >
-                    {value === 0 ? "—" : formatPhasedQtyKgDisplay(value)}
-                  </td>
-                ))}
-                <td class={`sbc-num sbc-total-col${report.grandTotal === 0 ? " sbc-zero" : ""}`}>
-                  {report.grandTotal === 0 ? "—" : formatPhasedQtyKgDisplay(report.grandTotal)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+      <ReportDocumentShell
+        className="scr-document wpp-pack-page wpp-pack-crosstab sbc-weekly-crosstab"
+        isEmpty={emptyMessage !== null}
+        emptyMessage={emptyMessage ?? ""}
+        comments={report.comments}
+        signatoryName={report.settings.signatoryName}
+        signatoryTitle={report.settings.signatoryTitle}
+        header={
+          <ReportHeader
+            companyName={report.settings.companyName}
+            department={report.settings.department}
+            serviceName={report.settings.serviceName}
+            title="Sales budget — weekly phasing crosstab (kg)"
+          />
+        }
+      >
+        <div class="sbc-intro-block no-print">
+          <p class="sbc-intro">
+            {onNavigate ? (
+              <>
+                <button
+                  type="button"
+                  class="sbc-link-btn"
+                  onClick={() => onNavigate("sales-budget-monthly-crosstab")}
+                >
+                  Monthly phasing crosstab
+                </button>
+                {" · "}
+                <button
+                  type="button"
+                  class="sbc-link-btn"
+                  onClick={() => onNavigate("sales-budget-weekly-revenue-crosstab")}
+                >
+                  Weekly revenue phasing crosstab
+                </button>
+              </>
+            ) : null}
+          </p>
         </div>
-    </ReportDocumentShell>
-      </DocumentPreview>
+
+        {report.categoriesInReport.flatMap((cat, catIndex) => {
+          const { monthTotals, productGrandTotal } = productMonthTotals(
+            report,
+            cat.productCatId,
+          );
+          const weekChunks = splitWeeksAcrossTwoPages(report.sortedWeeks);
+          return weekChunks.map((weeks, chunkIndex) => {
+            const isLastChunk = chunkIndex === weekChunks.length - 1;
+            const isFirstSheet = catIndex === 0 && chunkIndex === 0;
+            return (
+              <section
+                key={`${cat.productCatId}-${chunkIndex}`}
+                class={`sbc-product-sheet${isFirstSheet ? "" : " sbc-product-sheet-break"}`}
+              >
+                <div class="sbc-table-wrap sbc-product-sheet-wrap">
+                  <table class="sbc-table sbc-table-weekly sbc-table-product-sheet">
+                    <thead>
+                      <tr>
+                        <th
+                          class="sbc-product-sheet-title"
+                          colSpan={CAL_MONTHS.length + 2}
+                        >
+                          {cat.label}
+                        </th>
+                      </tr>
+                      <tr>
+                        <th class="sbc-sticky-col sbc-week-col">ISO week</th>
+                        {CAL_MONTHS.map((month) => (
+                          <th
+                            key={month}
+                            class="sbc-num sbc-month-head"
+                            title={monthName(month)}
+                          >
+                            {monthName(month).slice(0, 3)}
+                          </th>
+                        ))}
+                        <th class="sbc-num sbc-total-col">Row total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {weeks.map((week) => {
+                        const rowTotal = productWeekTotal(
+                          qtyMap,
+                          week.label,
+                          cat.productCatId,
+                        );
+                        return (
+                          <tr key={week.label}>
+                            <td class="sbc-sticky-col sbc-week-col">{week.label}</td>
+                            {CAL_MONTHS.map((month) => {
+                              const qty =
+                                qtyMap.get(
+                                  salesBudgetCrosstabCellKey(
+                                    week.label,
+                                    cat.productCatId,
+                                    month,
+                                  ),
+                                ) ?? 0;
+                              return (
+                                <td
+                                  key={month}
+                                  class={`sbc-num sbc-month-head${qty === 0 ? " sbc-zero" : ""}`}
+                                >
+                                  {qty === 0 ? "—" : formatPhasedQtyKgDisplay(qty)}
+                                </td>
+                              );
+                            })}
+                            <td
+                              class={`sbc-num sbc-total-col${rowTotal === 0 ? " sbc-zero" : ""}`}
+                            >
+                              {rowTotal === 0 ? "—" : formatPhasedQtyKgDisplay(rowTotal)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    {isLastChunk ? (
+                      <tfoot>
+                        <tr class="sbc-foot">
+                          <td class="sbc-sticky-col sbc-week-col">Column totals (kg)</td>
+                          {monthTotals.map((value, monthIndex) => (
+                            <td
+                              key={monthIndex}
+                              class={`sbc-num sbc-month-head${value === 0 ? " sbc-zero" : ""}`}
+                            >
+                              {value === 0 ? "—" : formatPhasedQtyKgDisplay(value)}
+                            </td>
+                          ))}
+                          <td
+                            class={`sbc-num sbc-total-col${productGrandTotal === 0 ? " sbc-zero" : ""}`}
+                          >
+                            {productGrandTotal === 0
+                              ? "—"
+                              : formatPhasedQtyKgDisplay(productGrandTotal)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    ) : null}
+                  </table>
+                </div>
+              </section>
+            );
+          });
+        })}
+      </ReportDocumentShell>
+    </DocumentPreview>
   );
 }
 
@@ -169,7 +246,6 @@ export function SalesBudgetWeeklyCrosstabScreen({
 }: SalesBudgetWeeklyCrosstabScreenProps) {
   void windowMode;
   const [report, setReport] = useState<SalesBudgetWeeklyCrosstabReport | null>(null);
-  const [reportYear, setReportYear] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -179,11 +255,10 @@ export function SalesBudgetWeeklyCrosstabScreen({
     setError(null);
 
     getAuthenticatedReports()
-      .getSalesBudgetWeeklyCrosstab(reportYear ?? undefined)
+      .getSalesBudgetWeeklyCrosstab()
       .then((data) => {
         if (!cancelled) {
           setReport(data);
-          setReportYear(data.reportYear);
         }
       })
       .catch((err: unknown) => {
@@ -200,7 +275,7 @@ export function SalesBudgetWeeklyCrosstabScreen({
     return () => {
       cancelled = true;
     };
-  }, [reportYear]);
+  }, []);
 
   const qtyMap = useMemo(() => (report ? buildQtyMap(report) : new Map()), [report]);
 
@@ -221,162 +296,13 @@ export function SalesBudgetWeeklyCrosstabScreen({
       ready
       reportId="sales-budget-weekly-crosstab"
       className="scr-page sbc-root"
-      filters={
-      <div class="sbc-toolbar no-print">
-        <div class="sbc-year-picker">
-          {report.yearChoices.map((year) => (
-            <button
-              key={year}
-              type="button"
-              class={`sbc-year-btn${year === report.reportYear ? " is-active" : ""}`}
-              onClick={() => setReportYear(year)}
-            >
-              {year}
-            </button>
-          ))}
-        </div>
-      </div>
-      }
+      filters={null}
     >
-      <DocumentPreview
-        title="Sales budget weekly"
-        fileName={`sales-budget-weekly-${report.reportYear}.pdf`}
-        page="landscape-tight"
-        bodyClass="mdr-print-landscape"
-        sourceKey={report}
-      >
-      <ReportDocumentShell
-        className="scr-document wpp-pack-page wpp-pack-crosstab"
-        isEmpty={salesBudgetWeeklyCrosstabEmptyMessage(report) !== null}
-        emptyMessage={salesBudgetWeeklyCrosstabEmptyMessage(report) ?? ""}
-        comments={report.comments}
-        signatoryName={report.settings.signatoryName}
-        signatoryTitle={report.settings.signatoryTitle}
-        header={
-          <ReportHeader
-            companyName={report.settings.companyName}
-            department={report.settings.department}
-            serviceName={report.settings.serviceName}
-            title="Sales budget — weekly phasing crosstab (kg)"
-          />
-        }
-      >
-        <div>
-          <p class="sbc-intro">
-            Calendar year <strong>{report.reportYear}</strong>. Rows are ISO weeks; columns are
-            budget group × calendar month. Each cell is phased budget kg for days in that week within
-            that month (from Sales budgets).{" "}
-            {onNavigate ? (
-              <>
-                <button
-                  type="button"
-                  class="sbc-link-btn"
-                  onClick={() => onNavigate("sales-budget-monthly-crosstab")}
-                >
-                  Monthly phasing crosstab
-                </button>
-                {" · "}
-                <button
-                  type="button"
-                  class="sbc-link-btn"
-                  onClick={() => onNavigate("sales-budget-weekly-revenue-crosstab")}
-                >
-                  Weekly revenue phasing crosstab
-                </button>
-              </>
-            ) : (
-              "See also the monthly phasing and weekly revenue phasing crosstabs."
-            )}
-            .
-          </p>
-          <p class="sbc-intro-meta">Generated {formatGeneratedAt(report.generatedAtIso)}</p>
-        </div>
-
-        <div class="sbc-table-wrap">
-          <table class="sbc-table sbc-table-weekly">
-              <thead>
-                <tr>
-                  <th rowSpan={2} class="sbc-sticky-col sbc-week-col">
-                    ISO week
-                  </th>
-                  {report.categoriesInReport.map((cat) => (
-                    <th
-                      key={cat.productCatId}
-                      colSpan={12}
-                      class="sbc-product-group"
-                    >
-                      {cat.label}
-                    </th>
-                  ))}
-                  <th rowSpan={2} class="sbc-num sbc-total-col">
-                    Row total
-                  </th>
-                </tr>
-                <tr>
-                  {report.categoriesInReport.map((cat) =>
-                    CAL_MONTHS.map((month) => (
-                      <th
-                        key={`${cat.productCatId}-${month}`}
-                        class="sbc-num sbc-month-head"
-                        title={monthName(month)}
-                      >
-                        {monthName(month).slice(0, 3)}
-                      </th>
-                    )),
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {report.sortedWeeks.map((week, rowIndex) => {
-                  const rowTotal = report.rowTotals[rowIndex] ?? 0;
-                  return (
-                    <tr key={week.label}>
-                      <td class="sbc-sticky-col sbc-week-col">{week.label}</td>
-                      {report.cols.map((col) => {
-                        const qty =
-                          qtyMap.get(
-                            salesBudgetCrosstabCellKey(
-                              week.label,
-                              col.productCatId,
-                              col.month,
-                            ),
-                          ) ?? 0;
-                        return (
-                          <td
-                            key={`${col.productCatId}-${col.month}`}
-                            class={`sbc-num sbc-month-head${qty === 0 ? " sbc-zero" : ""}`}
-                          >
-                            {qty === 0 ? "—" : formatPhasedQtyKgDisplay(qty)}
-                          </td>
-                        );
-                      })}
-                      <td class={`sbc-num sbc-total-col${rowTotal === 0 ? " sbc-zero" : ""}`}>
-                        {rowTotal === 0 ? "—" : formatPhasedQtyKgDisplay(rowTotal)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr class="sbc-foot">
-                  <td class="sbc-sticky-col sbc-week-col">Column totals (kg)</td>
-                  {report.colTotals.map((value, index) => (
-                    <td
-                      key={index}
-                      class={`sbc-num sbc-month-head${value === 0 ? " sbc-zero" : ""}`}
-                    >
-                      {value === 0 ? "—" : formatPhasedQtyKgDisplay(value)}
-                    </td>
-                  ))}
-                  <td class={`sbc-num sbc-total-col${report.grandTotal === 0 ? " sbc-zero" : ""}`}>
-                    {report.grandTotal === 0 ? "—" : formatPhasedQtyKgDisplay(report.grandTotal)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-      </ReportDocumentShell>
-      </DocumentPreview>
+      <SalesBudgetWeeklyCrosstabDocument
+        report={report}
+        qtyMap={qtyMap}
+        onNavigate={onNavigate}
+      />
     </ReportFilterGate>
   );
 }

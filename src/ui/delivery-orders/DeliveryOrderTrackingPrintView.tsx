@@ -61,7 +61,7 @@ export function DeliveryOrderTrackingPrintView({
   const pdfFileName = `delivery-order-tracking-${order.deliveryOrderNo}.pdf`;
 
   return (
-    <ReportOverlayShell title={shellTitle} onClose={onClose}>
+    <ReportOverlayShell preview title={shellTitle} onClose={onClose}>
       <DocumentPreview
         title={shellTitle}
         fileName={pdfFileName}

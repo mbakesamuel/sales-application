@@ -125,11 +125,15 @@ function ReportDocument({ report }: { report: RevenueTaxesReport }) {
         page="landscape"
         bodyClass="rtr-print-landscape"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No validated invoices in this period."
       >
       <ReportDocumentShell
-      className="scr-document rtr-document"
       isEmpty={empty}
       emptyMessage="No validated invoices in this period."
+      className="scr-document rtr-document"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

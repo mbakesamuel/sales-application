@@ -212,12 +212,17 @@ export function BottleOilStockSalesReportDocument({
         fileName={`bottle-oil-stock-sales-${report.asAtIso ?? new Date().toISOString().slice(0, 10)}.pdf`}
         page="portrait-weekly"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No bottle-oil stock or sales to display."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
       >
       <ReportDocumentShell
-      className="scr-document wpp-pack-page weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No bottle-oil stock or sales to display."
       emptyHint={HIDE_ZERO_ROWS_HINT}
+      className="scr-document bos-bottle-oil-report wpp-pack-page weekly-report-tight"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

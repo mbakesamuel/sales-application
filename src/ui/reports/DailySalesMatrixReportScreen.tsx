@@ -33,13 +33,17 @@ export function DailySalesMatrixReportDocument({
     <DocumentPreview
         title="Daily sales matrix"
         fileName={`daily-sales-matrix-${report.monthStartIso.slice(0, 7)}.pdf`}
-        page="portrait"
+        page="portrait-weekly"
         sourceKey={report}
+        isEmpty={false}
+        emptyMessage=""
       >
       <ReportDocumentShell
-      className="scr-document wpp-pack-page"
       isEmpty={false}
       emptyMessage=""
+      className="scr-document wpp-pack-page weekly-report-tight dsr-summary-document"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}
@@ -65,8 +69,8 @@ export function DailySalesMatrixReportDocument({
               <th class="scr-num">INDUSTRY</th>
               <th class="scr-num">WHOLE SALE</th>
               <th class="scr-num">RETAIL</th>
-              <th class="scr-num">STAFF/WORKER</th>
-              <th class="scr-num">PUB. RELATION</th>
+              <th class="scr-num">STAFF / WORKER</th>
+              <th class="scr-num">PUB. REL.</th>
               <th class="scr-num">TRANSFER</th>
               <th class="scr-num">TOTAL</th>
             </tr>
@@ -175,9 +179,10 @@ export function DailySalesMatrixReportScreen({
               {report.monthLabel} · through {formatDisplayDate(report.asAtIso)}
             </span>
           </label> */}
-          <label class="dsr-filter">         
-          {/*   <span>Collection point</span> */}
+          <label class="dsr-filter">
             <select
+              aria-label="Collection point"
+              title="Collection point"
               value={salesPointId == null ? "" : String(salesPointId)}
               disabled={loading || report.scopedSalesPointId != null}
               onChange={(event) => {
@@ -186,7 +191,7 @@ export function DailySalesMatrixReportScreen({
               }}
             >
               {report.scopedSalesPointId == null ? (
-                <option value="">All collection points</option>
+                <option value="">Collection point</option>
               ) : null}
               {report.salesPointOptions.map((point) => (
                 <option key={point.id} value={String(point.id)}>
@@ -196,8 +201,9 @@ export function DailySalesMatrixReportScreen({
             </select>
           </label>
           <label class="dsr-filter">
-           {/*  <span>Product</span> */}
             <select
+              aria-label="Product"
+              title="Product"
               value={productId == null ? "" : String(productId)}
               disabled={loading}
               onChange={(event) => {
@@ -205,7 +211,7 @@ export function DailySalesMatrixReportScreen({
                 setProductId(value ? Number.parseInt(value, 10) : null);
               }}
             >
-              <option value="">All products</option>
+              <option value="">Product</option>
               {report.productOptions.map((product) => (
                 <option key={product.id} value={String(product.id)}>
                   {productOptionLabel(product)}

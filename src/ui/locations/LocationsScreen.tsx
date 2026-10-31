@@ -870,7 +870,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
       ) : null}
 
       {printOpen ? (
-        <ReportOverlayShell title="Locations" onClose={() => setPrintOpen(false)}>
+        <ReportOverlayShell preview title="Locations" onClose={() => setPrintOpen(false)}>
           <DocumentPreview
             title="Locations"
             fileName="locations.pdf"

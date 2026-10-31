@@ -169,6 +169,35 @@
   font-size: 12px;
 }
 
+.sbc-intro-block {
+  margin-bottom: 4px;
+}
+
+.sbc-product-sheet {
+  margin-top: 16px;
+}
+
+.sbc-product-sheet-title {
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: left !important;
+  text-transform: uppercase;
+  color: #111827;
+  background: #f3f4f6;
+}
+
+.sbc-product-sheet-wrap {
+  overflow-x: auto;
+}
+
+.sbc-table-product-sheet {
+  width: 100%;
+  min-width: 0;
+}
+
 .sbc-month-head {
   min-width: 3.25rem;
   border-left: 1px solid #d4d4d8;
@@ -190,6 +219,11 @@
   text-transform: none;
 }
 
+.sbc-weekly-crosstab .report-footer {
+  margin-top: 32px;
+  padding-top: 16px;
+}
+
 @media print {
   .sbc-table-wrap {
     overflow: visible;
@@ -205,29 +239,105 @@
     opacity: 1;
   }
 
-  body.scr-print-mode .sbc-root .scr-document {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  .sbc-product-sheet-wrap {
+    overflow: visible;
+  }
+
+  .sbc-table-product-sheet {
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  /*
+   * StockCommitmentReport.css sets .scr-document { position:absolute }, which
+   * disables CSS page breaks in Chromium printToPDF. Crosstabs must be in-flow.
+   */
+  body.scr-print-mode .sbc-root .scr-document,
+  body.scr-print-mode .scr-document.wpp-pack-crosstab,
+  body.scr-print-mode .scr-document.sbc-weekly-crosstab {
+    display: block !important;
+    position: static !important;
+    height: auto !important;
+    overflow: visible !important;
     background: #fff !important;
     color: #000 !important;
     font-size: 11px;
   }
 
-  body.scr-print-mode .sbc-table {
-    font-size: 10px;
+  body.scr-print-mode .sbc-product-sheet {
+    display: block;
+    margin-top: 0;
+    /* Gap below page margin so thead / product title are not clipped. */
+    padding-top: 6mm;
+    position: static !important;
   }
 
-  body.scr-print-mode .sbc-table-weekly {
+  body.scr-print-mode .sbc-product-sheet + .sbc-product-sheet,
+  body.scr-print-mode .sbc-product-sheet-break {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  body.scr-print-mode .sbc-table {
+    font-size: 9px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  body.scr-print-mode .sbc-table thead {
+    display: table-header-group;
+  }
+
+  /* Once at end of table — not repeated on every printed page. */
+  body.scr-print-mode .scr-document .sbc-table tfoot {
+    display: table-row-group !important;
+  }
+
+  /*
+   * Do not use page-break-inside:avoid on tr — Chromium often drops the row that
+   * lands on the page boundary (e.g. week row ~23) instead of moving it.
+   */
+  body.scr-print-mode .sbc-table-weekly,
+  body.scr-print-mode .sbc-table-product-sheet {
     font-size: 9px;
   }
 
-  body.scr-print-mode .sbc-table th,
-  body.scr-print-mode .sbc-table td {
+  body.scr-print-mode .scr-document .sbc-table th,
+  body.scr-print-mode .scr-document .sbc-table td {
     color: #000 !important;
     background: #fff !important;
-    border-color: #333 !important;
-    padding: 4px 5px;
+    border: none !important;
+    border-right: 0.5pt solid #000 !important;
+    border-bottom: 0.5pt solid #000 !important;
+    padding: 1px 3px;
+    line-height: 1.1;
+    /* Keep XAF (and kg) cells single-line so revenue matches qty page fits. */
+    white-space: nowrap;
+  }
+
+  body.scr-print-mode .sbc-table-product-sheet {
+    margin-bottom: 0;
+  }
+
+  body.scr-print-mode .scr-document .sbc-table tr:first-child th,
+  body.scr-print-mode .scr-document .sbc-table tr:first-child td {
+    border-top: 0.5pt solid #000 !important;
+  }
+
+  body.scr-print-mode .scr-document .sbc-table th:first-child,
+  body.scr-print-mode .scr-document .sbc-table td:first-child {
+    border-left: 0.5pt solid #000 !important;
+  }
+
+  body.scr-print-mode .scr-document th.sbc-product-sheet-title {
+    visibility: visible !important;
+    color: #000 !important;
+    background: #f3f4f6 !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-align: left !important;
+    text-transform: uppercase !important;
+    padding: 4px 3px !important;
   }
 
   body.scr-print-mode .sbc-product-group,
@@ -237,5 +347,36 @@
 
   body.scr-print-mode .sbc-foot td {
     background: #eef4df !important;
+  }
+
+  body.scr-print-mode .sbc-weekly-crosstab .report-footer {
+    margin-top: 8px !important;
+    padding-top: 4px !important;
+  }
+
+  /* Compact header so first product page can hold header + 26 week rows. */
+  body.scr-print-mode .sbc-weekly-crosstab .report-header {
+    margin-bottom: 4px !important;
+    padding-top: 2px !important;
+    padding-bottom: 4px !important;
+    min-height: 0 !important;
+    --report-header-logo-width: 56px;
+    --report-header-logo-height: 48px;
+  }
+
+  body.scr-print-mode .sbc-weekly-crosstab .report-header-company {
+    margin-bottom: 2px !important;
+  }
+
+  body.scr-print-mode .sbc-weekly-crosstab .report-header-company-name,
+  body.scr-print-mode .sbc-weekly-crosstab .report-header-department,
+  body.scr-print-mode .sbc-weekly-crosstab .report-header-commercial-service {
+    font-size: 10px !important;
+    line-height: 1.15 !important;
+  }
+
+  body.scr-print-mode .sbc-weekly-crosstab .report-header-title {
+    font-size: 12px !important;
+    line-height: 1.2 !important;
   }
 }

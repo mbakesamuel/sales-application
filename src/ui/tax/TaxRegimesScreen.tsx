@@ -842,7 +842,7 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
       ) : null}
 
       {printOpen ? (
-        <ReportOverlayShell title="Tax regimes" onClose={() => setPrintOpen(false)}>
+        <ReportOverlayShell preview title="Tax regimes" onClose={() => setPrintOpen(false)}>
           <DocumentPreview
             title="Tax regimes"
             fileName="tax-regimes.pdf"

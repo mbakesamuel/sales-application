@@ -147,12 +147,17 @@ function ReportDocument({ report }: { report: MonthlyPalmOilSalesReport }) {
         page="landscape"
         bodyClass="mpos-print-landscape"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No palm oil sales for this month."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
       >
       <ReportDocumentShell
-      className="scr-document mpos-document"
       isEmpty={empty}
       emptyMessage="No palm oil sales for this month."
       emptyHint={HIDE_ZERO_ROWS_HINT}
+      className="scr-document mpos-document"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

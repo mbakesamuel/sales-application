@@ -84,11 +84,15 @@ export function TransportCostReportDocument({ report }: { report: TransportCostR
         fileName={`transport-cost-${report.asAtIso}.pdf`}
         page="portrait"
         sourceKey={report}
+        isEmpty={dataRows.length === 0}
+        emptyMessage="No lifted quantities in the open month."
       >
       <ReportDocumentShell
-      className="scr-document"
       isEmpty={dataRows.length === 0}
       emptyMessage="No lifted quantities in the open month."
+      className="scr-document"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

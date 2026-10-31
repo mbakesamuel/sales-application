@@ -138,12 +138,17 @@ function ReportDocument({ report }: { report: IndustryProductMonthlySalesReport 
         page="landscape"
         bodyClass="ipms-print-landscape"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No Industry sales for non-LPO / non-bottled products in this period."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
       >
       <ReportDocumentShell
-      className="scr-document ipms-document"
       isEmpty={empty}
       emptyMessage="No Industry sales for non-LPO / non-bottled products in this period."
       emptyHint={HIDE_ZERO_ROWS_HINT}
+      className="scr-document ipms-document"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

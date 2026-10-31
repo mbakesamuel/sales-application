@@ -1,0 +1,63 @@
+.report-preview-empty {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.report-preview-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 28rem;
+  width: 100%;
+  padding: 28px 24px;
+  text-align: center;
+  border: 1px solid var(--border-strong, #d1d5db);
+  border-radius: calc(var(--radius, 0.625rem));
+  background: var(--bg-elevated, #fff);
+  box-shadow: var(--shadow);
+}
+
+.report-preview-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  background: var(--accent-soft, #ecfdf5);
+  color: var(--accent, #388e3c);
+}
+
+.report-preview-empty-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  color: var(--text-h, #111827);
+}
+
+.report-preview-empty-message {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text, #1c2b14);
+}
+
+.report-preview-empty-hint,
+.report-preview-empty-action {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-muted, #6b7280);
+}
+
+.doc-preview.doc-preview-empty {
+  flex: 1;
+  min-height: 0;
+}

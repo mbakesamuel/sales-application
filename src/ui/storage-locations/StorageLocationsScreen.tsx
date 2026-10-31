@@ -931,7 +931,7 @@ export function StorageLocationsScreen({
       ) : null}
 
       {printOpen ? (
-        <ReportOverlayShell title="Storage locations" onClose={() => setPrintOpen(false)}>
+        <ReportOverlayShell preview title="Storage locations" onClose={() => setPrintOpen(false)}>
           <DocumentPreview
             title="Storage locations"
             fileName="storage-locations.pdf"

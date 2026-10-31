@@ -41,11 +41,15 @@ export function LooseLpoStockSummaryDocument({
         fileName={`loose-lpo-stock-summary-${report.asAtIso}.pdf`}
         page="portrait"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No loose palm oil stock summary figures to display."
       >
       <ReportDocumentShell
-      className="scr-document lpo-summary-document wpp-pack-page"
       isEmpty={empty}
       emptyMessage="No loose palm oil stock summary figures to display."
+      className="scr-document lpo-summary-document wpp-pack-page"
+      
+      
       comments={report.comments}
       showFooter={false}
       header={

@@ -4,7 +4,7 @@
   z-index: 30;
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: 12px;
   box-sizing: border-box;
   overflow: hidden;
   background: var(--shell-main, var(--bg, #fff));
@@ -13,6 +13,80 @@
 .report-overlay-backdrop.is-elevated {
   position: fixed;
   z-index: 130;
+}
+
+/* Full-window PDF chrome — follows app theme (agro / dark) */
+.report-overlay-backdrop.is-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  padding: 12px;
+  background: var(--shell-main, var(--bg));
+  color: var(--text);
+}
+
+.report-overlay-backdrop.is-preview .report-overlay-title {
+  color: var(--text-h);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.report-overlay-backdrop.is-preview .report-inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.report-overlay-backdrop.is-preview .report-inline-print,
+.report-overlay-backdrop.is-preview .report-inline-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: calc(var(--radius, 0.625rem) - 2px);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.report-overlay-backdrop.is-preview .report-inline-print {
+  border: none;
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.report-overlay-backdrop.is-preview .report-inline-print:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.report-overlay-backdrop.is-preview .report-inline-print:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.report-overlay-backdrop.is-preview .report-inline-close {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text-h);
+}
+
+.report-overlay-backdrop.is-preview .report-inline-close:hover {
+  background: var(--bg-soft);
+}
+
+.report-overlay-backdrop.is-preview .doc-preview-status,
+.report-overlay-backdrop.is-preview .scr-status,
+.report-overlay-backdrop.is-preview .sales-muted {
+  color: var(--text-muted);
+}
+
+.report-overlay-backdrop.is-preview .scr-status-error,
+.report-overlay-backdrop.is-preview .sales-error {
+  color: var(--danger);
 }
 
 .report-overlay-panel {
@@ -49,6 +123,9 @@
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-h, #111827);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .report-overlay-close {
@@ -68,13 +145,30 @@
 }
 
 .report-filter-gate {
-  position: relative;
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-height: 0;
+  gap: 8px;
 }
 
-.report-filter-gate.is-preview-open .report-filter-step {
-  display: none;
+.report-filter-step {
+  flex-shrink: 0;
+}
+
+.report-filter-preview {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.report-filter-preview > .doc-preview,
+.report-filter-preview .doc-preview,
+.report-filter-preview .pdf-viewer {
+  flex: 1;
+  min-height: 0;
 }
 
 .report-filter-actions {

@@ -106,11 +106,15 @@ export function SalesBudgetMonthlyRevenueCrosstabScreen({
         page="landscape-tight"
         bodyClass="mdr-print-landscape"
         sourceKey={report}
-      >
-      <ReportDocumentShell
-        className="scr-document"
         isEmpty={salesBudgetMonthlyRevenueCrosstabEmptyMessage(report) !== null}
         emptyMessage={salesBudgetMonthlyRevenueCrosstabEmptyMessage(report) ?? ""}
+      >
+      <ReportDocumentShell
+      isEmpty={salesBudgetMonthlyRevenueCrosstabEmptyMessage(report) !== null}
+      emptyMessage={salesBudgetMonthlyRevenueCrosstabEmptyMessage(report) ?? ""}
+      className="scr-document"
+        
+        
         comments={report.comments}
         signatoryName={report.settings.signatoryName}
         signatoryTitle={report.settings.signatoryTitle}

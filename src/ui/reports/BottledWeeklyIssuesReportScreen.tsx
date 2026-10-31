@@ -83,12 +83,17 @@ export function BottledWeeklyIssuesReportDocument({
         fileName={`bottled-weekly-issues-${report.weekToIso ?? report.asAtIso}.pdf`}
         page="portrait-weekly"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No bottled weekly issues for this period."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
       >
       <ReportDocumentShell
-      className="scr-document bwi-document wpp-pack-page weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No bottled weekly issues for this period."
       emptyHint={HIDE_ZERO_ROWS_HINT}
+      className="scr-document bwi-document wpp-pack-page weekly-report-tight"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

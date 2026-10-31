@@ -1,6 +1,7 @@
 import type { ComponentChildren } from "preact";
 interface ReportFilterGateProps {
     ready: boolean;
+    /** Kept for call-site compatibility; outer HomeScreen shell owns the title. */
     reportId: string;
     className?: string;
     filters: ComponentChildren;

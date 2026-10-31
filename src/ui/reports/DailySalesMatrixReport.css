@@ -19,3 +19,100 @@
     justify-self: start;
   }
 }
+
+/* Daily Sales Summary — pack the day×customer-type matrix onto A4 portrait */
+.dsr-summary-document .scr-bottled-block {
+  margin-top: 12px;
+  padding-top: 8px;
+}
+
+.dsr-summary-document .scr-meta-line {
+  margin: 0 0 6px;
+  font-size: 12px;
+}
+
+.dsr-matrix-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.dsr-matrix-table th,
+.dsr-matrix-table td {
+  padding: 4px 3px;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.dsr-matrix-table thead th {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 5px 3px;
+  white-space: normal;
+}
+
+.dsr-matrix-table th:nth-child(1),
+.dsr-matrix-table td:nth-child(1) {
+  width: 6%;
+}
+
+.dsr-matrix-table th:nth-child(2),
+.dsr-matrix-table td:nth-child(2),
+.dsr-matrix-table th:nth-child(3),
+.dsr-matrix-table td:nth-child(3),
+.dsr-matrix-table th:nth-child(4),
+.dsr-matrix-table td:nth-child(4),
+.dsr-matrix-table th:nth-child(5),
+.dsr-matrix-table td:nth-child(5),
+.dsr-matrix-table th:nth-child(6),
+.dsr-matrix-table td:nth-child(6),
+.dsr-matrix-table th:nth-child(7),
+.dsr-matrix-table td:nth-child(7) {
+  width: 13%;
+}
+
+.dsr-matrix-table th:nth-child(8),
+.dsr-matrix-table td:nth-child(8) {
+  width: 15%;
+}
+
+.dsr-matrix-table td.scr-num,
+.dsr-matrix-table th.scr-num {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.dsr-matrix-table tr.scr-row-total td {
+  font-weight: 700;
+}
+
+@media print {
+  body.scr-print-mode .dsr-summary-document.scr-document {
+    font-size: 12px !important;
+  }
+
+  body.scr-print-mode .dsr-summary-document .dsr-matrix-table th,
+  body.scr-print-mode .dsr-summary-document .dsr-matrix-table td {
+    padding: 3px 3px !important;
+  }
+
+  body.scr-print-mode .dsr-summary-document .dsr-matrix-table thead th {
+    font-size: 10px !important;
+    padding: 4px 3px !important;
+  }
+
+  body.scr-print-mode .dsr-summary-document .scr-bottled-block {
+    margin-top: 8px;
+    padding-top: 6px;
+  }
+
+  body.scr-print-mode .dsr-summary-document .report-header {
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+  }
+}

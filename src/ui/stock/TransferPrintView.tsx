@@ -71,7 +71,7 @@ export function TransferPrintView({
 
   if (error) {
     return (
-      <ReportOverlayShell elevated title="Stock transfer" onClose={onClose}>
+      <ReportOverlayShell preview title="Stock transfer" onClose={onClose}>
         <p class="sales-error">{error}</p>
       </ReportOverlayShell>
     );
@@ -79,7 +79,7 @@ export function TransferPrintView({
 
   if (!payload) {
     return (
-      <ReportOverlayShell elevated title="Stock transfer" onClose={onClose}>
+      <ReportOverlayShell preview title="Stock transfer" onClose={onClose}>
         <p class="sales-muted">Loading print view…</p>
       </ReportOverlayShell>
     );
@@ -88,7 +88,7 @@ export function TransferPrintView({
   const intra = isIntraTransfer(transfer);
 
   return (
-    <ReportOverlayShell elevated title="Stock transfer" onClose={onClose}>
+    <ReportOverlayShell preview title="Stock transfer" onClose={onClose}>
           <DocumentPreview
             title="Stock transfer"
             fileName={`stock-transfer-${transfer.transferNo}.pdf`}

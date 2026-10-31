@@ -3,9 +3,9 @@ import "./ReportOverlayShell.css";
 interface ReportOverlayShellProps {
     reportId?: string;
     title?: string;
-    /** Report PDF pane: Print plus Close with an X. Other documents keep the outline Close only. */
+    /** Full-window PDF preview: dark chrome, Print + Close with X. Implies body portal. */
     preview?: boolean;
-    /** Portal to document.body above stock/form modals (z-index 130). */
+    /** Portal to document.body above stock/form modals (z-index 130). Implied by preview. */
     elevated?: boolean;
     onClose: () => void;
     children: ComponentChildren;

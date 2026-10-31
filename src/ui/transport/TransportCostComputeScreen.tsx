@@ -483,7 +483,7 @@ export function TransportCostComputeScreen({
       </div>
 
       {printOpen && result ? (
-        <ReportOverlayShell title="Transportation cost" onClose={() => setPrintOpen(false)}>
+        <ReportOverlayShell preview title="Transportation cost" onClose={() => setPrintOpen(false)}>
           <DocumentPreview
             title="Transportation cost"
             fileName={`transport-cost-${result.asAtIso}.pdf`}

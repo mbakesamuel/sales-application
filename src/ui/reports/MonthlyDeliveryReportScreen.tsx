@@ -280,12 +280,17 @@ export function MonthlyDeliveryReportScreen({
         page="landscape-wide"
         bodyClass="mdr-print-landscape"
         sourceKey={report}
-      >
-      <ReportDocumentShell
-        className="scr-document mdr-document sr-stock-compact"
         isEmpty={isMonthlyDeliveryReportEmpty(report)}
         emptyMessage="No delivery data for this period."
         emptyHint={HIDE_ZERO_ROWS_HINT}
+      >
+      <ReportDocumentShell
+      isEmpty={isMonthlyDeliveryReportEmpty(report)}
+      emptyMessage="No delivery data for this period."
+      emptyHint={HIDE_ZERO_ROWS_HINT}
+      className="scr-document mdr-document sr-stock-compact"
+        
+        
         comments={report.comments}
         signatoryName={report.settings.signatoryName}
         signatoryTitle={report.settings.signatoryTitle}

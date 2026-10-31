@@ -87,12 +87,17 @@ function ReportDocument({ report }: { report: BottledPalmOilSalesReturnReport })
         page="landscape"
         bodyClass="bposr-print-landscape"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No bottled palm oil sales or returns for this period."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
       >
       <ReportDocumentShell
-      className="scr-document bposr-document"
       isEmpty={empty}
       emptyMessage="No bottled palm oil sales or returns for this period."
       emptyHint={HIDE_ZERO_ROWS_HINT}
+      className="scr-document bposr-document"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

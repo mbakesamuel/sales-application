@@ -3,6 +3,11 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { getElectronApi } from "../auth/client.ts";
 import { useReportPrintRegister } from "../reports/ReportChrome.tsx";
 import {
+  ReportPreviewEmptyProvider,
+  useReportPreviewEmptyInfo,
+} from "../reports/ReportPreviewEmptyContext.tsx";
+import { ReportPreviewEmpty } from "../reports/ReportPreviewEmpty.tsx";
+import {
   buildPrintDocumentHtml,
   isLandscapePage,
   type PrintPage,
@@ -18,12 +23,15 @@ function stableToken(value: unknown): string {
   }
 }
 
-export function DocumentPreview({
+function DocumentPreviewBody({
   title,
   fileName,
   page = "portrait",
   bodyClass,
   sourceKey,
+  isEmpty = false,
+  emptyMessage = "No data for this report.",
+  emptyHint,
   children,
 }: {
   title: string;
@@ -31,10 +39,20 @@ export function DocumentPreview({
   page?: PrintPage;
   bodyClass?: string;
   sourceKey: unknown;
+  isEmpty?: boolean;
+  emptyMessage?: string;
+  emptyHint?: string;
   children: ComponentChildren;
 }) {
+  const registeredEmpty = useReportPreviewEmptyInfo();
+  const effectiveEmpty = isEmpty || registeredEmpty != null;
+  const effectiveMessage = isEmpty
+    ? emptyMessage
+    : (registeredEmpty?.message ?? emptyMessage);
+  const effectiveHint = isEmpty ? emptyHint : (registeredEmpty?.hint ?? emptyHint);
+
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!effectiveEmpty);
   const [error, setError] = useState<string | null>(null);
   const [printing, setPrinting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -46,6 +64,14 @@ export function DocumentPreview({
   const printRef = useRef<() => void>(() => {});
 
   useEffect(() => {
+    if (effectiveEmpty) {
+      setLoading(false);
+      setError(null);
+      setPdfBytes(null);
+      setStatus(null);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -72,14 +98,22 @@ export function DocumentPreview({
             forPdf: true,
           });
           if (cancelled) return;
-          const bytes = await getElectronApi().print.htmlToPdf(pdfDocumentHtml, { landscape });
+          const bytes = await getElectronApi().print.htmlToPdf(pdfDocumentHtml, {
+            landscape,
+          });
           if (cancelled) return;
           const copy = new Uint8Array(bytes.byteLength);
           copy.set(bytes);
           if (copy.byteLength < 5) {
             throw new Error("PDF generation returned empty output");
           }
-          const header = String.fromCharCode(copy[0]!, copy[1]!, copy[2]!, copy[3]!, copy[4]!);
+          const header = String.fromCharCode(
+            copy[0]!,
+            copy[1]!,
+            copy[2]!,
+            copy[3]!,
+            copy[4]!,
+          );
           if (header !== "%PDF-") {
             throw new Error("PDF generation returned invalid output");
           }
@@ -114,10 +148,10 @@ export function DocumentPreview({
     };
     // children is read from the render that produced this token.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, title, page, bodyClass, landscape]);
+  }, [token, title, page, bodyClass, landscape, effectiveEmpty]);
 
   async function handlePrint() {
-    if (!pdfBytes || pdfBytes.byteLength === 0) {
+    if (effectiveEmpty || !pdfBytes || pdfBytes.byteLength === 0) {
       setStatus("Nothing to print.");
       return;
     }
@@ -136,7 +170,7 @@ export function DocumentPreview({
   }
 
   async function handleSave() {
-    if (!pdfBytes || pdfBytes.byteLength === 0) {
+    if (effectiveEmpty || !pdfBytes || pdfBytes.byteLength === 0) {
       setStatus("Nothing to save.");
       return;
     }
@@ -173,10 +207,26 @@ export function DocumentPreview({
     registerPrint({
       print: () => printRef.current(),
       busy: printing,
-      canPrint: Boolean(pdfBytes) && !printing && !loading,
+      canPrint: !effectiveEmpty && Boolean(pdfBytes) && !printing && !loading,
     });
     return () => registerPrint(null);
-  }, [registerPrint, printing, loading, pdfBytes]);
+  }, [registerPrint, printing, loading, pdfBytes, effectiveEmpty]);
+
+  if (effectiveEmpty) {
+    return (
+      <div class="doc-preview doc-preview-empty">
+        <ReportPreviewEmpty
+          title={title}
+          message={effectiveMessage}
+          hint={effectiveHint}
+        />
+        {/* Keep shell mounted so empty registration stays in sync with filters. */}
+        <div ref={captureRef} class="doc-preview-capture" aria-hidden="true">
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div class="doc-preview">
@@ -184,7 +234,12 @@ export function DocumentPreview({
         status ? <p class="doc-preview-status">{status}</p> : null
       ) : (
         <div class="doc-preview-actions">
-          <button type="button" class="scr-btn" disabled={busy || !pdfBytes} onClick={() => void handlePrint()}>
+          <button
+            type="button"
+            class="scr-btn"
+            disabled={busy || !pdfBytes}
+            onClick={() => void handlePrint()}
+          >
             {printing ? "Printing…" : "Print"}
           </button>
           <button
@@ -203,5 +258,23 @@ export function DocumentPreview({
         {children}
       </div>
     </div>
+  );
+}
+
+export function DocumentPreview(props: {
+  title: string;
+  fileName: string;
+  page?: PrintPage;
+  bodyClass?: string;
+  sourceKey: unknown;
+  isEmpty?: boolean;
+  emptyMessage?: string;
+  emptyHint?: string;
+  children: ComponentChildren;
+}) {
+  return (
+    <ReportPreviewEmptyProvider>
+      <DocumentPreviewBody {...props} />
+    </ReportPreviewEmptyProvider>
   );
 }

@@ -104,7 +104,7 @@ export function DeliveryOrderPrintView({
 
   if (error) {
     return (
-      <ReportOverlayShell title={shellTitle} onClose={onClose}>
+      <ReportOverlayShell preview title={shellTitle} onClose={onClose}>
         <p class="scr-status scr-status-error">{error}</p>
       </ReportOverlayShell>
     );
@@ -112,7 +112,7 @@ export function DeliveryOrderPrintView({
 
   if (!payload) {
     return (
-      <ReportOverlayShell title={shellTitle} onClose={onClose}>
+      <ReportOverlayShell preview title={shellTitle} onClose={onClose}>
         <p class="scr-status">Loading print view…</p>
       </ReportOverlayShell>
     );
@@ -124,7 +124,7 @@ export function DeliveryOrderPrintView({
   const pdfFileName = `delivery-order-${order.deliveryOrderNo}.pdf`;
 
   return (
-    <ReportOverlayShell title={shellTitle} onClose={onClose}>
+    <ReportOverlayShell preview title={shellTitle} onClose={onClose}>
       <DocumentPreview
         title={shellTitle}
         fileName={pdfFileName}

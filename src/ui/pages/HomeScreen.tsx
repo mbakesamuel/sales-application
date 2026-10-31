@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { PanelLeft, PanelLeftClose, X } from "lucide-react";
+import { PanelLeft, PanelLeftClose } from "lucide-react";
 import logoSrc from "../../assets/logo.svg";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import {
@@ -29,7 +29,7 @@ import { CommercialServicesScreen } from "../commercial-services/CommercialServi
 import { CompanySettingsScreen } from "../company-settings/CompanySettingsScreen.tsx";
 import { DataBackupScreen } from "../organization/DataBackupScreen.tsx";
 import { SyncSettingsScreen } from "../organization/SyncSettingsScreen.tsx";
-import { ReportChromeProvider, ReportPrintButton } from "../reports/ReportChrome.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import { ReportSettingsScreen } from "../reports/ReportSettingsScreen.tsx";
 import { StorageLocationsScreen } from "../storage-locations/StorageLocationsScreen.tsx";
 import { TaxRegimesScreen } from "../tax/TaxRegimesScreen.tsx";
@@ -1063,49 +1063,35 @@ export function HomeScreen({
         ) : (
           <section class="home-content">
             {opensInReportWindow(activeRouteId) ? (
-              <ReportChromeProvider>
-              <div class="report-inline">
-                <header class="report-inline-header no-print">
-                  <h2>{activeRoute.label}</h2>
-                  <div class="report-inline-actions">
-                    <ReportPrintButton />
-                    <button
-                      type="button"
-                      class="report-inline-close"
-                      onClick={() => selectRoute(DEFAULT_ROUTE_ID)}
-                    >
-                      <X size={16} aria-hidden="true" />
-                      Close
-                    </button>
-                  </div>
-                </header>
-                <div class="report-inline-body">
-                  <RouteContent
-                    route={activeRoute}
-                    user={user}
-                    permissions={permissions}
-                    onPermissionsSaved={onPermissionsSaved}
-                    openCalendarMonth={openPostingPeriod?.calendarMonth ?? null}
-                    reportQuery={reportQuery}
-                    deliveryOrderLookupNo={
-                      activeRouteId === "delivery-order-tracking"
-                        ? pendingTrackingLookup
-                        : pendingDeliveryOrderLookup
-                    }
-                    onOpenDeliveryOrder={(deliveryOrderNo) => {
-                      setPendingDeliveryOrderLookup(deliveryOrderNo);
-                      setActiveRouteId("delivery-orders");
-                      setOpenSections({ delivery: true });
-                    }}
-                    onOpenDeliveryOrderTracking={(deliveryOrderNo) => {
-                      setPendingTrackingLookup(deliveryOrderNo);
-                      setActiveRouteId("delivery-order-tracking");
-                      setOpenSections({ delivery: true });
-                    }}
-                  />
-                </div>
-              </div>
-              </ReportChromeProvider>
+              <ReportOverlayShell
+                preview
+                title={activeRoute.label}
+                onClose={() => selectRoute(DEFAULT_ROUTE_ID)}
+              >
+                <RouteContent
+                  route={activeRoute}
+                  user={user}
+                  permissions={permissions}
+                  onPermissionsSaved={onPermissionsSaved}
+                  openCalendarMonth={openPostingPeriod?.calendarMonth ?? null}
+                  reportQuery={reportQuery}
+                  deliveryOrderLookupNo={
+                    activeRouteId === "delivery-order-tracking"
+                      ? pendingTrackingLookup
+                      : pendingDeliveryOrderLookup
+                  }
+                  onOpenDeliveryOrder={(deliveryOrderNo) => {
+                    setPendingDeliveryOrderLookup(deliveryOrderNo);
+                    setActiveRouteId("delivery-orders");
+                    setOpenSections({ delivery: true });
+                  }}
+                  onOpenDeliveryOrderTracking={(deliveryOrderNo) => {
+                    setPendingTrackingLookup(deliveryOrderNo);
+                    setActiveRouteId("delivery-order-tracking");
+                    setOpenSections({ delivery: true });
+                  }}
+                />
+              </ReportOverlayShell>
             ) : (
               <RouteContent
                 route={activeRoute}

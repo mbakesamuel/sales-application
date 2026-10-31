@@ -112,12 +112,17 @@ function ReportDocument({ report }: { report: MonthlyDeliveriesByDestinationRepo
         fileName={`monthly-deliveries-by-destination-${report.asAtIso}.pdf`}
         page="portrait"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No deliveries by destination for this period."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
       >
       <ReportDocumentShell
-      className="scr-document mdd-document"
       isEmpty={empty}
       emptyMessage="No deliveries by destination for this period."
       emptyHint={HIDE_ZERO_ROWS_HINT}
+      className="scr-document mdd-document"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

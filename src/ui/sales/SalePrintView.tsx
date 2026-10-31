@@ -53,7 +53,7 @@ function DocumentPrintShell({
   children: ComponentChildren;
 }) {
   return (
-    <ReportOverlayShell title={title} onClose={onClose}>
+    <ReportOverlayShell preview title={title} onClose={onClose}>
       <DocumentPreview
         title={title}
         fileName={pdfFileName}
@@ -205,7 +205,7 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
 
   if (error) {
     return (
-      <ReportOverlayShell title="Sales Invoice" onClose={onClose}>
+      <ReportOverlayShell preview title="Sales Invoice" onClose={onClose}>
         <p class="scr-status scr-status-error">{error}</p>
       </ReportOverlayShell>
     );
@@ -213,7 +213,7 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
 
   if (!payload) {
     return (
-      <ReportOverlayShell title="Sales Invoice" onClose={onClose}>
+      <ReportOverlayShell preview title="Sales Invoice" onClose={onClose}>
         <p class="scr-status">Loading print view…</p>
       </ReportOverlayShell>
     );

@@ -50,12 +50,17 @@ function ReportDocument({ report }: { report: OtherProductSalesDeliveriesReport 
         page="landscape"
         bodyClass="opsd-print-landscape"
         sourceKey={report}
+        isEmpty={empty}
+        emptyMessage="No other-product (non-LPO / non-bottled) sales in this period."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
       >
       <ReportDocumentShell
-      className="scr-document opsd-document"
       isEmpty={empty}
       emptyMessage="No other-product (non-LPO / non-bottled) sales in this period."
       emptyHint={HIDE_ZERO_ROWS_HINT}
+      className="scr-document opsd-document"
+      
+      
       comments={report.comments}
       signatoryName={report.settings.signatoryName}
       signatoryTitle={report.settings.signatoryTitle}

@@ -19,7 +19,8 @@ const PAGE_STYLE: Record<PrintPage, string> = {
   "landscape-wide":
     "@media print { @page { size: A4 landscape; margin: 6mm 14mm; } }",
   "landscape-tight":
-    "@media print { @page { size: A4 landscape; margin: 6mm; } }",
+    /* Extra top margin so thead / product title are not clipped after page breaks. */
+    "@media print { @page { size: A4 landscape; margin: 10mm 5mm 12mm 5mm; } }",
   list: "@media print { @page { size: A4 portrait; margin: 10mm; } }",
 };
 

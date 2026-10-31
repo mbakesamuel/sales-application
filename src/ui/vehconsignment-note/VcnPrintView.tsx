@@ -89,7 +89,7 @@ export function ConsignmentNotePrintView({
   }, [noteId]);
 
   return (
-    <ReportOverlayShell reportId="vehicle-consignment-notes" onClose={onClose}>
+    <ReportOverlayShell preview reportId="vehicle-consignment-notes" onClose={onClose}>
       {error ? (
         <p class="scr-status scr-status-error">{error}</p>
       ) : loading || !payload ? (
