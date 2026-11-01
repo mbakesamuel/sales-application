@@ -1,16 +1,15 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type {
   FinancialMonthRow,
   FinancialYearRow,
 } from "../../shared/financialYears.types.ts";
+import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
 import "../customers/CustomersScreen.css";
 import "./FinancialMonthsScreen.css";
 
 type ActiveTab = "all" | "OPEN" | "CLOSED";
-
-const PAGE_SIZE = 6;
 
 function statusBadgeClass(status: string): string {
   return status === "OPEN"
@@ -71,6 +70,8 @@ export function FinancialMonthsScreen({
   const [page, setPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const pageSize = useDynamicPageSize(tableScrollRef);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,11 +117,11 @@ export function FinancialMonthsScreen({
     });
   }, [rows, search, tab]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const paginated = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
 
   useEffect(() => {
@@ -130,8 +131,8 @@ export function FinancialMonthsScreen({
   const pageStart =
     filtered.length === 0
       ? 0
-      : Math.min((currentPage - 1) * PAGE_SIZE + 1, filtered.length);
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, filtered.length);
+      : Math.min((currentPage - 1) * pageSize + 1, filtered.length);
+  const pageEnd = Math.min(currentPage * pageSize, filtered.length);
 
   async function toggleStatus(row: FinancialMonthRow) {
     if (!canWrite) return;
@@ -235,7 +236,7 @@ export function FinancialMonthsScreen({
           </div>
         </div>
 
-        <div class="customers-table-scroll">
+        <div class="customers-table-scroll" ref={tableScrollRef}>
           <table class="customers-table">
             <thead>
               <tr>

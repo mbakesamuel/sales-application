@@ -23,6 +23,10 @@ import {
   THEME_LABELS,
   THEME_PRESETS,
 } from "./CompanySettingsFormModal.tsx";
+import {
+  AppThemeToggle,
+  COMPANY_THEME_CHANGED_EVENT,
+} from "../theme/AppThemeToggle.tsx";
 import "./CompanySettingsScreen.css";
 
 export type ThemePreset = "agro" | "dark";
@@ -656,6 +660,27 @@ export function CompanySettingsScreen({
     };
   }, [refreshKey]);
 
+  useEffect(() => {
+    function onThemeChanged(event: Event) {
+      const preset = normalizeTheme((event as CustomEvent<ThemePreset>).detail);
+      setRecords((current) =>
+        current.map((record) =>
+          record.id === "default"
+            ? {
+                ...record,
+                uiThemePreset: preset,
+                raw: { ...record.raw, uiThemePreset: preset },
+              }
+            : record,
+        ),
+      );
+    }
+    window.addEventListener(COMPANY_THEME_CHANGED_EVENT, onThemeChanged);
+    return () => {
+      window.removeEventListener(COMPANY_THEME_CHANGED_EVENT, onThemeChanged);
+    };
+  }, []);
+
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -804,6 +829,7 @@ export function CompanySettingsScreen({
         </div>
       </header>
 
+      <div class="company-settings-cards-grid">
       <section class="company-settings-stock-numbering">
         <div class="company-settings-stock-numbering-header">
           <div>
@@ -1424,6 +1450,7 @@ export function CompanySettingsScreen({
           ) : null}
         </section>
       ) : null}
+      </div>
 
       {error ? <p class="company-settings-error">{error}</p> : null}
       {actionError ? <p class="company-settings-error">{actionError}</p> : null}
@@ -1437,6 +1464,7 @@ export function CompanySettingsScreen({
             </p>
           </div>
           <div class="company-settings-registry-controls">
+            {canWrite ? <AppThemeToggle /> : null}
             <label class="company-settings-search">
               <Search size={14} />
               <input

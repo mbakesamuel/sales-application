@@ -945,7 +945,7 @@ export function SalesClient({
     setReferenceNumber("");
     setDeliveryOrderNo("");
     setVehicleNumber("");
-    setTransactionDate(todayIsoDate());
+    setTransactionDate(clampDateToPeriod(todayIsoDate(), postingPeriod));
     setLines([]);
     setPayments([{ paymentMethodId: "", amount: "0", ...emptyPaymentExtras() }]);
     setDoLinePrefill(null);
@@ -1310,6 +1310,24 @@ export function SalesClient({
       return;
     }
     if (validateImmediately && !canDirectValidate) {
+      return;
+    }
+
+    if (!postingPeriod) {
+      setBanner({
+        type: "error",
+        text: "Open a financial month before posting.",
+      });
+      return;
+    }
+    if (
+      transactionDate < postingPeriod.startDate ||
+      transactionDate > postingPeriod.endDate
+    ) {
+      setBanner({
+        type: "error",
+        text: `Sale date must be within the open month (${postingPeriod.monthName} ${postingPeriod.financialYear}).`,
+      });
       return;
     }
 
@@ -1809,19 +1827,23 @@ export function SalesClient({
                 disabled={!isFormEditable || !postingPeriod}
                 onInput={(event) =>
                   setTransactionDate(
-                    (event.currentTarget as HTMLInputElement).value,
+                    clampDateToPeriod(
+                      (event.currentTarget as HTMLInputElement).value,
+                      postingPeriod,
+                    ),
                   )
                 }
               />
-              {/* {!postingPeriod ? (
+              {!postingPeriod ? (
                 <span class="sales-muted sales-checkbox-hint">
                   Open a financial month before posting.
                 </span>
               ) : (
                 <span class="sales-muted sales-checkbox-hint">
-                  Open month: {postingPeriod.monthName} {postingPeriod.financialYear}
+                  Open month: {postingPeriod.monthName}{" "}
+                  {postingPeriod.financialYear}
                 </span>
-              )} */}
+              )}
             </label>
 
             <label class="sales-field">

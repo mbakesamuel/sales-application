@@ -14,7 +14,13 @@ import { LoginScreen } from "./pages/LoginScreen.tsx";
 import { ReportWindowApp } from "./pages/ReportWindowApp.tsx";
 import { WelcomeScreen } from "./pages/WelcomeScreen.tsx";
 import { parseReportWindowHash } from "../shared/reportWindow.ts";
-import { applyUiTheme, loadAndApplyCompanyTheme } from "./theme/applyUiTheme.ts";
+import {
+  applyUiTheme,
+  fetchCompanyThemePreset,
+  loadAndApplyCompanyTheme,
+  readCachedUiTheme,
+  writeCachedUiTheme,
+} from "./theme/applyUiTheme.ts";
 import "./app.css";
 
 function readStoredToken(): string | null {
@@ -63,10 +69,16 @@ function MainApp() {
   );
 
   useEffect(() => {
-    applyUiTheme("agro");
-    void loadAndApplyCompanyTheme().catch(() => {
-      applyUiTheme("agro");
-    });
+    // Paint last known theme immediately so boot does not flash agro → dark.
+    applyUiTheme(readCachedUiTheme() ?? "agro");
+    void fetchCompanyThemePreset()
+      .then((preset) => {
+        writeCachedUiTheme(preset);
+        applyUiTheme(preset);
+      })
+      .catch(() => {
+        applyUiTheme(readCachedUiTheme() ?? "agro");
+      });
 
     const token = readStoredToken();
     if (!token) {

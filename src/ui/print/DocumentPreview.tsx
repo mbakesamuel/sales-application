@@ -1,7 +1,10 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getElectronApi } from "../auth/client.ts";
-import { useReportPrintRegister } from "../reports/ReportChrome.tsx";
+import {
+  useReportCommentsRevision,
+  useReportPrintRegister,
+} from "../reports/ReportChrome.tsx";
 import {
   ReportPreviewEmptyProvider,
   useReportPreviewEmptyInfo,
@@ -32,6 +35,7 @@ function DocumentPreviewBody({
   isEmpty = false,
   emptyMessage = "No data for this report.",
   emptyHint,
+  attributionFooter = true,
   children,
 }: {
   title: string;
@@ -42,6 +46,7 @@ function DocumentPreviewBody({
   isEmpty?: boolean;
   emptyMessage?: string;
   emptyHint?: string;
+  attributionFooter?: boolean;
   children: ComponentChildren;
 }) {
   const registeredEmpty = useReportPreviewEmptyInfo();
@@ -58,6 +63,7 @@ function DocumentPreviewBody({
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const token = stableToken(sourceKey);
+  const commentsRevision = useReportCommentsRevision();
   const landscape = isLandscapePage(page);
   const captureRef = useRef<HTMLDivElement>(null);
   const registerPrint = useReportPrintRegister();
@@ -100,6 +106,7 @@ function DocumentPreviewBody({
           if (cancelled) return;
           const bytes = await getElectronApi().print.htmlToPdf(pdfDocumentHtml, {
             landscape,
+            attributionFooter,
           });
           if (cancelled) return;
           const copy = new Uint8Array(bytes.byteLength);
@@ -146,9 +153,18 @@ function DocumentPreviewBody({
       cancelled = true;
       window.clearTimeout(timer);
     };
-    // children is read from the render that produced this token.
+    // children is read from the render that produced this token / comments revision.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, title, page, bodyClass, landscape, effectiveEmpty]);
+  }, [
+    token,
+    commentsRevision,
+    title,
+    page,
+    bodyClass,
+    landscape,
+    effectiveEmpty,
+    attributionFooter,
+  ]);
 
   async function handlePrint() {
     if (effectiveEmpty || !pdfBytes || pdfBytes.byteLength === 0) {
@@ -270,6 +286,7 @@ export function DocumentPreview(props: {
   isEmpty?: boolean;
   emptyMessage?: string;
   emptyHint?: string;
+  attributionFooter?: boolean;
   children: ComponentChildren;
 }) {
   return (

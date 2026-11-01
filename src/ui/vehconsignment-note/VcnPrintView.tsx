@@ -98,8 +98,10 @@ export function ConsignmentNotePrintView({
         <DocumentPreview
           title="Vehicle consignment note"
           fileName={`consignment-note-${payload.note.consignmentNoteNo}.pdf`}
+          page="portrait-compact"
           bodyClass="vcn-print-mode"
           sourceKey={payload}
+          attributionFooter={false}
         >
           <div class="vcn-print-page">
             <VcnPrintDualSheet

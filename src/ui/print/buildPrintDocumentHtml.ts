@@ -4,6 +4,7 @@ export type PrintPage =
   | "portrait"
   | "portrait-weekly"
   | "portrait-wide"
+  | "portrait-compact"
   | "portrait-receipt"
   | "landscape"
   | "landscape-wide"
@@ -16,15 +17,17 @@ const PAGE_STYLE: Record<PrintPage, string> = {
     "@media print { @page { size: A4 portrait; margin: 6mm 8mm; } }",
   "portrait-wide":
     "@media print { @page { size: A4 portrait; margin: 6mm 4mm; } }",
+  "portrait-compact":
+    "@media print { @page { size: A4 portrait; margin: 2mm 8mm; } }",
   "portrait-receipt":
-    "@media print { @page { size: A4 portrait; margin: 8mm 8px; } }",
+    "@media print { @page { size: A4 portrait; margin: 8mm; } }",
   landscape: "@media print { @page { size: A4 landscape; margin: 6mm 10mm; } }",
   "landscape-wide":
     "@media print { @page { size: A4 landscape; margin: 4mm; } }",
   "landscape-tight":
     /* Extra top margin so thead / product title are not clipped after page breaks. */
     "@media print { @page { size: A4 landscape; margin: 10mm 5mm 12mm 5mm; } }",
-  list: "@media print { @page { size: A4 portrait; margin: 10mm; } }",
+  list: "@media print { @page { size: A4 portrait; margin: 10mm 4mm; } }",
 };
 
 export function isLandscapePage(page: PrintPage): boolean {

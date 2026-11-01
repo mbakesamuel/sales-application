@@ -1,5 +1,6 @@
 import type { TransportCostReport } from "../../shared/reports.types.ts";
 import "./StockCommitmentReport.css";
+import "./TransportCostReport.css";
 export declare function TransportCostReportDocument({ report }: {
     report: TransportCostReport;
 }): import("preact").JSX.Element;

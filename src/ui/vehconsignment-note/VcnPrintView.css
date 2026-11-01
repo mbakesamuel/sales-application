@@ -178,7 +178,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  z-index: 1;
+  z-index: 5;
   padding: 4px 10px;
   border: 2px solid #111827;
   font-family: "Arial Narrow", Arial, sans-serif;
@@ -187,6 +187,14 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   background: #fff;
+  white-space: nowrap;
+}
+
+/* No. VCN… sits under the Original / Duplicate badge. */
+.vcn-print-copy .report-header-meta {
+  top: 38px;
+  right: 8px;
+  z-index: 6;
 }
 
 .vcn-print-copy-body {
@@ -236,7 +244,7 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 8mm;
+    margin: 2mm 8mm;
   }
 
   body.vcn-print-mode {
@@ -293,8 +301,8 @@
   }
 
   body.vcn-print-mode .vcn-print-copy {
-    height: calc((297mm - 16mm) / 2);
-    max-height: calc((297mm - 16mm) / 2);
+    height: calc((297mm - 4mm) / 2);
+    max-height: calc((297mm - 4mm) / 2);
     overflow: hidden;
     padding: 6mm 4mm 4mm;
     border-bottom: 1px dashed #666;
@@ -310,6 +318,11 @@
     right: 4mm;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  body.vcn-print-mode .vcn-print-copy .report-header-meta {
+    top: 11mm;
+    right: 4mm;
   }
 
   body.vcn-print-mode .vcn-print-copy-body .vcn-products-document,

@@ -189,12 +189,20 @@ export type ClearOperationalDataResponse =
     }
   | { ok: false; error: string };
 
+type SetCompanyUiThemeResult =
+  | { ok: true; uiThemePreset: "agro" | "dark" }
+  | { ok: false; error: string };
+
 interface DatabaseApi {
   getSchemaSummary(): Promise<SchemaSummary>;
   queryTable(input: TableQueryInput): Promise<TableQueryResult>;
   getTableSchema(table: string): Promise<TableSchema>;
   insertRow(input: TableInsertInput): Promise<Record<string, unknown>>;
   updateRow(input: TableUpdateInput): Promise<Record<string, unknown>>;
+  setCompanyUiTheme(input: {
+    authToken: string;
+    uiThemePreset: "agro" | "dark";
+  }): Promise<SetCompanyUiThemeResult>;
   deleteRow(input: TableDeleteInput): Promise<void>;
   clearOperationalData(
     input: ClearOperationalDataInput,
@@ -420,11 +428,11 @@ export interface ElectronAppApi {
   print: {
     htmlToPdf(
       html: string,
-      options?: { landscape?: boolean },
+      options?: { landscape?: boolean; attributionFooter?: boolean },
     ): Promise<Uint8Array>;
     printHtml(
       html: string,
-      options?: { landscape?: boolean },
+      options?: { landscape?: boolean; attributionFooter?: boolean },
     ): Promise<{ ok: boolean }>;
     printPdf(data: Uint8Array): Promise<{ ok: boolean }>;
     savePdf(input: {

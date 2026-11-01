@@ -40,6 +40,7 @@
 }
 
 .report-overlay-backdrop.is-preview .report-inline-print,
+.report-overlay-backdrop.is-preview .report-inline-comments,
 .report-overlay-backdrop.is-preview .report-inline-close {
   display: inline-flex;
   align-items: center;
@@ -66,6 +67,16 @@
 .report-overlay-backdrop.is-preview .report-inline-print:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.report-overlay-backdrop.is-preview .report-inline-comments {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text-h);
+}
+
+.report-overlay-backdrop.is-preview .report-inline-comments:hover {
+  background: var(--bg-soft);
 }
 
 .report-overlay-backdrop.is-preview .report-inline-close {

@@ -477,7 +477,21 @@ export class SyncService extends EventEmitter {
         upsertTableRows(db, "RoleActionPermission", ["role", "actionKey"], delta.roleActionPermissions);
       }
       if (delta.companySettings) {
-        upsertTableRows(db, "CompanySettings", ["id"], [delta.companySettings]);
+        // Theme is owned by the local admin toggle. Sync must not clobber it
+        // with a stale server value (CompanySettings theme is not pushed via outbox).
+        const localTheme = db
+          .prepare(
+            `SELECT uiThemePreset FROM CompanySettings WHERE id = 'default'`,
+          )
+          .get() as { uiThemePreset?: string } | undefined;
+        const incoming: Record<string, unknown> = { ...delta.companySettings };
+        if (
+          localTheme?.uiThemePreset === "agro" ||
+          localTheme?.uiThemePreset === "dark"
+        ) {
+          incoming.uiThemePreset = localTheme.uiThemePreset;
+        }
+        upsertTableRows(db, "CompanySettings", ["id"], [incoming]);
       }
       if (delta.documentBooklets?.length) {
         upsertTableRows(db, "DocumentBooklet", ["id"], delta.documentBooklets);

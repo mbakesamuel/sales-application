@@ -164,6 +164,50 @@ export type SaveReportCommentsResult =
   | { ok: true; comments: string | null }
   | { ok: false; error: string };
 
+export type CompanyUiThemePreset = "agro" | "dark";
+
+export type SetCompanyUiThemeResult =
+  | { ok: true; uiThemePreset: CompanyUiThemePreset }
+  | { ok: false; error: string };
+
+export function setCompanyUiTheme(preset: unknown): SetCompanyUiThemeResult {
+  const resolved: CompanyUiThemePreset | null =
+    preset === "dark" ? "dark" : preset === "agro" ? "agro" : null;
+  if (!resolved) {
+    return { ok: false, error: "Invalid theme preset." };
+  }
+
+  try {
+    const db = getDatabase();
+    const result = db
+      .prepare(
+        `UPDATE CompanySettings
+         SET uiThemePreset = ?, updatedAt = datetime('now')
+         WHERE id = 'default'`,
+      )
+      .run(resolved);
+
+    if (result.changes < 1) {
+      return { ok: false, error: "Company settings row not found." };
+    }
+
+    const row = db
+      .prepare(`SELECT uiThemePreset FROM CompanySettings WHERE id = 'default'`)
+      .get() as { uiThemePreset: string } | undefined;
+
+    if (row?.uiThemePreset !== resolved) {
+      return { ok: false, error: "Theme change did not persist." };
+    }
+
+    return { ok: true, uiThemePreset: resolved };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to save theme.",
+    };
+  }
+}
+
 /** Atomically merge one report's comments into CompanySettings.reportCommentsJson. */
 export function saveReportComments(
   reportId: string,

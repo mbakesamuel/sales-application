@@ -21,6 +21,10 @@ import {
 } from "../db/tableMutations.js";
 import { queryTable } from "../db/tableQuery.js";
 import {
+  setCompanyUiTheme,
+  type SetCompanyUiThemeResult,
+} from "../reports/companySettings.js";
+import {
   getSyncState,
   pruneOperationalOutboxItems,
 } from "../sync/syncOutbox.js";
@@ -90,6 +94,18 @@ export function registerDatabaseHandlers(): void {
       const user = requireAuthUser(input.authToken);
       assertTableWrite(user.role, input.table.trim());
       return updateRow(input);
+    },
+  );
+
+  ipcMain.handle(
+    "db:setCompanyUiTheme",
+    (
+      _event,
+      input: { authToken?: string; uiThemePreset?: unknown },
+    ): SetCompanyUiThemeResult => {
+      const user = requireAuthUser(input?.authToken);
+      assertTableWrite(user.role, "CompanySettings");
+      return setCompanyUiTheme(input?.uiThemePreset);
     },
   );
 

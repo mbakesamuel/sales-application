@@ -2,7 +2,6 @@ import { useState } from "preact/hooks";
 import { normalizeVatRateDecimal } from "../../shared/taxRules.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
-import { normalizeUiThemePreset } from "../theme/applyUiTheme.ts";
 import "./CompanySettingsScreen.css";
 
 export const MONTHS = [
@@ -119,12 +118,11 @@ export function CompanySettingsFormModal({
       department: form.department.trim(),
       fiscalYearStartMonth: form.fiscalYearStartMonth,
       logoUrl: form.logoUrl.trim() || null,
-      uiThemePreset: normalizeUiThemePreset(
-        mode === "edit" ? row?.uiThemePreset : "agro",
-      ),
     };
 
     if (mode === "create") {
+      // Theme is managed by the header toggle; new rows start on agro.
+      values.uiThemePreset = "agro";
       values.vatRate = vatPercentInputToDecimal(form.vatRate);
     }
 

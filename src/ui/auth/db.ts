@@ -26,6 +26,11 @@ export function getAuthenticatedDb() {
       api.insertRow({ ...input, authToken: requireAuthToken() }),
     updateRow: (input: Omit<TableUpdateInput, "authToken">) =>
       api.updateRow({ ...input, authToken: requireAuthToken() }),
+    setCompanyUiTheme: (uiThemePreset: "agro" | "dark") =>
+      api.setCompanyUiTheme({
+        authToken: requireAuthToken(),
+        uiThemePreset,
+      }),
     deleteRow: (input: Omit<TableDeleteInput, "authToken">) =>
       api.deleteRow({ ...input, authToken: requireAuthToken() }),
     clearOperationalData: (

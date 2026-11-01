@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import {
@@ -7,13 +7,31 @@ import {
 } from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
+import { getAuthenticatedReports } from "../auth/reports.ts";
 
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
 import { RowActions } from "../components/RowActions.tsx";
+import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
+import { ReportFooter } from "../reports/ReportFooter.tsx";
+import { ReportHeader } from "../reports/ReportHeader.tsx";
 import { CustomerFormModal } from "./CustomerFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "./CustomersScreen.css";
+
+/** First page fits rows 1–33; row 34 starts the next page. */
+const CUSTOMER_PRINT_ROWS_PER_PAGE = 33;
+
+function chunkPrintRows<T>(rows: T[], size: number): T[][] {
+  if (rows.length === 0) {
+    return [];
+  }
+  const chunks: T[][] = [];
+  for (let i = 0; i < rows.length; i += size) {
+    chunks.push(rows.slice(i, i + size));
+  }
+  return chunks;
+}
 
 type SortKey =
   | "name"
@@ -56,8 +74,6 @@ interface CustomerRow {
 type FormState =
   | { mode: "create" }
   | { mode: "edit"; row: Record<string, unknown> };
-
-const PAGE_SIZE = 6;
 
 function residencyLabel(value: unknown): string {
   const code = String(value ?? "").toUpperCase();
@@ -324,6 +340,60 @@ export function CustomersScreen({
   const [formState, setFormState] = useState<FormState | null>(null);
   const [viewCustomer, setViewCustomer] = useState<CustomerRow | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [printCompanyName, setPrintCompanyName] = useState("CDC Palm Oil Sales");
+  const [printDepartment, setPrintDepartment] = useState<string | null>(null);
+  const [signatoryName, setSignatoryName] = useState<string | null>(null);
+  const [signatoryTitle, setSignatoryTitle] = useState("Manager, Palm Oil Sales");
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const pageSize = useDynamicPageSize(tableScrollRef);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getElectronApi()
+      .db.queryTable({ table: "CompanySettings", limit: 50 })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        const row =
+          result.rows.find((item) => String(item.id) === "default") ??
+          result.rows[0];
+        if (!row) {
+          return;
+        }
+        const name = String(row.companyName ?? "").trim();
+        if (name) {
+          setPrintCompanyName(name);
+        }
+        const department = String(row.department ?? "").trim();
+        setPrintDepartment(department || null);
+      })
+      .catch(() => {
+        // Keep defaults when company settings are unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAuthenticatedReports()
+      .getSignatory()
+      .then((signatory) => {
+        if (cancelled) {
+          return;
+        }
+        setSignatoryName(signatory.name);
+        setSignatoryTitle(signatory.title);
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -367,7 +437,7 @@ export function CustomersScreen({
         const serviceMap = new Map(
           serviceResult.rows.map((row) => [
             String(row.id),
-            String(row.code ?? row.name ?? row.id),
+            String(row.name ?? row.code ?? row.id),
           ]),
         );
 
@@ -469,11 +539,11 @@ export function CustomersScreen({
     return next;
   }, [filtered, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const paginated = sorted.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
 
   useEffect(() => {
@@ -645,10 +715,22 @@ export function CustomersScreen({
   const printServiceName = [
     ...new Set(
       printRowsList
-        .map((row) => row.commercialServiceLabel.trim())
+        .map((row) => {
+          const label = row.commercialServiceLabel.trim();
+          if (!label) {
+            return "";
+          }
+          return label.toUpperCase() === "POS"
+            ? "Palm Oil Sales Service"
+            : label;
+        })
         .filter(Boolean),
     ),
   ].join(" · ");
+  const printRowChunks = chunkPrintRows(
+    printRowsList,
+    CUSTOMER_PRINT_ROWS_PER_PAGE,
+  );
 
   function printCustomerList() {
     if (printRowsList.length === 0) {
@@ -695,8 +777,8 @@ export function CustomersScreen({
   const pageStart =
     sorted.length === 0
       ? 0
-      : Math.min((currentPage - 1) * PAGE_SIZE + 1, sorted.length);
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, sorted.length);
+      : Math.min((currentPage - 1) * pageSize + 1, sorted.length);
+  const pageEnd = Math.min(currentPage * pageSize, sorted.length);
 
   return (
     <div class="customers-screen">
@@ -844,7 +926,7 @@ export function CustomersScreen({
           ) : null}
         </div>
 
-        <div class="customers-table-scroll">
+        <div class="customers-table-scroll" ref={tableScrollRef}>
           <table class="customers-table">
             <thead>
               <tr>
@@ -1054,50 +1136,75 @@ export function CustomersScreen({
             sourceKey={printRowsList}
           >
             <div class="customers-print-document" aria-hidden="true">
-        <header class="customers-print-header">
-          <h1>Customer List</h1>
-          {printServiceName ? (
-            <p class="customers-print-service">{printServiceName}</p>
-          ) : null}
-          <p>
-            {printFilterLabel}
-            {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
-            {" · "}
-            {printRowsList.length} record{printRowsList.length === 1 ? "" : "s"}
-          </p>
-          <p class="customers-print-generated">Printed {printGeneratedAt}</p>
-        </header>
-        <table class="customers-print-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Phone</th>
-              <th>Email</th>
-              <th>Address</th>
-              <th>Type</th>
-              <th>Residency</th>
-              <th>Tax Regime</th>
-              <th>Taxpayer ID</th>
-            </tr>
-          </thead>
-          <tbody>
-            {printRowsList.map((customer, index) => (
-              <tr key={customer.id}>
-                <td>{index + 1}</td>
-                <td>{customer.name}</td>
-                <td>{customer.phone || "—"}</td>
-                <td>{customer.email || "—"}</td>
-                <td>{customer.address || "—"}</td>
-                <td>{customer.customerTypeLabel || "—"}</td>
-                <td>{customer.residencyLabel || "—"}</td>
-                <td>{customer.taxRegimeLabel || "—"}</td>
-                <td>{customer.taxpayerId || "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              {printRowChunks.map((chunk, chunkIndex) => {
+                const isFirst = chunkIndex === 0;
+                const isLast = chunkIndex === printRowChunks.length - 1;
+                const rowOffset = chunkIndex * CUSTOMER_PRINT_ROWS_PER_PAGE;
+                return (
+                  <section
+                    key={`customers-print-page-${chunkIndex}`}
+                    class={`customers-print-sheet${isFirst ? "" : " is-continued"}`}
+                  >
+                    <ReportHeader
+                      companyName={printCompanyName}
+                      department={printDepartment}
+                      serviceName={printServiceName || null}
+                      title="CUSTOMER LIST"
+                    />
+                    <p class="customers-print-meta">
+                      {printFilterLabel}
+                      {selectedIds.size > 0
+                        ? ` · ${selectedIds.size} selected`
+                        : ""}
+                      {" · "}
+                      {printRowsList.length} record
+                      {printRowsList.length === 1 ? "" : "s"}
+                      {printRowChunks.length > 1
+                        ? ` · Page ${chunkIndex + 1} of ${printRowChunks.length}`
+                        : ""}
+                      {" · "}
+                      Printed {printGeneratedAt}
+                    </p>
+                    <table class="customers-print-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Name</th>
+                          <th>Phone</th>
+                          <th>Email</th>
+                          <th>Address</th>
+                          <th>Type</th>
+                          <th>Residency</th>
+                          <th>Tax Regime</th>
+                          <th>Tax Payer No.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {chunk.map((customer, index) => (
+                          <tr key={customer.id}>
+                            <td>{rowOffset + index + 1}</td>
+                            <td>{customer.name}</td>
+                            <td>{customer.phone || "—"}</td>
+                            <td>{customer.email || "—"}</td>
+                            <td>{customer.address || "—"}</td>
+                            <td>{customer.customerTypeLabel || "—"}</td>
+                            <td>{customer.residencyLabel || "—"}</td>
+                            <td>{customer.taxRegimeLabel || "—"}</td>
+                            <td>{customer.taxpayerId || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {isLast && signatoryTitle ? (
+                      <ReportFooter
+                        name={signatoryName}
+                        label={signatoryTitle}
+                      />
+                    ) : null}
+                  </section>
+                );
+              })}
+            </div>
           </DocumentPreview>
         </ReportOverlayShell>
       ) : null}

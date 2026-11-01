@@ -7,5 +7,9 @@ interface ReportFilterGateProps {
     filters: ComponentChildren;
     children: ComponentChildren;
 }
-export declare function ReportFilterGate({ ready, reportId, className, filters, children, }: ReportFilterGateProps): import("preact").JSX.Element;
+/**
+ * Sidebar reports only: filters + PDF in one view inside HomeScreen's overlay.
+ * Console document prints do not use this component.
+ */
+export declare function ReportFilterGate({ ready, reportId: _reportId, className, filters, children, }: ReportFilterGateProps): import("preact").JSX.Element;
 export {};

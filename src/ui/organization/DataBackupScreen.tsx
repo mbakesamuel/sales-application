@@ -235,43 +235,45 @@ export function DataBackupScreen({ readOnly = false }: DataBackupScreenProps) {
 
         {info ? (
           <>
-            <section class="data-backup-card">
-              <h3>Where data lives</h3>
-              <dl class="data-backup-dl">
-                <dt>Data folder</dt>
-                <dd>{info.userDataDir}</dd>
-                <dt>Database file</dt>
-                <dd>{info.dbPath}</dd>
-                <dt>Database size</dt>
-                <dd>{formatBytes(info.dbSizeBytes)}</dd>
-                {info.walSizeBytes > 0 ? (
-                  <>
-                    <dt>WAL file</dt>
-                    <dd>{formatBytes(info.walSizeBytes)}</dd>
-                  </>
-                ) : null}
-              </dl>
-            </section>
-
-            <section class="data-backup-card">
-              <h3>Last backup from this app</h3>
-              {info.lastBackupAt && info.lastBackupPath ? (
+            <div class="data-backup-cards-row">
+              <section class="data-backup-card">
+                <h3>Where data lives</h3>
                 <dl class="data-backup-dl">
-                  <dt>Created</dt>
-                  <dd>{formatDisplayDateTime(info.lastBackupAt)}</dd>
-                  <dt>File</dt>
-                  <dd>{info.lastBackupPath}</dd>
-                  <dt>Size</dt>
-                  <dd>
-                    {info.lastBackupSizeBytes != null
-                      ? formatBytes(info.lastBackupSizeBytes)
-                      : "—"}
-                  </dd>
+                  <dt>Data folder</dt>
+                  <dd>{info.userDataDir}</dd>
+                  <dt>Database file</dt>
+                  <dd>{info.dbPath}</dd>
+                  <dt>Database size</dt>
+                  <dd>{formatBytes(info.dbSizeBytes)}</dd>
+                  {info.walSizeBytes > 0 ? (
+                    <>
+                      <dt>WAL file</dt>
+                      <dd>{formatBytes(info.walSizeBytes)}</dd>
+                    </>
+                  ) : null}
                 </dl>
-              ) : (
-                <p class="data-backup-note">No backup created from this app yet.</p>
-              )}
-            </section>
+              </section>
+
+              <section class="data-backup-card">
+                <h3>Last backup from this app</h3>
+                {info.lastBackupAt && info.lastBackupPath ? (
+                  <dl class="data-backup-dl">
+                    <dt>Created</dt>
+                    <dd>{formatDisplayDateTime(info.lastBackupAt)}</dd>
+                    <dt>File</dt>
+                    <dd>{info.lastBackupPath}</dd>
+                    <dt>Size</dt>
+                    <dd>
+                      {info.lastBackupSizeBytes != null
+                        ? formatBytes(info.lastBackupSizeBytes)
+                        : "—"}
+                    </dd>
+                  </dl>
+                ) : (
+                  <p class="data-backup-note">No backup created from this app yet.</p>
+                )}
+              </section>
+            </div>
 
             {scheduleDraft ? (
               <section class="data-backup-card">
@@ -314,41 +316,43 @@ export function DataBackupScreen({ readOnly = false }: DataBackupScreenProps) {
                   </div>
                 </div>
 
-                <label class="data-backup-field">
-                  <span class="data-backup-label">Time of day</span>
-                  <input
-                    class="data-backup-input"
-                    type="time"
-                    value={scheduleDraft.timeOfDay}
-                    disabled={readOnly || busy != null}
-                    onInput={(event) =>
-                      setScheduleDraft({
-                        ...scheduleDraft,
-                        timeOfDay: (event.currentTarget as HTMLInputElement).value,
-                      })
-                    }
-                  />
-                </label>
+                <div class="data-backup-schedule-fields">
+                  <label class="data-backup-field">
+                    <span class="data-backup-label">Time of day</span>
+                    <input
+                      class="data-backup-input"
+                      type="time"
+                      value={scheduleDraft.timeOfDay}
+                      disabled={readOnly || busy != null}
+                      onInput={(event) =>
+                        setScheduleDraft({
+                          ...scheduleDraft,
+                          timeOfDay: (event.currentTarget as HTMLInputElement).value,
+                        })
+                      }
+                    />
+                  </label>
 
-                <label class="data-backup-field">
-                  <span class="data-backup-label">Keep automatic backups</span>
-                  <input
-                    class="data-backup-input data-backup-input-narrow"
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={scheduleDraft.retentionCount}
-                    disabled={readOnly || busy != null}
-                    onInput={(event) =>
-                      setScheduleDraft({
-                        ...scheduleDraft,
-                        retentionCount: Number(
-                          (event.currentTarget as HTMLInputElement).value,
-                        ),
-                      })
-                    }
-                  />
-                </label>
+                  <label class="data-backup-field">
+                    <span class="data-backup-label">Keep automatic backups</span>
+                    <input
+                      class="data-backup-input data-backup-input-narrow"
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={scheduleDraft.retentionCount}
+                      disabled={readOnly || busy != null}
+                      onInput={(event) =>
+                        setScheduleDraft({
+                          ...scheduleDraft,
+                          retentionCount: Number(
+                            (event.currentTarget as HTMLInputElement).value,
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                </div>
 
                 {scheduleStatus ? (
                   <dl class="data-backup-dl data-backup-schedule-status">

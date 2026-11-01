@@ -1,3 +1,5 @@
+import { useLayoutEffect } from "preact/hooks";
+import { useReportCommentsChrome } from "./ReportChrome.tsx";
 import "./ReportComments.css";
 
 interface ReportCommentsSectionProps {
@@ -6,7 +8,16 @@ interface ReportCommentsSectionProps {
 
 /** Printed/on-document comments block; hidden when empty. */
 export function ReportCommentsSection({ comments }: ReportCommentsSectionProps) {
-  const text = comments?.trim() ?? "";
+  const chrome = useReportCommentsChrome();
+
+  useLayoutEffect(() => {
+    chrome?.registerReportComments(comments);
+  }, [chrome, comments]);
+
+  const text = (
+    chrome?.overridden ? chrome.text : (comments ?? chrome?.text ?? null)
+  )?.trim() ?? "";
+
   if (!text) {
     return null;
   }

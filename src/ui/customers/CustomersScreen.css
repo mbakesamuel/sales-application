@@ -870,16 +870,28 @@
 }
 
 @media print {
-  body.customers-print-mode * {
+  body.customers-print-mode *,
+  body.products-print-mode *,
+  body.product-pricing-print-mode *,
+  body.locations-print-mode * {
     visibility: hidden;
   }
 
   body.customers-print-mode .customers-print-document,
-  body.customers-print-mode .customers-print-document * {
+  body.products-print-mode .customers-print-document,
+  body.product-pricing-print-mode .customers-print-document,
+  body.locations-print-mode .customers-print-document,
+  body.customers-print-mode .customers-print-document *,
+  body.products-print-mode .customers-print-document *,
+  body.product-pricing-print-mode .customers-print-document *,
+  body.locations-print-mode .customers-print-document * {
     visibility: visible;
   }
 
-  body.customers-print-mode .customers-print-document {
+  body.customers-print-mode .customers-print-document,
+  body.products-print-mode .customers-print-document,
+  body.product-pricing-print-mode .customers-print-document,
+  body.locations-print-mode .customers-print-document {
     display: block;
     position: absolute;
     left: 0;
@@ -896,32 +908,42 @@
     font-size: 11px;
   }
 
-  body.customers-print-mode .customers-print-header {
-    margin-bottom: 12px;
+  body.customers-print-mode .customers-print-sheet.is-continued,
+  body.products-print-mode .customers-print-sheet.is-continued,
+  body.product-pricing-print-mode .customers-print-sheet.is-continued,
+  body.locations-print-mode .customers-print-sheet.is-continued {
+    page-break-before: always;
   }
 
-  body.customers-print-mode .customers-print-header h1 {
-    margin: 0 0 4px;
-    font-size: 18px;
-  }
-
-  body.customers-print-mode .customers-print-service {
-    margin: 0 0 4px;
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  body.customers-print-mode .customers-print-header p {
-    margin: 0;
+  body.customers-print-mode .customers-print-meta,
+  body.products-print-mode .customers-print-meta,
+  body.product-pricing-print-mode .customers-print-meta,
+  body.locations-print-mode .customers-print-meta {
+    margin: 0 0 10px;
     font-size: 11px;
-  }
-
-  body.customers-print-mode .customers-print-generated {
-    margin-top: 2px;
     color: #444;
   }
 
-  body.customers-print-mode .customers-print-table {
+  body.customers-print-mode .report-footer,
+  body.products-print-mode .report-footer,
+  body.product-pricing-print-mode .report-footer,
+  body.locations-print-mode .report-footer {
+    margin-top: 4px;
+    padding-top: 0;
+    color: #111;
+  }
+
+  body.customers-print-mode .report-footer-space,
+  body.products-print-mode .report-footer-space,
+  body.product-pricing-print-mode .report-footer-space,
+  body.locations-print-mode .report-footer-space {
+    height: 28px;
+  }
+
+  body.customers-print-mode .customers-print-table,
+  body.products-print-mode .customers-print-table,
+  body.product-pricing-print-mode .customers-print-table,
+  body.locations-print-mode .customers-print-table {
     width: 100%;
     max-width: 100%;
     border-collapse: collapse;
@@ -929,7 +951,13 @@
   }
 
   body.customers-print-mode .customers-print-table th,
-  body.customers-print-mode .customers-print-table td {
+  body.products-print-mode .customers-print-table th,
+  body.product-pricing-print-mode .customers-print-table th,
+  body.locations-print-mode .customers-print-table th,
+  body.customers-print-mode .customers-print-table td,
+  body.products-print-mode .customers-print-table td,
+  body.product-pricing-print-mode .customers-print-table td,
+  body.locations-print-mode .customers-print-table td {
     border: 1px solid #333;
     padding: 4px 6px;
     text-align: left;
@@ -937,7 +965,10 @@
     word-break: break-word;
   }
 
-  body.customers-print-mode .customers-print-table th {
+  body.customers-print-mode .customers-print-table th,
+  body.products-print-mode .customers-print-table th,
+  body.product-pricing-print-mode .customers-print-table th,
+  body.locations-print-mode .customers-print-table th {
     background: #eef4df !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -945,7 +976,13 @@
   }
 
   body.customers-print-mode .customers-print-table th:first-child,
-  body.customers-print-mode .customers-print-table td:first-child {
+  body.products-print-mode .customers-print-table th:first-child,
+  body.product-pricing-print-mode .customers-print-table th:first-child,
+  body.locations-print-mode .customers-print-table th:first-child,
+  body.customers-print-mode .customers-print-table td:first-child,
+  body.products-print-mode .customers-print-table td:first-child,
+  body.product-pricing-print-mode .customers-print-table td:first-child,
+  body.locations-print-mode .customers-print-table td:first-child {
     width: 28px;
     text-align: center;
   }
@@ -1043,6 +1080,6 @@
 
   @page {
     size: A4 landscape;
-    margin: 10mm;
+    margin: 10mm 4mm;
   }
 }

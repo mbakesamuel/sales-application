@@ -84,7 +84,6 @@ import { ConfirmDialog } from "../components/ConfirmDialog.tsx";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import { DashboardScreen } from "../dashboard/DashboardScreen.tsx";
-import { AppThemeToggle } from "../theme/AppThemeToggle.tsx";
 import { SyncStatusBadge } from "../components/SyncStatusBadge.tsx";
 import "./HomeScreen.css";
 
@@ -875,7 +874,6 @@ export function HomeScreen({
           <span class="home-topbar-company">{companyName}</span>
         </div>
         <div class="home-topbar-actions">
-          {user.role === "ADMIN" ? <AppThemeToggle /> : null}
           <SyncStatusBadge />
           <div
             class="home-topbar-user"
@@ -1065,6 +1063,7 @@ export function HomeScreen({
             {opensInReportWindow(activeRouteId) ? (
               <ReportOverlayShell
                 preview
+                reportId={activeRouteId}
                 title={activeRoute.label}
                 onClose={() => selectRoute(DEFAULT_ROUTE_ID)}
               >

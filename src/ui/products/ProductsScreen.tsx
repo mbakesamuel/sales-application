@@ -1,14 +1,37 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
-import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+  formatDisplayDate as formatDate,
+  formatDisplayDateTime,
+} from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
+import { getAuthenticatedReports } from "../auth/reports.ts";
 
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
 import { RowActions } from "../components/RowActions.tsx";
+import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import { ReportFooter } from "../reports/ReportFooter.tsx";
+import { ReportHeader } from "../reports/ReportHeader.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import { ProductFormModal } from "./ProductFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+
+/** First page fits rows 1–33; row 34 starts the next page. */
+const PRODUCT_PRINT_ROWS_PER_PAGE = 33;
+
+function chunkPrintRows<T>(rows: T[], size: number): T[][] {
+  if (rows.length === 0) {
+    return [];
+  }
+  const chunks: T[][] = [];
+  for (let i = 0; i < rows.length; i += size) {
+    chunks.push(rows.slice(i, i + size));
+  }
+  return chunks;
+}
 
 type SortKey =
   | "productName"
@@ -40,8 +63,6 @@ interface ProductRow {
 }
 
 type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknown> };
-
-const PAGE_SIZE = 6;
 
 function categoryBadgeClass(label: string): string {
   const normalized = label.toLowerCase();
@@ -166,6 +187,16 @@ function IconDownload() {
   );
 }
 
+function IconPrinter() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M6 9V2h12v7" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <path d="M6 14h12v8H6z" />
+    </svg>
+  );
+}
+
 function IconSliders() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -247,6 +278,61 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
   const [formState, setFormState] = useState<FormState | null>(null);
   const [viewRow, setViewRow] = useState<ProductRow | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printCompanyName, setPrintCompanyName] = useState("CDC Palm Oil Sales");
+  const [printDepartment, setPrintDepartment] = useState<string | null>(null);
+  const [signatoryName, setSignatoryName] = useState<string | null>(null);
+  const [signatoryTitle, setSignatoryTitle] = useState("Manager, Palm Oil Sales");
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const pageSize = useDynamicPageSize(tableScrollRef);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getElectronApi()
+      .db.queryTable({ table: "CompanySettings", limit: 50 })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        const row =
+          result.rows.find((item) => String(item.id) === "default") ??
+          result.rows[0];
+        if (!row) {
+          return;
+        }
+        const name = String(row.companyName ?? "").trim();
+        if (name) {
+          setPrintCompanyName(name);
+        }
+        const department = String(row.department ?? "").trim();
+        setPrintDepartment(department || null);
+      })
+      .catch(() => {
+        // Keep defaults when company settings are unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAuthenticatedReports()
+      .getSignatory()
+      .then((signatory) => {
+        if (cancelled) {
+          return;
+        }
+        setSignatoryName(signatory.name);
+        setSignatoryTitle(signatory.title);
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -292,7 +378,7 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
         const serviceMap = new Map(
           serviceResult.rows.map((row) => [
             String(row.id),
-            String(row.code ?? row.name ?? row.id),
+            String(row.name ?? row.code ?? row.id),
           ]),
         );
 
@@ -385,11 +471,11 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
     return next;
   }, [filtered, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const paginated = sorted.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
 
   useEffect(() => {
@@ -566,8 +652,50 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
   }
 
   const pageStart =
-    sorted.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, sorted.length);
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, sorted.length);
+    sorted.length === 0
+      ? 0
+      : Math.min((currentPage - 1) * pageSize + 1, sorted.length);
+  const pageEnd = Math.min(currentPage * pageSize, sorted.length);
+
+  const printRowsList =
+    selectedIds.size > 0
+      ? sorted.filter((row) => selectedIds.has(row.productId))
+      : sorted;
+  const printFilterLabel =
+    activeTab === "all" ? "All products" : `${activeTab} products`;
+  const printGeneratedAt = formatDisplayDateTime(
+    (() => {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    })(),
+  );
+  const printServiceName = [
+    ...new Set(
+      printRowsList
+        .map((row) => {
+          const label = row.commercialServiceLabel.trim();
+          if (!label || label === "—") {
+            return "";
+          }
+          return label.toUpperCase() === "POS"
+            ? "Palm Oil Sales Service"
+            : label;
+        })
+        .filter(Boolean),
+    ),
+  ].join(" · ");
+  const printRowChunks = chunkPrintRows(
+    printRowsList,
+    PRODUCT_PRINT_ROWS_PER_PAGE,
+  );
+
+  function printProductList() {
+    if (printRowsList.length === 0) {
+      return;
+    }
+    setPrintOpen(true);
+  }
 
   return (
     <div class="customers-screen">
@@ -577,12 +705,21 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
             <IconPackage />
           </div>
           <div>
-            <h2 class="customers-screen-brand-title">Products Catalog</h2>
+            <h2 class="customers-screen-brand-title">Products</h2>
             <p class="customers-screen-brand-subtitle">Product Management</p>
           </div>
         </div>
 
         <div class="customers-screen-header-actions">
+          <button
+            type="button"
+            class="customers-btn customers-btn-secondary"
+            disabled={sorted.length === 0}
+            onClick={() => printProductList()}
+          >
+            <IconPrinter />
+            Print
+          </button>
           <button
             type="button"
             class="customers-btn customers-btn-secondary"
@@ -706,7 +843,7 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
           ) : null}
         </div>
 
-        <div class="customers-table-scroll">
+        <div class="customers-table-scroll" ref={tableScrollRef}>
           <table class="customers-table">
             <thead>
               <tr>
@@ -894,6 +1031,98 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
             </button>
           </div>
         </FormDialog>
+      ) : null}
+
+      {printOpen ? (
+        <ReportOverlayShell
+          preview
+          title="Product List"
+          onClose={() => setPrintOpen(false)}
+        >
+          <DocumentPreview
+            title="Product List"
+            fileName="products.pdf"
+            page="list"
+            bodyClass="products-print-mode"
+            sourceKey={printRowsList}
+          >
+            <div class="customers-print-document" aria-hidden="true">
+              {printRowChunks.map((chunk, chunkIndex) => {
+                const isFirst = chunkIndex === 0;
+                const isLast = chunkIndex === printRowChunks.length - 1;
+                const rowOffset = chunkIndex * PRODUCT_PRINT_ROWS_PER_PAGE;
+                return (
+                  <section
+                    key={`products-print-page-${chunkIndex}`}
+                    class={`customers-print-sheet${isFirst ? "" : " is-continued"}`}
+                  >
+                    <ReportHeader
+                      companyName={printCompanyName}
+                      department={printDepartment}
+                      serviceName={printServiceName || null}
+                      title="PRODUCT LIST"
+                    />
+                    <p class="customers-print-meta">
+                      {printFilterLabel}
+                      {selectedIds.size > 0
+                        ? ` · ${selectedIds.size} selected`
+                        : ""}
+                      {" · "}
+                      {printRowsList.length} record
+                      {printRowsList.length === 1 ? "" : "s"}
+                      {printRowChunks.length > 1
+                        ? ` · Page ${chunkIndex + 1} of ${printRowChunks.length}`
+                        : ""}
+                      {" · "}
+                      Printed {printGeneratedAt}
+                    </p>
+                    <table class="customers-print-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Product</th>
+                          <th>Code</th>
+                          <th>Category</th>
+                          <th>UOM</th>
+                          <th>Location</th>
+                          <th>Service</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {chunk.map((product, index) => (
+                          <tr key={product.productId}>
+                            <td>{rowOffset + index + 1}</td>
+                            <td>{product.productName}</td>
+                            <td>{product.productCode || "—"}</td>
+                            <td>{product.categoryLabel || "—"}</td>
+                            <td>{product.uom || "—"}</td>
+                            <td>
+                              {product.omitsStorageLocation
+                                ? "No location"
+                                : "Required"}
+                            </td>
+                            <td>
+                              {product.commercialServiceLabel.toUpperCase() ===
+                              "POS"
+                                ? "Palm Oil Sales Service"
+                                : product.commercialServiceLabel || "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {isLast && signatoryTitle ? (
+                      <ReportFooter
+                        name={signatoryName}
+                        label={signatoryTitle}
+                      />
+                    ) : null}
+                  </section>
+                );
+              })}
+            </div>
+          </DocumentPreview>
+        </ReportOverlayShell>
       ) : null}
     </div>
   );

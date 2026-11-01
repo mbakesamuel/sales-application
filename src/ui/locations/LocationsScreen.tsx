@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import { ReportFooter } from "../reports/ReportFooter.tsx";
+import { ReportHeader } from "../reports/ReportHeader.tsx";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import {
   formatDisplayDate as formatDate,
@@ -7,12 +9,28 @@ import {
 } from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
+import { getAuthenticatedReports } from "../auth/reports.ts";
 
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
+import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
 import { LocationFormModal } from "./LocationFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+
+/** First page fits rows 1–33; row 34 starts the next page. */
+const LOCATION_PRINT_ROWS_PER_PAGE = 33;
+
+function chunkPrintRows<T>(rows: T[], size: number): T[][] {
+  if (rows.length === 0) {
+    return [];
+  }
+  const chunks: T[][] = [];
+  for (let i = 0; i < rows.length; i += size) {
+    chunks.push(rows.slice(i, i + size));
+  }
+  return chunks;
+}
 
 type SortKey = "locationName" | "storageLocationCount" | "createdAt" | "isActive";
 type SortDir = "asc" | "desc";
@@ -29,8 +47,6 @@ interface LocationRow {
 }
 
 type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknown> };
-
-const PAGE_SIZE = 6;
 
 function statusBadgeClass(isActive: boolean): string {
   return isActive
@@ -275,6 +291,60 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
   const [formState, setFormState] = useState<FormState | null>(null);
   const [viewRow, setViewRow] = useState<LocationRow | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [printCompanyName, setPrintCompanyName] = useState("CDC Palm Oil Sales");
+  const [printDepartment, setPrintDepartment] = useState<string | null>(null);
+  const [signatoryName, setSignatoryName] = useState<string | null>(null);
+  const [signatoryTitle, setSignatoryTitle] = useState("Manager, Palm Oil Sales");
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const pageSize = useDynamicPageSize(tableScrollRef);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getElectronApi()
+      .db.queryTable({ table: "CompanySettings", limit: 50 })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        const row =
+          result.rows.find((item) => String(item.id) === "default") ??
+          result.rows[0];
+        if (!row) {
+          return;
+        }
+        const name = String(row.companyName ?? "").trim();
+        if (name) {
+          setPrintCompanyName(name);
+        }
+        const department = String(row.department ?? "").trim();
+        setPrintDepartment(department || null);
+      })
+      .catch(() => {
+        // Keep defaults when company settings are unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAuthenticatedReports()
+      .getSignatory()
+      .then((signatory) => {
+        if (cancelled) {
+          return;
+        }
+        setSignatoryName(signatory.name);
+        setSignatoryTitle(signatory.title);
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -361,9 +431,12 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
     return next;
   }, [filtered, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const paginated = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paginated = sorted.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   useEffect(() => {
     if (page > totalPages) {
@@ -525,10 +598,12 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
   }
 
   const pageStart =
-    sorted.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, sorted.length);
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, sorted.length);
+    sorted.length === 0
+      ? 0
+      : Math.min((currentPage - 1) * pageSize + 1, sorted.length);
+  const pageEnd = Math.min(currentPage * pageSize, sorted.length);
 
-  const printRows =
+  const printRowsList =
     selectedIds.size > 0
       ? sorted.filter((row) => selectedIds.has(row.id))
       : sorted;
@@ -547,9 +622,13 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
       return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
     })(),
   );
+  const printRowChunks = chunkPrintRows(
+    printRowsList,
+    LOCATION_PRINT_ROWS_PER_PAGE,
+  );
 
   function printLocationList() {
-    if (printRows.length === 0) {
+    if (printRowsList.length === 0) {
       return;
     }
 
@@ -572,7 +651,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
           <button
             type="button"
             class="customers-btn customers-btn-secondary"
-            disabled={printRows.length === 0}
+            disabled={printRowsList.length === 0}
             onClick={() => printLocationList()}
           >
             <IconPrinter /> Print
@@ -700,7 +779,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
           ) : null}
         </div>
 
-        <div class="customers-table-scroll">
+        <div class="customers-table-scroll" ref={tableScrollRef}>
           <table class="customers-table">
             <thead>
               <tr>
@@ -870,50 +949,84 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
       ) : null}
 
       {printOpen ? (
-        <ReportOverlayShell preview title="Locations" onClose={() => setPrintOpen(false)}>
+        <ReportOverlayShell
+          preview
+          title="Location List"
+          onClose={() => setPrintOpen(false)}
+        >
           <DocumentPreview
-            title="Locations"
+            title="Location List"
             fileName="locations.pdf"
             page="list"
-            bodyClass="customers-print-mode locations-print-mode"
-            sourceKey={printRows}
+            bodyClass="locations-print-mode"
+            sourceKey={printRowsList}
           >
             <div class="customers-print-document" aria-hidden="true">
-        <header class="customers-print-header">
-          <h1>Location List</h1>
-          <p>
-            {printFilterLabel}
-            {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
-            {" · "}
-            {printRows.length} record{printRows.length === 1 ? "" : "s"}
-          </p>
-          <p class="customers-print-generated">Printed {printGeneratedAt}</p>
-        </header>
-        <table class="customers-print-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Status</th>
-              <th>Storage assignments</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {printRows.map((row, index) => (
-              <tr key={row.id}>
-                <td>{index + 1}</td>
-                <td>{row.locationName}</td>
-                <td>{row.isActive ? "Active" : "Inactive"}</td>
-                <td>
-                  {row.storageLocationCount > 0 ? row.storageLocationCount : "—"}
-                </td>
-                <td>{row.createdAt}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              {printRowChunks.map((chunk, chunkIndex) => {
+                const isFirst = chunkIndex === 0;
+                const isLast = chunkIndex === printRowChunks.length - 1;
+                const rowOffset = chunkIndex * LOCATION_PRINT_ROWS_PER_PAGE;
+                return (
+                  <section
+                    key={`locations-print-page-${chunkIndex}`}
+                    class={`customers-print-sheet${isFirst ? "" : " is-continued"}`}
+                  >
+                    <ReportHeader
+                      companyName={printCompanyName}
+                      department={printDepartment}
+                      serviceName="Palm Oil Sales Service"
+                      title="LOCATION LIST"
+                    />
+                    <p class="customers-print-meta">
+                      {printFilterLabel}
+                      {selectedIds.size > 0
+                        ? ` · ${selectedIds.size} selected`
+                        : ""}
+                      {" · "}
+                      {printRowsList.length} record
+                      {printRowsList.length === 1 ? "" : "s"}
+                      {printRowChunks.length > 1
+                        ? ` · Page ${chunkIndex + 1} of ${printRowChunks.length}`
+                        : ""}
+                      {" · "}
+                      Printed {printGeneratedAt}
+                    </p>
+                    <table class="customers-print-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Name</th>
+                          <th>Status</th>
+                          <th>Storage assignments</th>
+                          <th>Created</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {chunk.map((row, index) => (
+                          <tr key={row.id}>
+                            <td>{rowOffset + index + 1}</td>
+                            <td>{row.locationName}</td>
+                            <td>{row.isActive ? "Active" : "Inactive"}</td>
+                            <td>
+                              {row.storageLocationCount > 0
+                                ? row.storageLocationCount
+                                : "—"}
+                            </td>
+                            <td>{row.createdAt}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {isLast && signatoryTitle ? (
+                      <ReportFooter
+                        name={signatoryName}
+                        label={signatoryTitle}
+                      />
+                    ) : null}
+                  </section>
+                );
+              })}
+            </div>
           </DocumentPreview>
         </ReportOverlayShell>
       ) : null}

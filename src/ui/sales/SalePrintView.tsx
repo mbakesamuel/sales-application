@@ -42,6 +42,7 @@ function DocumentPrintShell({
   page = "portrait",
   bodyClass,
   sourceKey,
+  attributionFooter = true,
   children,
 }: {
   title: string;
@@ -50,6 +51,7 @@ function DocumentPrintShell({
   page?: PrintPage;
   bodyClass?: string;
   sourceKey: unknown;
+  attributionFooter?: boolean;
   children: ComponentChildren;
 }) {
   return (
@@ -60,6 +62,7 @@ function DocumentPrintShell({
         page={page}
         bodyClass={bodyClass}
         sourceKey={sourceKey}
+        attributionFooter={attributionFooter}
       >
         {children}
       </DocumentPreview>
@@ -67,7 +70,11 @@ function DocumentPrintShell({
   );
 }
 
-const CASH_RECEIPT_COPY_LABELS = ["Original", "Duplicate"] as const;
+const CASH_RECEIPT_COPY_LABELS = [
+  "Original",
+  "Duplicate",
+  "Triplicate",
+] as const;
 
 function CashReceiptDocument({ payload }: { payload: SalePrintPayload }) {
   const { sale } = payload;
@@ -110,43 +117,42 @@ function CashReceiptDocument({ payload }: { payload: SalePrintPayload }) {
         </p>
       </section>
 
-      <section class="sale-print-receipt-receiver">
-        <div class="sale-print-receipt-receiver-fields">
-          <div class="sale-print-receipt-receiver-row">
-            <span class="sale-print-receipt-receiver-label">
-              Signature of Receiver:
-            </span>
-            <span class="sale-print-receipt-receiver-line" />
-          </div>
-          <div class="sale-print-receipt-receiver-row">
-            <span class="sale-print-receipt-receiver-label">Full Name:</span>
-            <span class="sale-print-receipt-receiver-line" />
-          </div>
-          <div class="sale-print-receipt-receiver-row">
-            <span class="sale-print-receipt-receiver-label">Designation:</span>
-            <span class="sale-print-receipt-receiver-line" />
-          </div>
-          <div class="sale-print-receipt-receiver-row">
-            <span class="sale-print-receipt-receiver-label">Unit:</span>
-            <span class="sale-print-receipt-receiver-line" />
-          </div>
-        </div>
-      </section>
-
-      <section class="sale-print-footer">
-        <div class="sale-print-qr">
+      <section class="sale-print-receipt-after-prose">
+        <div class="sale-print-qr sale-print-receipt-qr">
           <QrCode
             value={buildSaleInvoiceQrText(sale, payload.companyName)}
-            size={56}
+            size={88}
             alt="Cash receipt verification QR code"
           />
+        </div>
+        <div class="sale-print-receipt-receiver">
+          <div class="sale-print-receipt-receiver-fields">
+            <div class="sale-print-receipt-receiver-row">
+              <span class="sale-print-receipt-receiver-label">
+                Signature of Receiver:
+              </span>
+              <span class="sale-print-receipt-receiver-line" />
+            </div>
+            <div class="sale-print-receipt-receiver-row">
+              <span class="sale-print-receipt-receiver-label">Full Name:</span>
+              <span class="sale-print-receipt-receiver-line" />
+            </div>
+            <div class="sale-print-receipt-receiver-row">
+              <span class="sale-print-receipt-receiver-label">Designation:</span>
+              <span class="sale-print-receipt-receiver-line" />
+            </div>
+            <div class="sale-print-receipt-receiver-row">
+              <span class="sale-print-receipt-receiver-label">Unit:</span>
+              <span class="sale-print-receipt-receiver-line" />
+            </div>
+          </div>
         </div>
       </section>
     </article>
   );
 }
 
-function CashReceiptDualSheet({ payload }: { payload: SalePrintPayload }) {
+function CashReceiptTripleSheet({ payload }: { payload: SalePrintPayload }) {
   const statusStamp = draftStampLabel(payload.sale.status);
 
   return (
@@ -234,9 +240,10 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
         page="portrait-receipt"
         bodyClass="sale-cash-print-mode"
         sourceKey={payload}
+        attributionFooter={false}
       >
         <div class="sale-cash-print-page">
-          <CashReceiptDualSheet payload={payload} />
+          <CashReceiptTripleSheet payload={payload} />
         </div>
       </DocumentPrintShell>
     );
@@ -305,7 +312,7 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
               <strong>{sale.customerName}</strong>
             </p>
             <p>
-              <span class="sale-print-label">Salesperson:</span>{" "}
+              <span class="sale-print-label">Sales Supervisor:</span>{" "}
               {sale.salespersonName?.trim() || "—"}
             </p>
             {sale.taxpayerId ? (
@@ -325,7 +332,7 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
 
         <section class="sale-print-info-grid">
           <div class="sale-print-info-block">
-            <div class="sale-print-info-heading">Billing Address:</div>
+            <div class="sale-print-info-heading">Customer Address:</div>
             <div class="sale-print-info-body">
               <p>{sale.customerName}</p>
               {sale.customerAddress ? (
@@ -337,7 +344,7 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
             </div>
           </div>
           <div class="sale-print-info-block">
-            <div class="sale-print-info-heading">Shipping Address:</div>
+            <div class="sale-print-info-heading">Mill/Collection Point:</div>
             <div class="sale-print-info-body">
               {sale.salesPointName ? (
                 <>
@@ -345,7 +352,7 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
                   <p class="sale-print-muted">Collection point</p>
                 </>
               ) : (
-                <p>Same as billing</p>
+                <p>Same as customer address</p>
               )}
             </div>
           </div>

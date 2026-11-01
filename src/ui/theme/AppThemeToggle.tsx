@@ -1,82 +1,107 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { getAuthenticatedDb } from "../auth/db.ts";
 import {
   applyUiTheme,
-  loadAndApplyCompanyTheme,
-  UI_THEME_COLORS,
-  UI_THEME_LABELS,
-  UI_THEME_PRESETS,
+  fetchCompanyThemePreset,
+  readCachedUiTheme,
+  writeCachedUiTheme,
   type UiThemePreset,
 } from "./applyUiTheme.ts";
 import "./AppThemeToggle.css";
 
+export const COMPANY_THEME_CHANGED_EVENT = "company-theme-changed";
+
 export function AppThemeToggle() {
   const [active, setActive] = useState<UiThemePreset>(() =>
-    applyUiTheme(document.documentElement.dataset.theme),
+    applyUiTheme(
+      document.documentElement.dataset.theme || readCachedUiTheme() || "agro",
+    ),
   );
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const loadGenerationRef = useRef(0);
+  const darkOn = active === "dark";
 
   useEffect(() => {
     let cancelled = false;
-    void loadAndApplyCompanyTheme().then((preset) => {
-      if (!cancelled) {
-        setActive(preset);
+    const generation = ++loadGenerationRef.current;
+    void fetchCompanyThemePreset().then((preset) => {
+      if (cancelled || generation !== loadGenerationRef.current) {
+        return;
       }
+      writeCachedUiTheme(preset);
+      setActive(applyUiTheme(preset));
     });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  async function selectTheme(preset: UiThemePreset) {
+  async function setTheme(preset: UiThemePreset) {
     if (busy || preset === active) {
       return;
     }
+    const previous = active;
+    // Invalidate any in-flight startup load so it cannot overwrite this choice.
+    loadGenerationRef.current += 1;
     setBusy(true);
+    setError(null);
     setActive(preset);
     applyUiTheme(preset);
+    writeCachedUiTheme(preset);
     try {
-      const result = await getAuthenticatedDb().queryTable({
-        table: "CompanySettings",
-        limit: 50,
-      });
-      const row =
-        result.rows.find((item) => String(item.id) === "default") ?? result.rows[0];
-      if (row?.id != null) {
-        await getAuthenticatedDb().updateRow({
-          table: "CompanySettings",
-          primaryKey: { id: row.id },
-          values: { uiThemePreset: preset },
-        });
+      const result = await getAuthenticatedDb().setCompanyUiTheme(preset);
+      if (result.ok === false) {
+        throw new Error(result.error);
       }
-    } catch {
-      // Theme still applied locally for this session.
+      if (result.uiThemePreset !== preset) {
+        throw new Error("Theme change did not persist.");
+      }
+      writeCachedUiTheme(result.uiThemePreset);
+      window.dispatchEvent(
+        new CustomEvent(COMPANY_THEME_CHANGED_EVENT, {
+          detail: result.uiThemePreset,
+        }),
+      );
+    } catch (saveError) {
+      setActive(previous);
+      applyUiTheme(previous);
+      writeCachedUiTheme(previous);
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save theme.",
+      );
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div class="app-theme-toggle" role="group" aria-label="App theme">
-      {UI_THEME_PRESETS.map((preset) => (
-        <button
-          key={preset}
-          type="button"
-          class={`app-theme-toggle-option${
-            active === preset ? " is-active" : ""
-          }`}
+    <div class="app-theme-toggle-wrap">
+      <label class={`app-theme-switch${darkOn ? " is-on" : ""}`}>
+        <span class="app-theme-switch-copy">
+          <strong>Dark theme</strong>
+          <span>{darkOn ? "On · Dark" : "Off · Agro"}</span>
+        </span>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={darkOn}
           disabled={busy}
-          aria-pressed={active === preset}
-          onClick={() => void selectTheme(preset)}
-        >
-          <span
-            class="app-theme-toggle-dot"
-            style={{ background: UI_THEME_COLORS[preset] }}
-            aria-hidden="true"
-          />
-          {UI_THEME_LABELS[preset]}
-        </button>
-      ))}
+          aria-label="Dark theme"
+          onChange={(event) => {
+            const next = (event.currentTarget as HTMLInputElement).checked
+              ? "dark"
+              : "agro";
+            void setTheme(next);
+          }}
+        />
+        <span class="app-theme-switch-track" aria-hidden="true">
+          <span class="app-theme-switch-thumb" />
+        </span>
+      </label>
+      {error ? <p class="app-theme-toggle-error">{error}</p> : null}
     </div>
   );
 }
