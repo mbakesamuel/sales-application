@@ -332,7 +332,7 @@ export function getPalmOilSalesActivityReport(userId: string): PalmOilSalesActiv
     generatedAtIso: nowIso(),
     looseOilSection: buildSection({
       id: "looseOil",
-      title: "LOOSE OIL",
+      title: "LOOSE PALM OIL",
       monthColumns: looseMonthColumns,
       lines: looseLines,
       products,

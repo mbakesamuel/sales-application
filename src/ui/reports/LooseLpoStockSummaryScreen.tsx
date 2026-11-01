@@ -57,7 +57,7 @@ export function LooseLpoStockSummaryDocument({
           companyName={report.settings.companyName}
           department={report.settings.department ?? null}
           serviceName={report.settings.serviceName ?? null}
-          title=""
+          title={report.reportTitle}
         />
       }
     >
@@ -70,8 +70,6 @@ export function LooseLpoStockSummaryDocument({
           <span class="mbo-routing-date">{formatDisplayDate(report.asAtIso)}</span>
         </p>
       </section>
-
-      <h1 class="lpo-summary-title">{report.reportTitle}</h1>
 
       <div>
         <table class="scr-table lpo-summary-table">

@@ -48,11 +48,9 @@ function emptyForm() {
 }
 
 export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenProps) {
-  const [hideZeroReportRows, setHideZeroReportRows] = useState(true);
   const [signatories, setSignatories] = useState<ReportSignatoryRow[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [signatoryBusy, setSignatoryBusy] = useState(false);
   const [commentsByReport, setCommentsByReport] = useState<Record<string, string>>({});
   const [commentReportId, setCommentReportId] = useState(COMMENT_REPORT_IDS[0] ?? "");
@@ -76,10 +74,6 @@ export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenP
       setCommentsByReport(parseReportComments(row?.reportCommentsJson));
       if (!row) {
         setError("Company settings row not found. Configure App settings first.");
-        setHideZeroReportRows(true);
-      } else {
-        const raw = row.hideZeroReportRows;
-        setHideZeroReportRows(raw == null ? true : Number(raw) !== 0);
       }
       setSignatories(list);
     } catch (loadError) {
@@ -100,33 +94,6 @@ export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenP
   useEffect(() => {
     setCommentDraft(commentsByReport[commentReportId] ?? "");
   }, [commentsByReport, commentReportId]);
-
-  async function onSave() {
-    if (readOnly || saving) {
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    setSavedHint(null);
-    try {
-      await getAuthenticatedDb().updateRow({
-        table: "CompanySettings",
-        primaryKey: { id: "default" },
-        values: {
-          hideZeroReportRows: hideZeroReportRows ? 1 : 0,
-        },
-      });
-      setSavedHint("Report settings saved.");
-    } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Failed to save report settings.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function onSaveComments() {
     if (readOnly || commentSaving || commentReportId.length === 0) {
@@ -256,19 +223,9 @@ export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenP
           <SlidersHorizontal size={22} aria-hidden="true" />
           <div>
             <h2>Report settings</h2>
-            <p>Display options, report comments, and footer signatory</p>
+            <p>Report comments and footer signatory</p>
           </div>
         </div>
-        {!readOnly ? (
-          <button
-            type="button"
-            class="company-settings-primary-btn"
-            disabled={loading || saving}
-            onClick={() => void onSave()}
-          >
-            {saving ? "Saving…" : "Save display options"}
-          </button>
-        ) : null}
       </header>
 
       <div class="company-settings-toolbar">
@@ -281,34 +238,6 @@ export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenP
           {error}
         </p>
       ) : null}
-
-      <section style="padding: 8px 24px 24px; max-width: 40rem;">
-        <label
-          style="display: flex; gap: 12px; align-items: flex-start; cursor: pointer; font-size: 14px;"
-        >
-          <input
-            type="checkbox"
-            checked={hideZeroReportRows}
-            disabled={loading || readOnly || saving}
-            onChange={(event) => {
-              setHideZeroReportRows((event.currentTarget as HTMLInputElement).checked);
-              setSavedHint(null);
-            }}
-            style="margin-top: 3px;"
-          />
-          <span>
-            <strong style="display: block; font-weight: 700; color: var(--text-h);">
-              Hide rows with zero or empty quantities
-            </strong>
-            <span style="display: block; margin-top: 6px; color: #64748b; font-size: 13px; line-height: 1.45;">
-              When enabled, reports omit rows (and empty collection-point blocks) whose
-              quantities are zero or blank. Applies to Stock, Stock &amp; commitment,
-              Commitment, Weekly deliveries, and Bottle oil stock &amp; sales.
-              Turn off to show those rows for reconciliation.
-            </span>
-          </span>
-        </label>
-      </section>
 
       <section style="padding: 8px 24px 24px; max-width: 40rem;">
         <h3 style="margin: 0 0 8px; font-size: 16px; color: var(--text-h);">

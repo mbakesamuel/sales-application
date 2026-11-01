@@ -122,7 +122,7 @@ function ReportDocument({ report }: { report: RevenueTaxesReport }) {
     <DocumentPreview
         title="Revenue taxes"
         fileName={`revenue-taxes-${report.period}-${report.asAtIso}.pdf`}
-        page="landscape"
+        page="landscape-wide"
         bodyClass="rtr-print-landscape"
         sourceKey={report}
         isEmpty={empty}
@@ -147,8 +147,7 @@ function ReportDocument({ report }: { report: RevenueTaxesReport }) {
       }
     >
       <p class="rtr-basis">
-        Validated invoice totals by date issued · {report.salesPointLabel} · as
-        at {formatDisplayDate(report.asAtIso)}
+        {report.salesPointLabel} · as at {formatDisplayDate(report.asAtIso)}
       </p>
       <SummaryTable totals={report.totals} />
       <MoneyTable
@@ -238,8 +237,9 @@ export function RevenueTaxesReportScreen({
       <div class="scr-toolbar no-print sbc-toolbar">
         <div class="dsr-filters">
           <label class="dsr-filter">
-            <span>Period</span>
             <select
+              aria-label="Period"
+              title="Period"
               value={period}
               disabled={loading}
               onChange={(event) => {
@@ -252,8 +252,9 @@ export function RevenueTaxesReportScreen({
             </select>
           </label>
           <label class="dsr-filter">
-            <span>Collection point</span>
             <select
+              aria-label="Collection point"
+              title="Collection point"
               value={salesPointId == null ? "" : String(salesPointId)}
               disabled={loading || report.scopedSalesPointId != null}
               onChange={(event) => {
@@ -262,7 +263,7 @@ export function RevenueTaxesReportScreen({
               }}
             >
               {report.scopedSalesPointId == null ? (
-                <option value="">All collection points</option>
+                <option value="">Collection point</option>
               ) : null}
               {report.salesPointOptions.map((point) => (
                 <option key={point.id} value={String(point.id)}>

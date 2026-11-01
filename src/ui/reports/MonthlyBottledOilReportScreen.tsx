@@ -31,7 +31,7 @@ function ReportDocument({ report }: { report: MonthlyBottledOilReport }) {
     <DocumentPreview
         title="Monthly bottled oil"
         fileName={`monthly-bottled-oil-${report.financialYear}-${report.asAtIso}.pdf`}
-        page="landscape"
+        page="landscape-wide"
         bodyClass="mbo-print-landscape"
         sourceKey={report}
         isEmpty={empty}

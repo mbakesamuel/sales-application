@@ -3,14 +3,14 @@ import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
-  WeeklyDeliveriesBottledSection,
-  WeeklyDeliveriesLooseSection,
-  WeeklyDeliveriesMiscSection,
+  WeeklyDeliveriesLooseRow,
   WeeklyDeliveriesReport,
 } from "../../shared/reports.types.ts";
 import { ReportFilterGate } from "./ReportFilterGate.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { HideZeroRowsToggle } from "./HideZeroRowsToggle.tsx";
+import { useHideZeroReportRows } from "./hideZeroReportRows.ts";
 import {
   HIDE_ZERO_ROWS_HINT,
   isWeeklyDeliveriesReportEmpty,
@@ -29,26 +29,40 @@ function formatQty(value: number | null | undefined): string {
   return rounded.toLocaleString("en-US");
 }
 
-function LooseSection({ section }: { section: WeeklyDeliveriesLooseSection }) {
+function MatrixSection({
+  title,
+  salesPointNames,
+  rows,
+}: {
+  title: string;
+  salesPointNames: string[];
+  rows: WeeklyDeliveriesLooseRow[];
+}) {
+  if (!rows?.length) {
+    return null;
+  }
+
+  const pointNames = salesPointNames ?? [];
+
   return (
     <div class="scr-bottled-block">
       <table class="scr-table wd-matrix-table">
         <thead>
           <tr>
-            <th colSpan={section.salesPointNames.length + 2} class="scr-section-title">
-              {section.title}
+            <th colSpan={pointNames.length + 2} class="scr-section-title">
+              {title}
             </th>
           </tr>
           <tr>
             <th />
-            {section.salesPointNames.map((name) => (
+            {pointNames.map((name) => (
               <th key={name}>{name}</th>
             ))}
             <th>TOTAL</th>
           </tr>
         </thead>
         <tbody>
-          {section.rows.map((row) => (
+          {rows.map((row) => (
             <tr
               key={row.label}
               class={row.kind === "total" ? "scr-row scr-row-total" : "scr-row"}
@@ -60,91 +74,6 @@ function LooseSection({ section }: { section: WeeklyDeliveriesLooseSection }) {
                 </td>
               ))}
               <td class="scr-num scr-total-cell">{formatQty(row.rowTotal)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function BottledSection({ section }: { section: WeeklyDeliveriesBottledSection }) {
-  return (
-    <div class="scr-bottled-block">
-      <table class="scr-table scr-bottled-table wd-matrix-table">
-        <thead>
-          <tr>
-            <th colSpan={section.columns.length + 2} class="scr-section-title">
-              {section.title}
-            </th>
-          </tr>
-          <tr>
-            <th />
-            {section.columns.map((column) => (
-              <th key={column.id}>{column.label}</th>
-            ))}
-            <th>TOTAL</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td />
-            {section.unitCounts.map((count, index) => (
-              <td key={`units-${index}`} class="scr-num">
-                {formatQty(count)}
-              </td>
-            ))}
-            <td class="scr-num scr-total-cell">{formatQty(section.totalUnits)}</td>
-          </tr>
-          <tr>
-            <td class="scr-row-label">LITRES</td>
-            {section.litres.map((litre, index) => (
-              <td key={`litres-${index}`} class="scr-num">
-                {formatQty(litre)}
-              </td>
-            ))}
-            <td />
-          </tr>
-          <tr>
-            <td class="scr-row-label">KGS</td>
-            {section.kgs.map((kg, index) => (
-              <td key={`kgs-${index}`} class="scr-num">
-                {formatQty(kg)}
-              </td>
-            ))}
-            <td class="scr-num scr-total-cell">{formatQty(section.totalKgs)}</td>
-          </tr>
-          <tr class="scr-row-total">
-            <td class="scr-row-label">TOTAL DELIVERIES</td>
-            <td colSpan={section.columns.length} />
-            <td class="scr-num scr-total-cell">{formatQty(section.totalUnits)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function MiscSection({ section }: { section: WeeklyDeliveriesMiscSection }) {
-  if (section.rows.length === 0) {
-    return null;
-  }
-
-  return (
-    <div class="scr-bottled-block">
-      <table class="scr-table wd-matrix-table">
-        <thead>
-          <tr>
-            <th colSpan={2} class="scr-section-title">
-              {section.title}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {section.rows.map((row) => (
-            <tr key={row.label} class="scr-row">
-              <td class="scr-row-label">{row.label}</td>
-              <td class="scr-num">{formatQty(row.quantityKg)}</td>
             </tr>
           ))}
         </tbody>
@@ -189,9 +118,21 @@ export function WeeklyDeliveriesReportDocument({
         />
       }
     >
-      <LooseSection section={report.looseSection} />
-      <BottledSection section={report.bottledSection} />
-      <MiscSection section={report.miscSection} />
+      <MatrixSection
+        title={report.looseSection.title}
+        salesPointNames={report.looseSection.salesPointNames}
+        rows={report.looseSection.rows}
+      />
+      <MatrixSection
+        title={report.bottledSection.title}
+        salesPointNames={report.bottledSection.salesPointNames}
+        rows={report.bottledSection.rows}
+      />
+      <MatrixSection
+        title={report.miscSection.title}
+        salesPointNames={report.miscSection.salesPointNames}
+        rows={report.miscSection.rows}
+      />
     </ReportDocumentShell>
       </DocumentPreview>
   );
@@ -203,6 +144,7 @@ export function WeeklyDeliveriesReportScreen({
   windowMode?: boolean;
 }) {
   void windowMode;
+  const [hideZero, setHideZero] = useHideZeroReportRows();
   const [report, setReport] = useState<WeeklyDeliveriesReport | null>(null);
   const [weekMondayIso, setWeekMondayIso] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -215,7 +157,10 @@ export function WeeklyDeliveriesReportScreen({
       setLoading(true);
       setError(null);
       try {
-        const data = await getAuthenticatedReports().getWeeklyDeliveries(weekMondayIso);
+        const data = await getAuthenticatedReports().getWeeklyDeliveries(
+          weekMondayIso,
+          hideZero,
+        );
         if (!cancelled) {
           setReport(data);
         }
@@ -234,7 +179,7 @@ export function WeeklyDeliveriesReportScreen({
     return () => {
       cancelled = true;
     };
-  }, [weekMondayIso]);
+  }, [weekMondayIso, hideZero]);
 
   if (loading && !report) {
     return <p class="scr-status">Loading weekly deliveries report...</p>;
@@ -271,6 +216,11 @@ export function WeeklyDeliveriesReportScreen({
             ))}
           </div>
         ) : null}
+        <HideZeroRowsToggle
+          checked={hideZero}
+          disabled={loading}
+          onChange={setHideZero}
+        />
       </div>
 
       {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}

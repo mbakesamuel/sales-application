@@ -8,7 +8,7 @@ import type {
   StockReportSalesPointQtySection,
   StockReportSection,
 } from "../../shared/reports.types.js";
-import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportComments } from "./companySettings.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import {
   BOTTLED_PACK_ORDER,
@@ -513,10 +513,13 @@ function buildSalesPointQtySection(
   };
 }
 
-export function getStockReport(userId?: string | null): StockReport {
+export function getStockReport(
+  userId?: string | null,
+  hideZeroArg?: boolean | null,
+): StockReport {
   const { asAtIso } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
-  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
+  const hideZero = hideZeroArg ?? true;
   const salesPoints = loadSalesPointsForUser(userId);
   const storageLocations = loadStorageLocationsForUser(userId);
   const products = loadProducts();

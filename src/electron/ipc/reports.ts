@@ -76,36 +76,47 @@ function parseReportYear(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function parseHideZero(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  return undefined;
+}
+
 export function registerReportsHandlers(): void {
   ipcMain.handle(
     "reports:getStockCommitment",
-    (_event, authToken: string): StockCommitmentReport => {
+    (_event, authToken: string, hideZero?: unknown): StockCommitmentReport => {
       const user = requireAuthUser(authToken);
-      return getStockCommitmentReport(user.id);
+      return getStockCommitmentReport(user.id, parseHideZero(hideZero));
     },
   );
 
   ipcMain.handle(
     "reports:getStockReport",
-    (_event, authToken: string): StockReport => {
+    (_event, authToken: string, hideZero?: unknown): StockReport => {
       const user = requireAuthUser(authToken);
-      return getStockReport(user.id);
+      return getStockReport(user.id, parseHideZero(hideZero));
     },
   );
 
   ipcMain.handle(
     "reports:getCommitmentReport",
-    (_event, authToken: string): CommitmentReport => {
+    (_event, authToken: string, hideZero?: unknown): CommitmentReport => {
       const user = requireAuthUser(authToken);
-      return getCommitmentReport(user.id);
+      return getCommitmentReport(user.id, parseHideZero(hideZero));
     },
   );
 
   ipcMain.handle(
     "reports:getBottleOilStockSales",
-    (_event, authToken: string): BottleOilStockSalesReport => {
+    (
+      _event,
+      authToken: string,
+      hideZero?: unknown,
+    ): BottleOilStockSalesReport => {
       const user = requireAuthUser(authToken);
-      return getBottleOilStockSalesReport(user.id);
+      return getBottleOilStockSalesReport(user.id, parseHideZero(hideZero));
     },
   );
 
@@ -140,13 +151,14 @@ export function registerReportsHandlers(): void {
       _event,
       authToken: string,
       weekMondayIso?: unknown,
+      hideZero?: unknown,
     ): WeeklyDeliveriesReport => {
       const user = requireAuthUser(authToken);
       const monday =
         typeof weekMondayIso === "string" && /^\d{4}-\d{2}-\d{2}$/.test(weekMondayIso)
           ? weekMondayIso
           : null;
-      return getWeeklyDeliveriesReport(user.id, monday);
+      return getWeeklyDeliveriesReport(user.id, monday, parseHideZero(hideZero));
     },
   );
 
@@ -163,9 +175,13 @@ export function registerReportsHandlers(): void {
 
   ipcMain.handle(
     "reports:getMonthlyStockReconciliation",
-    (_event, authToken: string): MonthlyStockReconciliationReport => {
+    (
+      _event,
+      authToken: string,
+      hideZero?: unknown,
+    ): MonthlyStockReconciliationReport => {
       const user = requireAuthUser(authToken);
-      return getMonthlyStockReconciliationReport(user.id);
+      return getMonthlyStockReconciliationReport(user.id, parseHideZero(hideZero));
     },
   );
 

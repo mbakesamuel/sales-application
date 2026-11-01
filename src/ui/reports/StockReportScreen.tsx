@@ -13,6 +13,8 @@ import type {
 } from "../../shared/reports.types.ts";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { HideZeroRowsToggle } from "./HideZeroRowsToggle.tsx";
+import { useHideZeroReportRows } from "./hideZeroReportRows.ts";
 import { HIDE_ZERO_ROWS_HINT, isStockReportEmpty } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 
@@ -225,7 +227,7 @@ function SalesPointQtySection({
 }) {
   return (
     <div class="scr-bottled-block">
-      <table class="scr-table sr-report-matrix sr-location-detail">
+      <table class="scr-table sr-report-matrix sr-location-detail sr-sales-point-qty">
         <LocationDetailColGroup />
         <thead>
           <tr>
@@ -326,6 +328,7 @@ export function StockReportScreen({
   windowMode?: boolean;
 }) {
   void windowMode;
+  const [hideZero, setHideZero] = useHideZeroReportRows();
   const [report, setReport] = useState<StockReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -337,7 +340,7 @@ export function StockReportScreen({
       setLoading(true);
       setError(null);
       try {
-        const data = await getAuthenticatedReports().getStockReport();
+        const data = await getAuthenticatedReports().getStockReport(hideZero);
         if (!cancelled) {
           setReport(data);
         }
@@ -358,13 +361,13 @@ export function StockReportScreen({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [hideZero]);
 
-  if (loading) {
+  if (loading && !report) {
     return <p class="scr-status">Loading stock report...</p>;
   }
 
-  if (error) {
+  if (error && !report) {
     return <p class="scr-status scr-status-error">{error}</p>;
   }
 
@@ -374,6 +377,14 @@ export function StockReportScreen({
 
   return (
     <div class="scr-page">
+      <div class="scr-toolbar no-print">
+        <HideZeroRowsToggle
+          checked={hideZero}
+          disabled={loading}
+          onChange={setHideZero}
+        />
+      </div>
+      {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}
       <StockReportDocument report={report} />
     </div>
   );

@@ -7,7 +7,7 @@ import type {
   WeeklyDeliveriesReport,
   WeeklyDeliveriesWeekChoice,
 } from "../../shared/reports.types.js";
-import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportComments } from "./companySettings.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import {
   PALM_OIL_KG_PER_LITRE,
@@ -197,51 +197,75 @@ function buildLooseSection(
   };
 }
 
+function bottledLineKg(line: SaleLineRecord, litresPerUnit: number): number {
+  return bottledLineUnits(line) * litresPerUnit * PALM_OIL_KG_PER_LITRE;
+}
+
 function buildBottledSection(
+  salesPoints: SalesPointRow[],
   saleLines: SaleLineRecord[],
   products: ProductRow[],
+  hideZero: boolean,
 ): WeeklyDeliveriesBottledSection {
+  const salesPointNames = salesPoints.map((salesPoint) => salesPoint.name.toUpperCase());
   const bottledProducts = products.filter((product) => product.isBottled === 1);
   const productPackById = new Map(
     bottledProducts.map((product) => [product.productId, detectBottledPack(product).id]),
   );
   const bottledLines = saleLines.filter((line) => line.isBottled === 1);
 
-  const unitCounts = BOTTLED_DELIVERY_COLUMNS.map((column) => {
-    return sum(
-      bottledLines
-        .filter((line) => productPackById.get(line.productId) === column.id)
-        .map((line) => bottledLineUnits(line)),
+  const dataRows: WeeklyDeliveriesLooseRow[] = BOTTLED_DELIVERY_COLUMNS.map((column) => {
+    const quantities = salesPoints.map((salesPoint) =>
+      sum(
+        bottledLines
+          .filter(
+            (line) =>
+              line.salesPointId === salesPoint.id &&
+              productPackById.get(line.productId) === column.id,
+          )
+          .map((line) => bottledLineKg(line, column.litresPerUnit)),
+      ),
     );
-  });
 
-  const litres = BOTTLED_DELIVERY_COLUMNS.map(
-    (column, index) => unitCounts[index] * column.litresPerUnit,
+    return {
+      label: column.label,
+      quantities,
+      rowTotal: sum(quantities),
+      kind: "data" as const,
+    };
+  }).filter((row) => !hideZero || Math.abs(row.rowTotal) > 0.0001);
+
+  const columnTotals = salesPoints.map((_, salesPointIndex) =>
+    sum(dataRows.map((row) => row.quantities[salesPointIndex] ?? 0)),
   );
-  const kgs = litres.map((litre) => litre * PALM_OIL_KG_PER_LITRE);
-  const totalUnits = sum(unitCounts);
-  const totalKgs = sum(kgs);
+
+  const rows: WeeklyDeliveriesLooseRow[] =
+    dataRows.length === 0
+      ? []
+      : [
+          ...dataRows,
+          {
+            label: "TOTAL",
+            quantities: columnTotals,
+            rowTotal: sum(columnTotals),
+            kind: "total",
+          },
+        ];
 
   return {
     title: "2) BOTTLED PALM OIL",
-    columns: BOTTLED_DELIVERY_COLUMNS.map(({ id, label, litresPerUnit }) => ({
-      id,
-      label,
-      litresPerUnit,
-    })),
-    unitCounts,
-    litres,
-    kgs,
-    totalUnits,
-    totalKgs,
+    salesPointNames,
+    rows,
   };
 }
 
 function buildMiscSection(
+  salesPoints: SalesPointRow[],
   saleLines: SaleLineRecord[],
   products: ProductRow[],
   hideZero: boolean,
 ): WeeklyDeliveriesMiscSection {
+  const salesPointNames = salesPoints.map((salesPoint) => salesPoint.name.toUpperCase());
   const miscProducts = products.filter(
     (product) =>
       product.isBottled !== 1 &&
@@ -255,18 +279,50 @@ function buildMiscSection(
     (line) => line.isBottled !== 1 && !saleLineIsLooseLpo(line),
   );
 
-  const rows = miscProducts
-    .map((product) => ({
-      label: product.productName.toUpperCase(),
-      quantityKg: sum(
-        miscLines.filter((line) => line.productId === product.productId).map((line) => looseLineKg(line)),
-      ),
-    }))
-    .filter((row) => !hideZero || row.quantityKg > 0)
+  const dataRows: WeeklyDeliveriesLooseRow[] = miscProducts
+    .map((product) => {
+      const quantities = salesPoints.map((salesPoint) =>
+        sum(
+          miscLines
+            .filter(
+              (line) =>
+                line.productId === product.productId &&
+                line.salesPointId === salesPoint.id,
+            )
+            .map((line) => looseLineKg(line)),
+        ),
+      );
+
+      return {
+        label: product.productName.toUpperCase(),
+        quantities,
+        rowTotal: sum(quantities),
+        kind: "data" as const,
+      };
+    })
+    .filter((row) => !hideZero || Math.abs(row.rowTotal) > 0.0001)
     .sort((left, right) => left.label.localeCompare(right.label));
+
+  const columnTotals = salesPoints.map((_, salesPointIndex) =>
+    sum(dataRows.map((row) => row.quantities[salesPointIndex] ?? 0)),
+  );
+
+  const rows: WeeklyDeliveriesLooseRow[] =
+    dataRows.length === 0
+      ? []
+      : [
+          ...dataRows,
+          {
+            label: "TOTAL",
+            quantities: columnTotals,
+            rowTotal: sum(columnTotals),
+            kind: "total",
+          },
+        ];
 
   return {
     title: MISC_SECTION_TITLE,
+    salesPointNames,
     rows,
   };
 }
@@ -274,10 +330,11 @@ function buildMiscSection(
 export function getWeeklyDeliveriesReport(
   userId?: string | null,
   weekMondayIso?: string | null,
+  hideZeroArg?: boolean | null,
 ): WeeklyDeliveriesReport {
   const { asAtIso, period } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
-  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
+  const hideZero = hideZeroArg ?? true;
   const salesPoints = loadSalesPointsForUser(userId);
   const scopedSalesPointId = reportScopedSalesPointId(userId);
   const products = loadProducts();
@@ -314,8 +371,8 @@ export function getWeeklyDeliveriesReport(
     weekChoices,
     generatedAtIso: nowIso(),
     looseSection: buildLooseSection(salesPoints, saleLines, hideZero),
-    bottledSection: buildBottledSection(saleLines, products),
-    miscSection: buildMiscSection(saleLines, products, hideZero),
+    bottledSection: buildBottledSection(salesPoints, saleLines, products, hideZero),
+    miscSection: buildMiscSection(salesPoints, saleLines, products, hideZero),
     comments: loadReportComments("sales-delivery-report"),
   };
 }

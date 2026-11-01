@@ -231,23 +231,25 @@ export function registerPrintHandlers(): void {
         // A4 in microns. preferCSSPageSize lets the document @page rule win.
         // displayHeaderFooter repeats the attribution line, because printToPDF
         // drops position:fixed elements inside the page.
+        // Top margin must clear Electron's displayHeaderFooter band; too-small
+        // tops clip absolutely-positioned report logos (header top:0).
+        const landscape = _options?.landscape === true;
         const pdfBuffer = await printWindow.webContents.printToPDF({
           printBackground: true,
-          landscape: false,
-          pageSize: {
-            width: 210000,
-            height: 297000,
-          },
+          landscape,
+          pageSize: landscape
+            ? { width: 297000, height: 210000 }
+            : { width: 210000, height: 297000 },
           preferCSSPageSize: true,
           displayHeaderFooter: true,
           headerTemplate: HEADER_TEMPLATE,
           footerTemplate: FOOTER_TEMPLATE,
           margins: {
             marginType: "custom",
-            top: 0.315,
+            top: 0.28,
             bottom: 0.55,
-            left: 0.315,
-            right: 0.315,
+            left: 0.25,
+            right: 0.25,
           },
         });
         if (!pdfBuffer || pdfBuffer.byteLength === 0) {

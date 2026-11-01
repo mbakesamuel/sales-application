@@ -47,7 +47,7 @@ function ReportDocument({ report }: { report: OtherProductSalesDeliveriesReport 
     <DocumentPreview
         title="Other product sales deliveries"
         fileName={`other-product-sales-deliveries-${report.financialYear}-${report.asAtIso}.pdf`}
-        page="landscape"
+        page="landscape-wide"
         bodyClass="opsd-print-landscape"
         sourceKey={report}
         isEmpty={empty}

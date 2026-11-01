@@ -9,6 +9,47 @@
   vertical-align: middle;
 }
 
+.bwi-document .bwi-day-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.bwi-document .bwi-day-name {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bwi-document .bwi-day-date {
+  margin-top: 2px;
+  font-size: 0.75em;
+  font-weight: 500;
+}
+
+.bwi-document .bwi-pack-col {
+  text-align: center;
+  min-width: 4.5rem;
+}
+
+.bwi-document .bwi-detail-table th.bwi-mtd-col {
+  width: 4.75rem;
+  max-width: 4.75rem;
+  white-space: normal;
+  line-height: 1.15;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+.bwi-document .bwi-detail-table td.bwi-mtd-col {
+  width: 4.75rem;
+  max-width: 4.75rem;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+.bwi-document .bwi-footer-row td.scr-row-label {
+  font-weight: 600;
+}
+
 .bwi-estimate-basis {
   display: inline-flex;
   align-items: center;
@@ -40,8 +81,4 @@
   text-transform: none;
   letter-spacing: 0;
   color: #555;
-}
-
-.bwi-document .bwi-day-col {
-  text-align: center;
 }

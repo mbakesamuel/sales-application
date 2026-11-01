@@ -4,12 +4,10 @@ import { getAuthenticatedReports } from "../auth/reports.ts";
 import type {
   BottledWeeklyEstimateBasis,
   BottledWeeklyIssuesReport,
-  BottledWeeklyMethodMetricRow,
 } from "../../shared/reports.types.ts";
 import { BOTTLED_WEEKLY_ESTIMATE_BASIS_OPTIONS } from "../../shared/reports.types.ts";
 import { ReportFilterGate } from "./ReportFilterGate.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
-import { ReportEmptyMessage } from "./ReportEmptyMessage.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
@@ -59,14 +57,15 @@ function formatAvgPrice(value: number | null): string {
   return Math.round(value).toLocaleString("en-US");
 }
 
-function mtdDisplay(row: BottledWeeklyMethodMetricRow): string {
-  return row.kind === "kgs"
-    ? formatQty(row.monthToDateKg)
-    : formatFcfa(row.monthToDateValue);
+/** Detail-table cells: null/zero render as "-". */
+function dashQty(value: number | null | undefined): string {
+  if (value == null || Math.abs(value) < 1e-9) return "-";
+  return Math.round(value).toLocaleString("en-US");
 }
 
-function weekValueDisplay(row: BottledWeeklyMethodMetricRow): string {
-  return row.kind === "kgs" ? formatFcfa(row.weekValue) : formatFcfa(row.weekTotal);
+function dashFcfa(value: number | null | undefined): string {
+  if (value == null || Math.abs(value) < 1e-9) return "-";
+  return Math.round(value).toLocaleString("en-US");
 }
 
 export function BottledWeeklyIssuesReportDocument({
@@ -74,8 +73,9 @@ export function BottledWeeklyIssuesReportDocument({
 }: {
   report: BottledWeeklyIssuesReport;
 }) {
-  const dayColSpan = report.detail.dayColumns.length;
   const empty = isBottledWeeklyIssuesReportEmpty(report);
+  const packColumns = report.detail.packColumns;
+  const footerRowSpan = 1 + report.detail.footer.length;
 
   return (
     <DocumentPreview
@@ -110,75 +110,82 @@ export function BottledWeeklyIssuesReportDocument({
         <table class="scr-table bwi-detail-table">
           <thead>
             <tr>
-              <th>MONTH</th>
+              <th>MONTH {report.detail.monthLabel}</th>
               <th>METHOD PAYMT</th>
-              <th>METRIC</th>
-              {report.detail.dayColumns.map((column) => (
-                <th key={column.id} class="bwi-day-col">
+              {packColumns.map((column) => (
+                <th key={column.id} class="bwi-pack-col">
                   {column.label}
                 </th>
               ))}
               <th>TOTAL</th>
               <th>VALUE FCFA</th>
-              <th>MONTH TO DATE</th>
+              <th class="bwi-mtd-col">MONTH TO DATE</th>
             </tr>
           </thead>
           <tbody>
-            {report.detail.methods.map((method, methodIndex) =>
-              method.rows.map((row, rowIndex) => (
-                <tr key={`${method.method}-${row.kind}`} class="scr-row">
-                  {methodIndex === 0 && rowIndex === 0 ? (
-                    <td
-                      class="scr-row-label"
-                      rowSpan={report.detail.methods.length * 2 + 2}
-                    >
-                      {report.detail.monthLabel}
-                    </td>
-                  ) : null}
-                  {rowIndex === 0 ? (
-                    <td class="scr-row-label" rowSpan={2}>
-                      {method.label}
+            {report.detail.days.map((day) =>
+              day.methods.map((row, methodIndex) => (
+                <tr key={`${day.id}-${row.method}`} class="scr-row">
+                  {methodIndex === 0 ? (
+                    <td class="scr-row-label bwi-day-cell" rowSpan={3}>
+                      <div class="bwi-day-name">{day.label}</div>
+                      <div class="bwi-day-date">{day.displayDate}</div>
                     </td>
                   ) : null}
                   <td class="scr-row-label">{row.label}</td>
-                  {row.dayValues.map((value, index) => (
+                  {row.packUnits.map((units, packIndex) => (
                     <td
-                      key={`${method.method}-${row.kind}-${index}`}
-                      class="scr-num bwi-day-col"
+                      key={`${day.id}-${row.method}-p${packIndex}`}
+                      class="scr-num bwi-pack-col"
                     >
-                      {row.kind === "kgs" ? formatQty(value) : formatFcfa(value)}
+                      {dashQty(units)}
                     </td>
                   ))}
-                  <td class="scr-num scr-total-cell">
-                    {row.kind === "kgs"
-                      ? formatQty(row.weekTotal)
-                      : formatFcfa(row.weekTotal)}
+                  <td class="scr-num scr-total-cell">{dashQty(row.totalUnits)}</td>
+                  <td class="scr-num">{dashFcfa(row.valueFcfa)}</td>
+                  <td class="scr-num bwi-mtd-col">
+                    {Math.abs(row.valueFcfa) > 1e-9 || Math.abs(row.totalUnits) > 1e-9
+                      ? dashFcfa(row.monthToDateValue)
+                      : "-"}
                   </td>
-                  <td class="scr-num">{weekValueDisplay(row)}</td>
-                  <td class="scr-num">{mtdDisplay(row)}</td>
                 </tr>
               )),
             )}
-            {report.detail.totals.map((row, rowIndex) => (
-              <tr key={`total-${row.kind}`} class="scr-row scr-row-total">
-                {rowIndex === 0 ? (
-                  <td class="scr-row-label" rowSpan={2}>
-                    TOTAL
-                  </td>
-                ) : null}
+            <tr class="scr-row scr-row-total">
+              <td class="scr-row-label" rowSpan={footerRowSpan}>
+                TOTAL
+              </td>
+              <td class="scr-row-label" />
+              {report.detail.totals.packUnits.map((units, packIndex) => (
+                <td key={`total-p${packIndex}`} class="scr-num bwi-pack-col">
+                  {dashQty(units)}
+                </td>
+              ))}
+              <td class="scr-num scr-total-cell">
+                {dashQty(report.detail.totals.totalUnits)}
+              </td>
+              <td class="scr-num">{dashFcfa(report.detail.totals.valueFcfa)}</td>
+              <td class="scr-num bwi-mtd-col">
+                {dashFcfa(report.detail.totals.monthToDateValue)}
+              </td>
+            </tr>
+            {report.detail.footer.map((row) => (
+              <tr key={row.id} class="scr-row bwi-footer-row">
                 <td class="scr-row-label">{row.label}</td>
-                {row.dayValues.map((value, index) => (
-                  <td key={`total-${row.kind}-${index}`} class="scr-num bwi-day-col">
-                    {row.kind === "kgs" ? formatQty(value) : formatFcfa(value)}
+                {row.packValues.map((value, packIndex) => (
+                  <td key={`${row.id}-p${packIndex}`} class="scr-num bwi-pack-col">
+                    {row.id === "value" ? dashFcfa(value) : dashQty(value)}
                   </td>
                 ))}
                 <td class="scr-num scr-total-cell">
-                  {row.kind === "kgs"
-                    ? formatQty(row.weekTotal)
-                    : formatFcfa(row.weekTotal)}
+                  {row.id === "value" ? dashFcfa(row.total) : dashQty(row.total)}
                 </td>
-                <td class="scr-num">{weekValueDisplay(row)}</td>
-                <td class="scr-num">{mtdDisplay(row)}</td>
+                <td class="scr-num">
+                  {row.id === "value" ? dashFcfa(row.valueFcfa) : "-"}
+                </td>
+                <td class="scr-num bwi-mtd-col">
+                  {row.id === "value" ? dashFcfa(row.monthToDateValue) : "-"}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -280,10 +287,6 @@ export function BottledWeeklyIssuesReportDocument({
           </tbody>
         </table>
       </div>
-
-      {dayColSpan === 0 ? (
-        <ReportEmptyMessage message="No weekday columns in the current week window." />
-      ) : null}
     </ReportDocumentShell>
       </DocumentPreview>
   );

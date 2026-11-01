@@ -8,7 +8,7 @@ import type {
   BottleOilStockSection,
 } from "../../shared/reports.types.js";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.js";
-import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportComments } from "./companySettings.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import {
   PALM_OIL_KG_PER_LITRE,
@@ -368,10 +368,11 @@ function buildSalesSection(
 
 export function getBottleOilStockSalesReport(
   userId?: string | null,
+  hideZeroArg?: boolean | null,
 ): BottleOilStockSalesReport {
   const { asAtIso, period } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
-  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
+  const hideZero = hideZeroArg ?? true;
   const salesPoints = loadSalesPointsForUser(userId);
   const scopedSalesPointId = reportScopedSalesPointId(userId);
   const products = loadProducts();

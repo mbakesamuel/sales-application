@@ -208,6 +208,11 @@
   text-align: center;
 }
 
+.wd-weekly-deliveries .wd-matrix-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
 .wd-weekly-deliveries .wd-matrix-table td.scr-num,
 .wd-weekly-deliveries .wd-matrix-table th:not(:first-child):not(.scr-section-title) {
   text-align: center;
@@ -258,6 +263,15 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* No-storage products (PKO / kernel / cake): drop the vertical rule after sales point. */
+.sr-sales-point-qty tbody td:first-child {
+  border-right: none;
+}
+
+.sr-sales-point-qty tbody td:nth-child(2) {
+  border-left: none;
 }
 
 /* Compact stock report: tighter rows, all bottled product columns visible. */
@@ -419,7 +433,8 @@
 
   body.scr-print-mode .weekly-report-tight .report-header,
   body.scr-print-mode .sr-stock-report .report-header,
-  body.scr-print-mode .cr-commitment-report .report-header {
+  body.scr-print-mode .cr-commitment-report .report-header,
+  body.scr-print-mode .mdr-document .report-header {
     /* Keep room for the logo so the company name is not clipped. */
     padding-top: calc((var(--report-header-logo-height, 84px) - 24px * 1.3) / 2);
     padding-bottom: 8px;
@@ -499,6 +514,14 @@
     color: #111 !important;
   }
 
+  body.scr-print-mode .sr-sales-point-qty tbody td:first-child {
+    border-right: none !important;
+  }
+
+  body.scr-print-mode .sr-sales-point-qty tbody td:nth-child(2) {
+    border-left: none !important;
+  }
+
   body.scr-print-mode .scr-document .report-header,
   body.scr-print-mode .scr-document .report-header * {
     background: #fff !important;
@@ -510,10 +533,25 @@
     border-bottom: 2px solid #111 !important;
   }
 
-  /* Stock Summary, Stock weekly, Commitments, Bottle oil stock: no rule above the table. */
+  /* Stock Summary, Stock weekly, Commitments, Bottle oil stock/sales: no rule above the table. */
   body.scr-print-mode .sr-stock-report.scr-document .report-header,
   body.scr-print-mode .cr-commitment-report.scr-document .report-header,
-  body.scr-print-mode .bos-bottle-oil-report.scr-document .report-header {
+  body.scr-print-mode .bos-bottle-oil-report.scr-document .report-header,
+  body.scr-print-mode .bwi-document.scr-document .report-header,
+  body.scr-print-mode .wd-weekly-deliveries.scr-document .report-header,
+  body.scr-print-mode .mdr-document.scr-document .report-header,
+  body.scr-print-mode .lpo-summary-document.scr-document .report-header,
+  body.scr-print-mode .msr-document.scr-document .report-header,
+  body.scr-print-mode .mpd-document.scr-document .report-header,
+  body.scr-print-mode .mdd-document.scr-document .report-header,
+  body.scr-print-mode .opsd-document.scr-document .report-header,
+  body.scr-print-mode .mpos-document.scr-document .report-header,
+  body.scr-print-mode .tcr-document.scr-document .report-header,
+  body.scr-print-mode .ipms-document.scr-document .report-header,
+  body.scr-print-mode .bposr-document.scr-document .report-header,
+  body.scr-print-mode .mbo-document.scr-document .report-header,
+  body.scr-print-mode .rtr-document.scr-document .report-header,
+  body.scr-print-mode .posa-document.scr-document .report-header {
     border-bottom: none !important;
   }
 

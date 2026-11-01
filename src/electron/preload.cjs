@@ -119,14 +119,14 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("transportCost:compute", authToken, input),
   },
   reports: {
-    getStockCommitment: (authToken) =>
-      ipcRenderer.invoke("reports:getStockCommitment", authToken),
-    getStockReport: (authToken) =>
-      ipcRenderer.invoke("reports:getStockReport", authToken),
-    getCommitmentReport: (authToken) =>
-      ipcRenderer.invoke("reports:getCommitmentReport", authToken),
-    getBottleOilStockSales: (authToken) =>
-      ipcRenderer.invoke("reports:getBottleOilStockSales", authToken),
+    getStockCommitment: (authToken, hideZero) =>
+      ipcRenderer.invoke("reports:getStockCommitment", authToken, hideZero),
+    getStockReport: (authToken, hideZero) =>
+      ipcRenderer.invoke("reports:getStockReport", authToken, hideZero),
+    getCommitmentReport: (authToken, hideZero) =>
+      ipcRenderer.invoke("reports:getCommitmentReport", authToken, hideZero),
+    getBottleOilStockSales: (authToken, hideZero) =>
+      ipcRenderer.invoke("reports:getBottleOilStockSales", authToken, hideZero),
     getBottledWeeklyIssues: (authToken, estimateBasis, weekMondayIso) =>
       ipcRenderer.invoke(
         "reports:getBottledWeeklyIssues",
@@ -136,12 +136,21 @@ contextBridge.exposeInMainWorld("api", {
       ),
     getWeekChoices: (authToken) =>
       ipcRenderer.invoke("reports:getWeekChoices", authToken),
-    getWeeklyDeliveries: (authToken, weekMondayIso) =>
-      ipcRenderer.invoke("reports:getWeeklyDeliveries", authToken, weekMondayIso),
+    getWeeklyDeliveries: (authToken, weekMondayIso, hideZero) =>
+      ipcRenderer.invoke(
+        "reports:getWeeklyDeliveries",
+        authToken,
+        weekMondayIso,
+        hideZero,
+      ),
     getMonthlyDelivery: (half, authToken) =>
       ipcRenderer.invoke("reports:getMonthlyDelivery", half, authToken),
-    getMonthlyStockReconciliation: (authToken) =>
-      ipcRenderer.invoke("reports:getMonthlyStockReconciliation", authToken),
+    getMonthlyStockReconciliation: (authToken, hideZero) =>
+      ipcRenderer.invoke(
+        "reports:getMonthlyStockReconciliation",
+        authToken,
+        hideZero,
+      ),
     getLooseLpoStockSummary: (authToken) =>
       ipcRenderer.invoke("reports:getLooseLpoStockSummary", authToken),
     getMonthlyPaymentDelivery: (authToken) =>

@@ -3,6 +3,7 @@ import { PRINT_DOCUMENT_CSS } from "./printDocumentCss.ts";
 export type PrintPage =
   | "portrait"
   | "portrait-weekly"
+  | "portrait-wide"
   | "portrait-receipt"
   | "landscape"
   | "landscape-wide"
@@ -13,11 +14,13 @@ const PAGE_STYLE: Record<PrintPage, string> = {
   portrait: "@media print { @page { size: A4 portrait; margin: 8mm; } }",
   "portrait-weekly":
     "@media print { @page { size: A4 portrait; margin: 6mm 8mm; } }",
+  "portrait-wide":
+    "@media print { @page { size: A4 portrait; margin: 6mm 4mm; } }",
   "portrait-receipt":
     "@media print { @page { size: A4 portrait; margin: 8mm 8px; } }",
   landscape: "@media print { @page { size: A4 landscape; margin: 6mm 10mm; } }",
   "landscape-wide":
-    "@media print { @page { size: A4 landscape; margin: 6mm 14mm; } }",
+    "@media print { @page { size: A4 landscape; margin: 4mm; } }",
   "landscape-tight":
     /* Extra top margin so thead / product title are not clipped after page breaks. */
     "@media print { @page { size: A4 landscape; margin: 10mm 5mm 12mm 5mm; } }",
@@ -92,8 +95,7 @@ html {
 }
 ${PRINT_DOCUMENT_CSS}
 ${PAGE_STYLE[page]}
-body.customers-print-mode .customers-print-document,
-body.scr-print-mode .tcc-print-document {
+body.customers-print-mode .customers-print-document {
   display: block !important;
   visibility: visible !important;
   position: static !important;

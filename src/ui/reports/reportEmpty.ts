@@ -27,7 +27,7 @@ import type {
 import type { BinCardReport } from "../../shared/stock.types.ts";
 
 export const HIDE_ZERO_ROWS_HINT =
-  "Turn off Hide rows with zero or empty quantities in Report settings to see zero-balance rows.";
+  "Turn off Hide zero / empty quantity rows above to see zero-balance rows.";
 
 const EPS = 0.0001;
 
@@ -82,21 +82,23 @@ export function isBottleOilStockSalesReportEmpty(
   return !hasStock && !hasSales;
 }
 
-export function isWeeklyDeliveriesReportEmpty(report: WeeklyDeliveriesReport): boolean {
-  const hasLoose = report.looseSection.rows.some(
+function weeklyMatrixHasData(
+  rows: WeeklyDeliveriesReport["looseSection"]["rows"],
+): boolean {
+  return rows.some(
     (row) =>
       row.kind === "data" &&
       (Math.abs(row.rowTotal) > EPS ||
         row.quantities.some((qty) => Math.abs(qty) > EPS)),
   );
-  const hasBottled =
-    report.bottledSection.totalUnits > EPS ||
-    report.bottledSection.totalKgs > EPS ||
-    sumAbs(report.bottledSection.unitCounts) > EPS;
-  const hasMisc = report.miscSection.rows.some((row) =>
-    Math.abs(row.quantityKg) > EPS,
+}
+
+export function isWeeklyDeliveriesReportEmpty(report: WeeklyDeliveriesReport): boolean {
+  return (
+    !weeklyMatrixHasData(report.looseSection.rows) &&
+    !weeklyMatrixHasData(report.bottledSection.rows) &&
+    !weeklyMatrixHasData(report.miscSection.rows)
   );
-  return !hasLoose && !hasBottled && !hasMisc;
 }
 
 export function isDailySalesReportEmpty(report: DailySalesReport): boolean {
@@ -272,14 +274,18 @@ export function isOtherProductSalesDeliveriesReportEmpty(
 export function isBottledWeeklyIssuesReportEmpty(
   report: BottledWeeklyIssuesReport,
 ): boolean {
-  const hasDetail = report.detail.methods.some((method) =>
-    method.rows.some(
-      (row) =>
-        Math.abs(row.weekTotal) > EPS ||
-        Math.abs(row.monthToDateKg) > EPS ||
-        row.dayValues.some((value) => Math.abs(value) > EPS),
-    ),
-  );
+  const hasDetail =
+    Math.abs(report.detail.totals.totalUnits) > EPS ||
+    Math.abs(report.detail.totals.valueFcfa) > EPS ||
+    Math.abs(report.detail.totals.monthToDateValue) > EPS ||
+    report.detail.days.some((day) =>
+      day.methods.some(
+        (row) =>
+          Math.abs(row.totalUnits) > EPS ||
+          Math.abs(row.valueFcfa) > EPS ||
+          row.packUnits.some((value) => Math.abs(value) > EPS),
+      ),
+    );
   const hasCompare = report.compare.rows.some((row) => Math.abs(row.currentKg) > EPS);
   return !hasDetail && !hasCompare;
 }

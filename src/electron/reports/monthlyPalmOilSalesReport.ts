@@ -197,8 +197,8 @@ export function getMonthlyPalmOilSalesReport(
     financialYear,
     reportTitle,
     generatedAtIso: nowIso(),
-    monthColumnsH1: buildMonthColumns(financialYear, 1, 7),
-    monthColumnsH2: buildMonthColumns(financialYear, 8, 12),
+    monthColumnsH1: buildMonthColumns(financialYear, 1, 6),
+    monthColumnsH2: buildMonthColumns(financialYear, 7, 12),
     rows: [lpoHeaderRow, ...destinationRows, totalLpoRow, bpoRow, grandTotalRow],
     comments,
   };

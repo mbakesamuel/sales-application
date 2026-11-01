@@ -4,6 +4,27 @@
   gap: 16px;
 }
 
+.posa-document {
+  --posa-label-pct: 12%;
+  --posa-pct-pct: 5%;
+  --posa-data-pct: 83%;
+  --posa-period-count: 7;
+}
+
+.posa-document .report-footer {
+  margin-top: 6px;
+  padding-top: 4px;
+}
+
+.posa-document .report-footer-space {
+  height: 28px;
+}
+
+.posa-document .scr-comments {
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
 .posa-section {
   overflow-x: auto;
   margin-top: 14px;
@@ -14,22 +35,41 @@
 }
 
 .posa-table {
+  table-layout: fixed;
+  width: 100%;
   min-width: 720px;
-  table-layout: auto;
+}
+
+.posa-col-label {
+  width: var(--posa-label-pct);
+}
+
+.posa-col-metric {
+  width: calc(var(--posa-data-pct) / (var(--posa-period-count) * 2));
+}
+
+.posa-col-pct {
+  width: var(--posa-pct-pct);
 }
 
 .posa-label-col {
-  min-width: 120px;
-  max-width: 160px;
   white-space: normal;
+  word-break: break-word;
 }
 
-.posa-pct-col {
-  min-width: 56px;
+.posa-table.scr-table thead th,
+.posa-table.scr-table thead th:first-child,
+.posa-table.scr-table td.scr-num {
+  text-align: center;
+}
+
+.posa-table.scr-table td.posa-label-col,
+.posa-table.scr-table th.posa-label-col {
+  text-align: left;
 }
 
 .posa-footnote {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   font-size: 11px;
   color: #4b5563;
   text-transform: none;
@@ -38,11 +78,33 @@
 @media print {
   @page {
     size: A4 landscape;
-    margin: 6mm 10mm;
+    margin: 4mm;
   }
 
   body.posa-print-landscape .posa-document {
     overflow: visible;
+  }
+
+  body.posa-print-landscape .posa-document .report-footer,
+  body.scr-print-mode .posa-document .report-footer {
+    margin-top: 4px !important;
+    padding-top: 2px !important;
+  }
+
+  body.posa-print-landscape .posa-document .report-footer-space,
+  body.scr-print-mode .posa-document .report-footer-space {
+    height: 24px;
+  }
+
+  body.posa-print-landscape .posa-document .scr-comments,
+  body.scr-print-mode .posa-document .scr-comments {
+    margin-top: 8px !important;
+    margin-bottom: 2px !important;
+  }
+
+  body.posa-print-landscape .posa-footnote,
+  body.scr-print-mode .posa-footnote {
+    margin-top: 4px !important;
   }
 
   body.posa-print-landscape .posa-section {
@@ -62,18 +124,8 @@
     padding: 2px 3px !important;
   }
 
-  body.posa-print-landscape .posa-label-col {
-    min-width: 64px;
-    max-width: 88px;
-  }
-
   body.scr-print-mode .posa-table {
     min-width: 0;
     font-size: 9px;
-  }
-
-  body.scr-print-mode .posa-label-col {
-    min-width: 72px;
-    max-width: 96px;
   }
 }

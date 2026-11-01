@@ -1,17 +1,17 @@
 export declare function getAuthenticatedReports(): {
-    getStockCommitment: () => Promise<import("../../shared/reports.types.ts").StockCommitmentReport>;
-    getStockReport: () => Promise<import("../../shared/reports.types.ts").StockReport>;
-    getCommitmentReport: () => Promise<import("../../shared/reports.types.ts").CommitmentReport>;
-    getBottleOilStockSales: () => Promise<import("../../shared/reports.types.ts").BottleOilStockSalesReport>;
+    getStockCommitment: (hideZero?: boolean) => Promise<import("../../shared/reports.types.ts").StockCommitmentReport>;
+    getStockReport: (hideZero?: boolean) => Promise<import("../../shared/reports.types.ts").StockReport>;
+    getCommitmentReport: (hideZero?: boolean) => Promise<import("../../shared/reports.types.ts").CommitmentReport>;
+    getBottleOilStockSales: (hideZero?: boolean) => Promise<import("../../shared/reports.types.ts").BottleOilStockSalesReport>;
     getBottledWeeklyIssues: (estimateBasis?: import("../../shared/reports.types.ts").BottledWeeklyEstimateBasis, weekMondayIso?: string) => Promise<import("../../shared/reports.types.ts").BottledWeeklyIssuesReport>;
     getWeekChoices: () => Promise<{
         asAtIso: string;
         weekChoices: import("../../shared/reports.types.ts").WeeklyDeliveriesWeekChoice[];
         defaultWeekMondayIso: string | null;
     }>;
-    getWeeklyDeliveries: (weekMondayIso?: string) => Promise<import("../../shared/reports.types.ts").WeeklyDeliveriesReport>;
+    getWeeklyDeliveries: (weekMondayIso?: string, hideZero?: boolean) => Promise<import("../../shared/reports.types.ts").WeeklyDeliveriesReport>;
     getMonthlyDelivery: (half: 1 | 2) => Promise<import("../../shared/reports.types.ts").MonthlyDeliveryReport>;
-    getMonthlyStockReconciliation: () => Promise<import("../../shared/reports.types.ts").MonthlyStockReconciliationReport>;
+    getMonthlyStockReconciliation: (hideZero?: boolean) => Promise<import("../../shared/reports.types.ts").MonthlyStockReconciliationReport>;
     getLooseLpoStockSummary: () => Promise<import("../../shared/reports.types.ts").LooseLpoStockSummaryReport>;
     getMonthlyPaymentDelivery: () => Promise<import("../../shared/reports.types.ts").MonthlyPaymentDeliveryReport>;
     getTransportCost: () => Promise<import("../../shared/reports.types.ts").TransportCostReport>;

@@ -1,0 +1,29 @@
+.tcr-document .report-footer {
+  margin-top: 6px;
+  padding-top: 4px;
+}
+
+.tcr-document .report-footer-space {
+  height: 28px;
+}
+
+.tcr-document .scr-comments {
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+@media print {
+  body.scr-print-mode .tcr-document .report-footer {
+    margin-top: 4px !important;
+    padding-top: 2px !important;
+  }
+
+  body.scr-print-mode .tcr-document .report-footer-space {
+    height: 24px;
+  }
+
+  body.scr-print-mode .tcr-document .scr-comments {
+    margin-top: 8px !important;
+    margin-bottom: 2px !important;
+  }
+}

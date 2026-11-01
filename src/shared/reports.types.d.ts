@@ -210,27 +210,16 @@ export interface WeeklyDeliveriesLooseSection {
     salesPointNames: string[];
     rows: WeeklyDeliveriesLooseRow[];
 }
-export interface WeeklyDeliveriesBottledColumn {
-    id: string;
-    label: string;
-    litresPerUnit: number;
-}
+/** Same matrix shape as loose: sales-point columns + TOTAL. */
 export interface WeeklyDeliveriesBottledSection {
     title: string;
-    columns: WeeklyDeliveriesBottledColumn[];
-    unitCounts: number[];
-    litres: number[];
-    kgs: number[];
-    totalUnits: number;
-    totalKgs: number;
-}
-export interface WeeklyDeliveriesMiscRow {
-    label: string;
-    quantityKg: number;
+    salesPointNames: string[];
+    rows: WeeklyDeliveriesLooseRow[];
 }
 export interface WeeklyDeliveriesMiscSection {
     title: string;
-    rows: WeeklyDeliveriesMiscRow[];
+    salesPointNames: string[];
+    rows: WeeklyDeliveriesLooseRow[];
 }
 export interface WeeklyDeliveriesWeekChoice {
     /** Monday of the ISO week (selection key). */
@@ -315,32 +304,53 @@ export declare const BOTTLED_WEEKLY_ESTIMATE_BASIS_OPTIONS: ReadonlyArray<{
     label: string;
     hint: string;
 }>;
-export interface BottledWeeklyDayColumn {
+export type BottledWeeklyPackId = "jug20" | "carton15" | "carton5";
+export interface BottledWeeklyPackColumn {
+    id: BottledWeeklyPackId;
+    label: string;
+    litresPerUnit: number;
+}
+export interface BottledWeeklyDayMethodRow {
+    method: BottledWeeklyPaymentMethod;
+    label: string;
+    /** Unit counts aligned to detail.packColumns */
+    packUnits: number[];
+    totalUnits: number;
+    valueFcfa: number;
+    /** Running month-to-date FCFA after this method row (open-month sales only). */
+    monthToDateValue: number;
+}
+export interface BottledWeeklyDayBlock {
     id: string;
     label: string;
     isoDate: string;
+    /** Display date under the day name (dd/mm/yyyy). */
+    displayDate: string;
+    methods: BottledWeeklyDayMethodRow[];
 }
-export interface BottledWeeklyMethodMetricRow {
-    kind: "kgs" | "value";
-    label: string;
-    /** Per weekday kg or FCFA */
-    dayValues: number[];
-    weekTotal: number;
-    /** Packaged value column (FCFA) for the week — used on value rows; 0 on kgs */
-    weekValue: number;
-    monthToDateKg: number;
+export interface BottledWeeklyDetailTotals {
+    packUnits: number[];
+    totalUnits: number;
+    valueFcfa: number;
     monthToDateValue: number;
 }
-export interface BottledWeeklyMethodBlock {
-    method: BottledWeeklyPaymentMethod;
+export interface BottledWeeklyDetailFooterRow {
+    id: "litres" | "kgs" | "value";
     label: string;
-    rows: BottledWeeklyMethodMetricRow[];
+    /** Per-pack amounts (litres, kg, or FCFA for the value footer). */
+    packValues: number[];
+    total: number;
+    /** VALUE FCFA column — set on value footer; 0 otherwise. */
+    valueFcfa: number;
+    /** MONTH TO DATE column — set on value footer; 0 otherwise. */
+    monthToDateValue: number;
 }
 export interface BottledWeeklyDetailSection {
     monthLabel: string;
-    dayColumns: BottledWeeklyDayColumn[];
-    methods: BottledWeeklyMethodBlock[];
-    totals: BottledWeeklyMethodMetricRow[];
+    packColumns: BottledWeeklyPackColumn[];
+    days: BottledWeeklyDayBlock[];
+    totals: BottledWeeklyDetailTotals;
+    footer: BottledWeeklyDetailFooterRow[];
 }
 export interface BottledWeeklySummaryMetric {
     kgs: number;

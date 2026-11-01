@@ -5,6 +5,7 @@ import type { TransportCostReport } from "../../shared/reports.types.ts";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
+import "./TransportCostReport.css";
 
 function formatKg(value: number): string {
   if (Math.abs(value) < 0.0005) return "—";
@@ -82,7 +83,7 @@ export function TransportCostReportDocument({ report }: { report: TransportCostR
     <DocumentPreview
         title="Transportation cost"
         fileName={`transport-cost-${report.asAtIso}.pdf`}
-        page="portrait"
+        page="portrait-wide"
         sourceKey={report}
         isEmpty={dataRows.length === 0}
         emptyMessage="No lifted quantities in the open month."
@@ -90,7 +91,7 @@ export function TransportCostReportDocument({ report }: { report: TransportCostR
       <ReportDocumentShell
       isEmpty={dataRows.length === 0}
       emptyMessage="No lifted quantities in the open month."
-      className="scr-document"
+      className="tcr-document scr-document"
       
       
       comments={report.comments}

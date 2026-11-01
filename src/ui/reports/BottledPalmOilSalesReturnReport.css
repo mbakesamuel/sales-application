@@ -2,6 +2,20 @@
   overflow-x: auto;
 }
 
+.bposr-document .report-footer {
+  margin-top: 6px;
+  padding-top: 4px;
+}
+
+.bposr-document .report-footer-space {
+  height: 28px;
+}
+
+.bposr-document .scr-comments {
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
 .bposr-section {
   overflow-x: auto;
   margin-top: 12px;
@@ -10,6 +24,11 @@
 .bposr-table {
   min-width: 920px;
   table-layout: fixed;
+}
+
+.bposr-table.scr-table th,
+.bposr-table.scr-table td {
+  padding: 7px 5px;
 }
 
 .bposr-label-col,
@@ -22,7 +41,7 @@
 }
 
 .bposr-footnote {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   font-size: 11px;
   color: #4b5563;
   text-transform: none;
@@ -31,11 +50,33 @@
 @media print {
   @page {
     size: A4 landscape;
-    margin: 6mm 10mm;
+    margin: 4mm;
   }
 
   body.bposr-print-landscape .bposr-document {
     overflow: visible;
+  }
+
+  body.bposr-print-landscape .bposr-document .report-footer,
+  body.scr-print-mode .bposr-document .report-footer {
+    margin-top: 4px !important;
+    padding-top: 2px !important;
+  }
+
+  body.bposr-print-landscape .bposr-document .report-footer-space,
+  body.scr-print-mode .bposr-document .report-footer-space {
+    height: 24px;
+  }
+
+  body.bposr-print-landscape .bposr-document .scr-comments,
+  body.scr-print-mode .bposr-document .scr-comments {
+    margin-top: 8px !important;
+    margin-bottom: 2px !important;
+  }
+
+  body.bposr-print-landscape .bposr-footnote,
+  body.scr-print-mode .bposr-footnote {
+    margin-top: 4px !important;
   }
 
   body.bposr-print-landscape .bposr-section {
@@ -51,7 +92,7 @@
 
   body.bposr-print-landscape .bposr-table th,
   body.bposr-print-landscape .bposr-table td {
-    padding: 2px 4px !important;
+    padding: 5px 5px !important;
   }
 
   body.scr-print-mode .bposr-table {

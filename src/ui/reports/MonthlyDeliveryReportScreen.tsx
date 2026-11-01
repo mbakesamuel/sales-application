@@ -168,7 +168,7 @@ function BudgetTable({
             ) : null}
           </tr> */}
           <tr class="mdr-budget-to-date">
-            <td class="mdr-budget-row-label">EST TO-DATE</td>
+            <td class="mdr-budget-row-label">Est Todate</td>
             {section.metrics.flatMap((metric) => [
               <td key={`${metric.id}-et`} class="mdr-num">
                 {formatEstimateTons(metric.estimateTons)}

@@ -5,6 +5,20 @@
   --ipms-period-count: 7;
 }
 
+.ipms-document .report-footer {
+  margin-top: 6px;
+  padding-top: 4px;
+}
+
+.ipms-document .report-footer-space {
+  height: 28px;
+}
+
+.ipms-document .scr-comments {
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
 .ipms-section {
   overflow-x: auto;
   margin-top: 14px;
@@ -52,7 +66,7 @@
 }
 
 .ipms-footnote {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   font-size: 11px;
   color: #4b5563;
   text-transform: none;
@@ -68,11 +82,33 @@
 @media print {
   @page {
     size: A4 landscape;
-    margin: 6mm 10mm;
+    margin: 4mm;
   }
 
   body.ipms-print-landscape .ipms-document {
     overflow: visible;
+  }
+
+  body.ipms-print-landscape .ipms-document .report-footer,
+  body.scr-print-mode .ipms-document .report-footer {
+    margin-top: 4px !important;
+    padding-top: 2px !important;
+  }
+
+  body.ipms-print-landscape .ipms-document .report-footer-space,
+  body.scr-print-mode .ipms-document .report-footer-space {
+    height: 24px;
+  }
+
+  body.ipms-print-landscape .ipms-document .scr-comments,
+  body.scr-print-mode .ipms-document .scr-comments {
+    margin-top: 8px !important;
+    margin-bottom: 2px !important;
+  }
+
+  body.ipms-print-landscape .ipms-footnote,
+  body.scr-print-mode .ipms-footnote {
+    margin-top: 4px !important;
   }
 
   body.ipms-print-landscape .ipms-section {

@@ -1,11 +1,13 @@
 import type {
   BottledWeeklyCompareSection,
-  BottledWeeklyDayColumn,
+  BottledWeeklyDayBlock,
+  BottledWeeklyDetailFooterRow,
   BottledWeeklyDetailSection,
+  BottledWeeklyDetailTotals,
   BottledWeeklyEstimateBasis,
   BottledWeeklyIssuesReport,
-  BottledWeeklyMethodBlock,
-  BottledWeeklyMethodMetricRow,
+  BottledWeeklyPackColumn,
+  BottledWeeklyPackId,
   BottledWeeklyPaymentMethod,
   BottledWeeklySummaryRow,
   BottledWeeklySummarySection,
@@ -25,8 +27,9 @@ import {
   type ProductRow,
 } from "./shared.js";
 import {
-  buildBottledWeekdayColumns,
   buildWeekChoices,
+  maxIso,
+  minIso,
   mondayOf,
   parseLocalIso,
   resolveSelectedWeek,
@@ -41,6 +44,48 @@ const METHOD_LABELS: Record<BottledWeeklyPaymentMethod, string> = {
   CREDIT: "CREDIT",
   PRO: "PRO",
 };
+
+const DAY_LABELS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"] as const;
+
+const PACK_COLUMNS: Array<BottledWeeklyPackColumn & { packIds: readonly string[] }> = [
+  { id: "jug20", label: "1 X 20 L JUGS", litresPerUnit: 20, packIds: ["jug20"] },
+  {
+    id: "carton15",
+    label: "1L X 15 CARTONS",
+    litresPerUnit: 15,
+    packIds: ["carton15", "unit1"],
+  },
+  { id: "carton5", label: "3 X 5L CARTONS", litresPerUnit: 15, packIds: ["carton5"] },
+];
+
+function packColumnIndex(packId: string): number {
+  return PACK_COLUMNS.findIndex((column) => column.packIds.includes(packId));
+}
+
+function formatSlashDate(isoDate: string): string {
+  const [year, month, day] = isoDate.slice(0, 10).split("-");
+  if (!year || !month || !day) {
+    return isoDate;
+  }
+  return `${day}/${month}/${year}`;
+}
+
+function buildFullWeekdayRows(
+  weekMondayIso: string,
+): Array<{ id: string; label: string; isoDate: string; displayDate: string }> {
+  const monday = parseLocalIso(weekMondayIso);
+  return DAY_LABELS.map((label, offset) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + offset);
+    const isoDate = toIsoDate(date);
+    return {
+      id: `d${offset}`,
+      label,
+      isoDate,
+      displayDate: formatSlashDate(isoDate),
+    };
+  });
+}
 
 const ESTIMATE_BASIS_LABELS: Record<BottledWeeklyEstimateBasis, string> = {
   "working-days": "Working days (Mon–Fri)",
@@ -108,7 +153,8 @@ function countDaysInCalendarMonth(
 
 /**
  * Week window for ESTM day-share (sales-budget weekly phasing style).
- * working-days: report Mon–Fri window; iso-week: Monday–Sunday of that ISO week.
+ * working-days: report Mon–Fri window; iso-week: true Monday–Sunday of that ISO week
+ * (derive Monday via mondayOf — weekFromIso may be month-clipped, e.g. Jan 1).
  */
 function estimateWeekWindow(
   weekFromIso: string,
@@ -118,7 +164,7 @@ function estimateWeekWindow(
   if (basis === "working-days") {
     return { fromIso: weekFromIso, toIso: weekToIso };
   }
-  const monday = startOfDay(new Date(`${weekFromIso}T00:00:00`));
+  const monday = mondayOf(parseLocalIso(weekFromIso));
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   return { fromIso: toIsoDate(monday), toIso: toIsoDate(sunday) };
@@ -253,148 +299,185 @@ function unitsToKg(units: number, litresPerUnit: number): number {
   return units * litresPerUnit * PALM_OIL_KG_PER_LITRE;
 }
 
-function emptyMetricRow(
-  kind: "kgs" | "value",
-  dayCount: number,
-): BottledWeeklyMethodMetricRow {
-  return {
-    kind,
-    label: kind === "kgs" ? "KGS" : "VALUE FCFA",
-    dayValues: Array.from({ length: dayCount }, () => 0),
-    weekTotal: 0,
-    weekValue: 0,
-    monthToDateKg: 0,
-    monthToDateValue: 0,
-  };
-}
-
-function accumulateLine(
-  target: Map<BottledWeeklyPaymentMethod, { kgs: BottledWeeklyMethodMetricRow; value: BottledWeeklyMethodMetricRow }>,
-  method: BottledWeeklyPaymentMethod,
-  dayIndex: number | null,
-  kg: number,
-  value: number,
-  scope: "week" | "month",
-): void {
-  const block = target.get(method);
-  if (!block) {
-    return;
-  }
-  if (scope === "week" && dayIndex != null) {
-    block.kgs.dayValues[dayIndex] += kg;
-    block.value.dayValues[dayIndex] += value;
-    block.kgs.weekTotal += kg;
-    block.value.weekTotal += value;
-    block.kgs.weekValue += value;
-    block.value.weekValue += value;
-  }
-  if (scope === "month") {
-    block.kgs.monthToDateKg += kg;
-    block.kgs.monthToDateValue += value;
-    block.value.monthToDateKg += kg;
-    block.value.monthToDateValue += value;
-  }
-}
-
-function buildMethodBlocks(
-  dayColumns: BottledWeeklyDayColumn[],
-  weekLines: SaleIssueLine[],
-  monthLines: SaleIssueLine[],
-  products: ProductRow[],
+function resolveLineShares(
+  line: SaleIssueLine,
   paymentShares: Map<string, SalePaymentShare[]>,
-): BottledWeeklyMethodBlock[] {
-  const dayIndexByIso = new Map(dayColumns.map((column, index) => [column.isoDate, index]));
+): SalePaymentShare[] {
+  const shares = paymentShares.get(line.saleId);
+  if (shares && shares.length > 0) {
+    return shares;
+  }
+  if (line.saleDisposition === "PUBLIC_RELATION") {
+    return [{ saleId: line.saleId, method: "PRO", share: 1 }];
+  }
+  if (line.saleDisposition === "RATION") {
+    return [{ saleId: line.saleId, method: "CREDIT", share: 1 }];
+  }
+  return [{ saleId: line.saleId, method: "CASH", share: 1 }];
+}
+
+function buildDetailSection(args: {
+  monthLabel: string;
+  monthFromIso: string;
+  days: Array<{ id: string; label: string; isoDate: string; displayDate: string }>;
+  weekLines: SaleIssueLine[];
+  monthLines: SaleIssueLine[];
+  products: ProductRow[];
+  paymentShares: Map<string, SalePaymentShare[]>;
+}): BottledWeeklyDetailSection {
   const packByProduct = new Map(
-    products
+    args.products
       .filter((product) => product.isBottled === 1)
       .map((product) => [product.productId, detectBottledPack(product)]),
   );
 
-  const metrics = new Map<
-    BottledWeeklyPaymentMethod,
-    { kgs: BottledWeeklyMethodMetricRow; value: BottledWeeklyMethodMetricRow }
-  >();
-  for (const method of METHOD_ORDER) {
-    metrics.set(method, {
-      kgs: emptyMetricRow("kgs", dayColumns.length),
-      value: emptyMetricRow("value", dayColumns.length),
-    });
+  type Cell = { packUnits: number[]; packValues: number[]; valueFcfa: number };
+  const cellKey = (isoDate: string, method: BottledWeeklyPaymentMethod) =>
+    `${isoDate}|${method}`;
+  const cells = new Map<string, Cell>();
+  function cellFor(isoDate: string, method: BottledWeeklyPaymentMethod): Cell {
+    const key = cellKey(isoDate, method);
+    let cell = cells.get(key);
+    if (!cell) {
+      cell = {
+        packUnits: PACK_COLUMNS.map(() => 0),
+        packValues: PACK_COLUMNS.map(() => 0),
+        valueFcfa: 0,
+      };
+      cells.set(key, cell);
+    }
+    return cell;
   }
 
-  function resolveShares(line: SaleIssueLine): SalePaymentShare[] {
-    const shares = paymentShares.get(line.saleId);
-    if (shares && shares.length > 0) {
-      return shares;
+  const dayIsoSet = new Set(args.days.map((day) => day.isoDate));
+  for (const line of args.weekLines) {
+    if (!dayIsoSet.has(line.dateIssued)) {
+      continue;
     }
-    if (line.saleDisposition === "PUBLIC_RELATION") {
-      return [{ saleId: line.saleId, method: "PRO", share: 1 }];
+    const pack = packByProduct.get(line.productId);
+    if (!pack) {
+      continue;
     }
-    if (line.saleDisposition === "RATION") {
-      return [{ saleId: line.saleId, method: "CREDIT", share: 1 }];
+    const packIndex = packColumnIndex(pack.id);
+    for (const share of resolveLineShares(line, args.paymentShares)) {
+      const cell = cellFor(line.dateIssued, share.method);
+      const sharedValue = line.lineNet * share.share;
+      if (packIndex >= 0) {
+        cell.packUnits[packIndex] += line.units * share.share;
+        cell.packValues[packIndex] += sharedValue;
+      }
+      cell.valueFcfa += sharedValue;
     }
-    return [{ saleId: line.saleId, method: "CASH", share: 1 }];
   }
 
-  function applyLines(lines: SaleIssueLine[], scope: "week" | "month") {
-    for (const line of lines) {
+  let runningMtd = 0;
+  const firstDayIso = args.days[0]?.isoDate;
+  if (firstDayIso) {
+    for (const line of args.monthLines) {
+      if (line.dateIssued >= firstDayIso) {
+        continue;
+      }
       const pack = packByProduct.get(line.productId);
       if (!pack) {
         continue;
       }
-      const kg = unitsToKg(line.units, pack.litresPerUnit);
-      const dayIndex = scope === "week" ? (dayIndexByIso.get(line.dateIssued) ?? null) : null;
-      if (scope === "week" && dayIndex == null) {
-        continue;
-      }
-      for (const share of resolveShares(line)) {
-        accumulateLine(
-          metrics,
-          share.method,
-          dayIndex,
-          kg * share.share,
-          line.lineNet * share.share,
-          scope,
-        );
+      for (const share of resolveLineShares(line, args.paymentShares)) {
+        runningMtd += line.lineNet * share.share;
       }
     }
   }
 
-  applyLines(weekLines, "week");
-  applyLines(monthLines, "month");
+  const packColumns: BottledWeeklyPackColumn[] = PACK_COLUMNS.map(
+    ({ id, label, litresPerUnit }) => ({ id: id as BottledWeeklyPackId, label, litresPerUnit }),
+  );
 
-  return METHOD_ORDER.map((method) => {
-    const pair = metrics.get(method)!;
+  const dayBlocks: BottledWeeklyDayBlock[] = args.days.map((day) => {
+    const inOpenMonth = day.isoDate >= args.monthFromIso;
+    const methods = METHOD_ORDER.map((method) => {
+      const cell = cells.get(cellKey(day.isoDate, method));
+      const packUnits = cell?.packUnits.slice() ?? PACK_COLUMNS.map(() => 0);
+      const valueFcfa = cell?.valueFcfa ?? 0;
+      const totalUnits = sum(packUnits);
+      if (inOpenMonth) {
+        runningMtd += valueFcfa;
+      }
+      return {
+        method,
+        label: METHOD_LABELS[method],
+        packUnits,
+        totalUnits,
+        valueFcfa,
+        monthToDateValue: runningMtd,
+      };
+    });
     return {
-      method,
-      label: METHOD_LABELS[method],
-      rows: [pair.kgs, pair.value],
+      id: day.id,
+      label: day.label,
+      isoDate: day.isoDate,
+      displayDate: day.displayDate,
+      methods,
     };
   });
-}
 
-function buildTotals(
-  methods: BottledWeeklyMethodBlock[],
-  dayCount: number,
-): BottledWeeklyMethodMetricRow[] {
-  const kgs = emptyMetricRow("kgs", dayCount);
-  const value = emptyMetricRow("value", dayCount);
-  for (const method of methods) {
-    const kgRow = method.rows[0];
-    const valueRow = method.rows[1];
-    for (let index = 0; index < dayCount; index += 1) {
-      kgs.dayValues[index] += kgRow.dayValues[index] ?? 0;
-      value.dayValues[index] += valueRow.dayValues[index] ?? 0;
+  const totalsPack = PACK_COLUMNS.map(() => 0);
+  const totalsPackValue = PACK_COLUMNS.map(() => 0);
+  let totalsValue = 0;
+  for (const day of dayBlocks) {
+    for (const method of day.methods) {
+      const cell = cells.get(cellKey(day.isoDate, method.method));
+      for (let index = 0; index < totalsPack.length; index += 1) {
+        totalsPack[index]! += method.packUnits[index] ?? 0;
+        totalsPackValue[index]! += cell?.packValues[index] ?? 0;
+      }
+      totalsValue += method.valueFcfa;
     }
-    kgs.weekTotal += kgRow.weekTotal;
-    kgs.weekValue += kgRow.weekValue;
-    kgs.monthToDateKg += kgRow.monthToDateKg;
-    kgs.monthToDateValue += kgRow.monthToDateValue;
-    value.weekTotal += valueRow.weekTotal;
-    value.weekValue += valueRow.weekValue;
-    value.monthToDateKg += valueRow.monthToDateKg;
-    value.monthToDateValue += valueRow.monthToDateValue;
   }
-  return [kgs, value];
+
+  const totals: BottledWeeklyDetailTotals = {
+    packUnits: totalsPack,
+    totalUnits: sum(totalsPack),
+    valueFcfa: totalsValue,
+    monthToDateValue: runningMtd,
+  };
+
+  const litres = totalsPack.map(
+    (units, index) => units * (PACK_COLUMNS[index]?.litresPerUnit ?? 0),
+  );
+  const kgs = litres.map((litre) => litre * PALM_OIL_KG_PER_LITRE);
+  const footer: BottledWeeklyDetailFooterRow[] = [
+    {
+      id: "litres",
+      label: "LITRES",
+      packValues: litres,
+      total: sum(litres),
+      valueFcfa: 0,
+      monthToDateValue: 0,
+    },
+    {
+      id: "kgs",
+      label: "KGS",
+      packValues: kgs,
+      total: sum(kgs),
+      valueFcfa: 0,
+      monthToDateValue: 0,
+    },
+    {
+      id: "value",
+      label: "VALUE FCFA",
+      packValues: totalsPackValue,
+      total: sum(totalsPackValue),
+      valueFcfa: totals.valueFcfa,
+      monthToDateValue: totals.monthToDateValue,
+    },
+  ];
+
+  return {
+    monthLabel: args.monthLabel,
+    packColumns,
+    days: dayBlocks,
+    totals,
+    footer,
+  };
 }
 
 function loadBottledBudgetEstimate(args: {
@@ -670,23 +753,30 @@ export function getBottledWeeklyIssuesReport(
       };
     })();
 
-  const weekdayWindow = buildBottledWeekdayColumns(
-    selected.weekMondayIso,
-    period.startDate,
-    selected.weekToIso,
-    asAtIso,
+  const weekdayRows = buildFullWeekdayRows(selected.weekMondayIso);
+  const weekMondayIsoResolved = weekdayRows[0]!.isoDate;
+  const weekFridayIso = weekdayRows[weekdayRows.length - 1]!.isoDate;
+  // Working-days ESTM still uses open-month Mon–Fri only (exclude prior-month dates).
+  const monthWeekDays = weekdayRows.filter(
+    (day) => day.isoDate >= period.startDate && day.isoDate <= asAtIso,
   );
-  const dayColumns: BottledWeeklyDayColumn[] = weekdayWindow.dayColumns;
-  const clippedWeekFrom = weekdayWindow.weekFromIso;
-  const clippedWeekTo = weekdayWindow.weekToIso;
+  const clippedWeekFrom =
+    monthWeekDays[0]?.isoDate ?? maxIso(weekMondayIsoResolved, period.startDate);
+  const clippedWeekTo =
+    monthWeekDays[monthWeekDays.length - 1]?.isoDate ??
+    minIso(weekFridayIso, minIso(selected.weekToIso, asAtIso));
+
+  // Cumulative MTD/YTD stop at the selected week end (not open-month as-at).
+  const toDateIso = selected.weekToIso;
+  const toDate = startOfDay(new Date(`${toDateIso}T00:00:00`));
 
   const monthFromIso = period.startDate;
   const yearFromIso = `${period.financialYear}-01-01`;
   const priorYear = period.financialYear - 1;
   const priorMonthFromIso = `${priorYear}-${String(period.calendarMonth).padStart(2, "0")}-01`;
   const lastDayPriorMonth = new Date(priorYear, period.calendarMonth, 0).getDate();
-  const asAtDay = Number.parseInt(asAtIso.slice(8, 10), 10);
-  const priorDay = Math.min(asAtDay, lastDayPriorMonth);
+  const toDateDay = Number.parseInt(toDateIso.slice(8, 10), 10);
+  const priorDay = Math.min(toDateDay, lastDayPriorMonth);
   const priorMonthToIso = `${priorYear}-${String(period.calendarMonth).padStart(2, "0")}-${String(priorDay).padStart(2, "0")}`;
 
   const products = loadProducts();
@@ -696,44 +786,41 @@ export function getBottledWeeklyIssuesReport(
   const saleIds = [...new Set(allLines.map((line) => line.saleId))];
   const paymentShares = loadPaymentShares(saleIds);
 
-  const weekLines = allLines.filter(
+  const detailDayIsoSet = new Set(weekdayRows.map((day) => day.isoDate));
+  const detailWeekLines = allLines.filter((line) => detailDayIsoSet.has(line.dateIssued));
+  // Summary week actual stays month-clipped Mon–Fri (exclude prior-month weekday sales).
+  const weekLines = detailWeekLines.filter(
     (line) => line.dateIssued >= clippedWeekFrom && line.dateIssued <= clippedWeekTo,
   );
   const monthLines = allLines.filter(
-    (line) => line.dateIssued >= monthFromIso && line.dateIssued <= asAtIso,
+    (line) => line.dateIssued >= monthFromIso && line.dateIssued <= toDateIso,
   );
   const yearLines = allLines.filter(
-    (line) => line.dateIssued >= yearFromIso && line.dateIssued <= asAtIso,
+    (line) => line.dateIssued >= yearFromIso && line.dateIssued <= toDateIso,
   );
   const priorMonthLines = allLines.filter(
     (line) => line.dateIssued >= priorMonthFromIso && line.dateIssued <= priorMonthToIso,
   );
 
-  const methods = buildMethodBlocks(
-    dayColumns,
-    weekLines,
+  const detail = buildDetailSection({
+    monthLabel: MONTH_NAMES[period.calendarMonth - 1],
+    monthFromIso,
+    days: weekdayRows,
+    weekLines: detailWeekLines,
     monthLines,
     products,
     paymentShares,
-  );
-  const totals = buildTotals(methods, dayColumns.length);
-
-  const detail: BottledWeeklyDetailSection = {
-    monthLabel: MONTH_NAMES[asAt.getMonth()],
-    dayColumns,
-    methods,
-    totals,
-  };
+  });
 
   const weekActual = metricFromLines(weekLines, products, paymentShares);
   const monthActual = metricFromLines(monthLines, products, paymentShares);
   const yearActual = metricFromLines(yearLines, products, paymentShares);
 
-  const daysInMonth = new Date(asAt.getFullYear(), asAt.getMonth() + 1, 0).getDate();
-  const dayFraction = asAt.getDate() / daysInMonth;
+  const daysInMonth = new Date(toDate.getFullYear(), toDate.getMonth() + 1, 0).getDate();
+  const dayFraction = toDate.getDate() / daysInMonth;
   const weekShare = weekEstimateDayFraction({
-    // ISO week expands from the week's Monday through Sunday clip; working days use Mon–Fri.
-    weekFromIso: estimateBasis === "iso-week" ? selected.weekFromIso : clippedWeekFrom,
+    // ISO week: true Monday (not month-clipped weekFrom). Working days: Mon–Fri in open month.
+    weekFromIso: estimateBasis === "iso-week" ? selected.weekMondayIso : clippedWeekFrom,
     weekToIso: estimateBasis === "iso-week" ? selected.weekToIso : clippedWeekTo,
     calendarYear: period.financialYear,
     calendarMonth: period.calendarMonth,
@@ -783,8 +870,8 @@ export function getBottledWeeklyIssuesReport(
     settings,
     asAtIso,
     weekMondayIso: selected.weekMondayIso,
-    weekFromIso: clippedWeekFrom,
-    weekToIso: clippedWeekTo,
+    weekFromIso: weekMondayIsoResolved,
+    weekToIso: minIso(weekFridayIso, asAtIso),
     weekChoices,
     monthFromIso,
     yearFromIso,

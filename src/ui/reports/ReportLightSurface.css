@@ -168,7 +168,8 @@ html[data-theme="dark"] .report-overlay-body .bwi-estimate-basis select {
 }
 
 html[data-theme="dark"] .report-overlay-body .bwi-estimate-basis,
-html[data-theme="dark"] .report-overlay-body .bwi-estimate-hint {
+html[data-theme="dark"] .report-overlay-body .bwi-estimate-hint,
+html[data-theme="dark"] .report-overlay-body .hide-zero-rows-toggle {
   color: #6b7280 !important;
 }
 

@@ -7,6 +7,8 @@ import type {
 } from "../../shared/reports.types.ts";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { HideZeroRowsToggle } from "./HideZeroRowsToggle.tsx";
+import { useHideZeroReportRows } from "./hideZeroReportRows.ts";
 import {
   HIDE_ZERO_ROWS_HINT,
   isMonthlyStockReconciliationReportEmpty,
@@ -167,6 +169,7 @@ export function MonthlyStockReconciliationScreen({
   windowMode?: boolean;
 }) {
   void windowMode;
+  const [hideZero, setHideZero] = useHideZeroReportRows();
   const [report, setReport] = useState<MonthlyStockReconciliationReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -178,7 +181,8 @@ export function MonthlyStockReconciliationScreen({
       setLoading(true);
       setError(null);
       try {
-        const data = await getAuthenticatedReports().getMonthlyStockReconciliation();
+        const data =
+          await getAuthenticatedReports().getMonthlyStockReconciliation(hideZero);
         if (!cancelled) {
           setReport(data);
         }
@@ -199,13 +203,13 @@ export function MonthlyStockReconciliationScreen({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [hideZero]);
 
-  if (loading) {
+  if (loading && !report) {
     return <p class="scr-status">Loading monthly stock reconciliation...</p>;
   }
 
-  if (error) {
+  if (error && !report) {
     return <p class="scr-status scr-status-error">{error}</p>;
   }
 
@@ -215,6 +219,14 @@ export function MonthlyStockReconciliationScreen({
 
   return (
     <div class="scr-page">
+      <div class="scr-toolbar no-print">
+        <HideZeroRowsToggle
+          checked={hideZero}
+          disabled={loading}
+          onChange={setHideZero}
+        />
+      </div>
+      {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}
       <MonthlyStockReconciliationDocument report={report} />
     </div>
   );

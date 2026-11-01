@@ -13,10 +13,12 @@ import {
 } from "../financialYears/service.js";
 import { loadLiftedSaleLines } from "./liftedQuantities.js";
 import {
+  assertTransportCostCustomerAllowed,
   assertTransportCostSalesPointAllowed,
   buildTransportCostPolicyNotice,
   loadTransportCostMoliweOnlyPolicy,
   resolveMoliweSalesPointId,
+  resolveTransportCostCustomerId,
 } from "./policy.js";
 import { resolveTransportRatePerKg } from "./resolveTransportRate.js";
 
@@ -69,9 +71,11 @@ export function getTransportCostFormOptions(): TransportCostFormOptions {
   const openPeriod = getOpenPostingPeriod();
   const transportCostMoliweOnlyPolicy = loadTransportCostMoliweOnlyPolicy(db);
   const moliweSalesPointId = resolveMoliweSalesPointId(db);
+  const scrMayCustomerId = resolveTransportCostCustomerId(db);
   const policyNotice = buildTransportCostPolicyNotice(
     transportCostMoliweOnlyPolicy,
     moliweSalesPointId,
+    scrMayCustomerId,
   );
 
   const customers = db
@@ -84,7 +88,16 @@ export function getTransportCostFormOptions(): TransportCostFormOptions {
     .map((row) => ({
       id: (row as { id: number }).id,
       name: String((row as { name: string }).name),
-    }));
+    }))
+    .filter((customer) => {
+      if (!transportCostMoliweOnlyPolicy) {
+        return true;
+      }
+      if (scrMayCustomerId == null) {
+        return false;
+      }
+      return customer.id === scrMayCustomerId;
+    });
 
   const salesPoints = listActiveSalesPoints(db).filter((point) => {
       if (!transportCostMoliweOnlyPolicy) {
@@ -131,10 +144,16 @@ export function computeTransportCost(
   const db = getDatabase();
   const transportCostMoliweOnlyPolicy = loadTransportCostMoliweOnlyPolicy(db);
   const moliweSalesPointId = resolveMoliweSalesPointId(db);
+  const scrMayCustomerId = resolveTransportCostCustomerId(db);
   assertTransportCostSalesPointAllowed(
     input.salesPointId,
     transportCostMoliweOnlyPolicy,
     moliweSalesPointId,
+  );
+  assertTransportCostCustomerAllowed(
+    input.customerId,
+    transportCostMoliweOnlyPolicy,
+    scrMayCustomerId,
   );
 
   const { asAtIso, period } = resolveReportAsAt();

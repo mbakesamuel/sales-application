@@ -17,7 +17,7 @@ import "./IndustryProductMonthlySalesReport.css";
 
 function formatTons(value: number): string {
   if (Math.abs(value) < 0.0005) {
-    return "";
+    return "-";
   }
   return value.toLocaleString("en-US", {
     minimumFractionDigits: 0,
@@ -28,7 +28,7 @@ function formatTons(value: number): string {
 function formatValue(value: number): string {
   const thousands = value / 1000;
   if (Math.abs(thousands) < 0.5) {
-    return "";
+    return "-";
   }
   return Math.round(thousands).toLocaleString("en-US");
 }
@@ -135,7 +135,7 @@ function ReportDocument({ report }: { report: IndustryProductMonthlySalesReport 
     <DocumentPreview
         title="Industry product monthly sales"
         fileName={`industry-product-monthly-sales-${report.financialYear}-${report.asAtIso}.pdf`}
-        page="landscape"
+        page="landscape-wide"
         bodyClass="ipms-print-landscape"
         sourceKey={report}
         isEmpty={empty}

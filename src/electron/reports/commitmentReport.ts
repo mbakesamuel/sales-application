@@ -9,7 +9,7 @@ import {
   loadOutstandingCommitmentsAsOf,
   type OutstandingCommitmentAsOf,
 } from "./commitmentAsOf.js";
-import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportComments } from "./companySettings.js";
 import {
   loadProducts,
   loadSalesPointsForUser,
@@ -134,10 +134,13 @@ function buildSection(
   };
 }
 
-export function getCommitmentReport(userId?: string | null): CommitmentReport {
+export function getCommitmentReport(
+  userId?: string | null,
+  hideZeroArg?: boolean | null,
+): CommitmentReport {
   const { asAtIso } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
-  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
+  const hideZero = hideZeroArg ?? true;
   const salesPoints = loadSalesPointsForUser(userId);
   const categories = loadCategories();
   const products = loadProducts();

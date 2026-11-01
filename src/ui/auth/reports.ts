@@ -13,21 +13,25 @@ export function getAuthenticatedReports() {
   const api = getElectronApi().reports;
 
   return {
-    getStockCommitment: () => api.getStockCommitment(requireAuthToken()),
-    getStockReport: () => api.getStockReport(requireAuthToken()),
-    getCommitmentReport: () => api.getCommitmentReport(requireAuthToken()),
-    getBottleOilStockSales: () => api.getBottleOilStockSales(requireAuthToken()),
+    getStockCommitment: (hideZero?: boolean) =>
+      api.getStockCommitment(requireAuthToken(), hideZero),
+    getStockReport: (hideZero?: boolean) =>
+      api.getStockReport(requireAuthToken(), hideZero),
+    getCommitmentReport: (hideZero?: boolean) =>
+      api.getCommitmentReport(requireAuthToken(), hideZero),
+    getBottleOilStockSales: (hideZero?: boolean) =>
+      api.getBottleOilStockSales(requireAuthToken(), hideZero),
     getBottledWeeklyIssues: (
       estimateBasis?: import("../../shared/reports.types.ts").BottledWeeklyEstimateBasis,
       weekMondayIso?: string,
     ) => api.getBottledWeeklyIssues(requireAuthToken(), estimateBasis, weekMondayIso),
     getWeekChoices: () => api.getWeekChoices(requireAuthToken()),
-    getWeeklyDeliveries: (weekMondayIso?: string) =>
-      api.getWeeklyDeliveries(requireAuthToken(), weekMondayIso),
+    getWeeklyDeliveries: (weekMondayIso?: string, hideZero?: boolean) =>
+      api.getWeeklyDeliveries(requireAuthToken(), weekMondayIso, hideZero),
     getMonthlyDelivery: (half: 1 | 2) =>
       api.getMonthlyDelivery(half, requireAuthToken()),
-    getMonthlyStockReconciliation: () =>
-      api.getMonthlyStockReconciliation(requireAuthToken()),
+    getMonthlyStockReconciliation: (hideZero?: boolean) =>
+      api.getMonthlyStockReconciliation(requireAuthToken(), hideZero),
     getLooseLpoStockSummary: () =>
       api.getLooseLpoStockSummary(requireAuthToken()),
     getMonthlyPaymentDelivery: () =>

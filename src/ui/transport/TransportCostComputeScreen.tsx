@@ -7,8 +7,10 @@ import type {
 } from "../../shared/transportCost.types.ts";
 import { getAuthToken } from "../auth/db.ts";
 import { getElectronApi } from "../auth/client.ts";
-import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import { getAuthenticatedReports } from "../auth/reports.ts";
+import type { TransportCostReport } from "../../shared/reports.types.ts";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
+import { TransportCostReportDocument } from "../reports/TransportCostReportScreen.tsx";
 import "../customers/CustomersScreen.css";
 import "./TransportCostComputeScreen.css";
 
@@ -114,10 +116,50 @@ export function TransportCostComputeScreen({
   const [computing, setComputing] = useState(false);
   const [result, setResult] = useState<TransportCostComputeResult | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
+  const [printReport, setPrintReport] = useState<TransportCostReport | null>(null);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
 
   const [customerId, setCustomerId] = useState("");
   const [salesPointId, setSalesPointId] = useState("");
   const [productId, setProductId] = useState("");
+
+  useEffect(() => {
+    if (!printOpen) {
+      return;
+    }
+
+    let cancelled = false;
+    setPrintLoading(true);
+    setPrintError(null);
+    setPrintReport(null);
+
+    void getAuthenticatedReports()
+      .getTransportCost()
+      .then((data) => {
+        if (!cancelled) {
+          setPrintReport(data);
+        }
+      })
+      .catch((loadError) => {
+        if (!cancelled) {
+          setPrintError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Failed to load transportation cost report.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPrintLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [printOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -482,80 +524,21 @@ export function TransportCostComputeScreen({
         ) : null}
       </div>
 
-      {printOpen && result ? (
-        <ReportOverlayShell preview title="Transportation cost" onClose={() => setPrintOpen(false)}>
-          <DocumentPreview
-            title="Transportation cost"
-            fileName={`transport-cost-${result.asAtIso}.pdf`}
-            sourceKey={result}
-          >
-        <article class="scr-document tcc-print-document">
-          <header class="tcc-print-header">
-            <h2 class="tcc-print-title">Transportation cost</h2>
-            <p class="tcc-print-subtitle">
-              {result.customerName} · {result.salesPointName} · {result.productName}
-            </p>
-            <p class="tcc-print-subtitle">
-              Open month: {period.monthName} {period.financialYear} ({period.startDate}{" "}
-              to {result.asAtIso})
-            </p>
-          </header>
-
-          <div class="tcc-print-summary">
-            <p>
-              Total lifted: <strong>{formatKg(result.totalQtyKg)} kg</strong>
-            </p>
-            <p>
-              Total transport cost: <strong>{formatMoney(result.totalCost)} XAF</strong>
-            </p>
-          </div>
-
-          {result.warnings.length ? (
-            <div class="tcc-print-warnings">
-              {result.warnings.map((warning) => (
-                <p key={warning}>{warning}</p>
-              ))}
-            </div>
-          ) : null}
-
-          {result.lines.length === 0 ? (
-            <p class="cf-empty">
-              No validated lifts found for this selection in the open month.
-            </p>
+      {printOpen ? (
+        <ReportOverlayShell
+          preview
+          title="Transportation cost"
+          onClose={() => setPrintOpen(false)}
+        >
+          {printLoading ? (
+            <p class="scr-status">Loading report…</p>
+          ) : printError ? (
+            <p class="scr-status scr-status-error">{printError}</p>
+          ) : printReport ? (
+            <TransportCostReportDocument report={printReport} />
           ) : (
-            <div class="cf-table-wrap tcc-print-table-wrap">
-              <table class="cf-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Invoice</th>
-                    <th>DO No</th>
-                    <th class="cf-num">Qty (kg)</th>
-                    <th class="cf-num">Rate/kg</th>
-                    <th class="cf-num">Cost</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.lines.map((line, index) => (
-                    <tr key={`${line.dateIssued}-${line.invoiceNo ?? index}`}>
-                      <td>{line.dateIssued}</td>
-                      <td>{line.invoiceNo ?? "—"}</td>
-                      <td>{line.deliveryOrderNo ?? "—"}</td>
-                      <td class="cf-num">{formatKg(line.qtyKg)}</td>
-                      <td class="cf-num">
-                        {line.rateMissing ? "—" : formatMoney(line.ratePerKg)}
-                      </td>
-                      <td class="cf-num">
-                        {line.rateMissing ? "—" : formatMoney(line.lineCost)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <p class="scr-status">No report data available.</p>
           )}
-        </article>
-          </DocumentPreview>
         </ReportOverlayShell>
       ) : null}
     </>

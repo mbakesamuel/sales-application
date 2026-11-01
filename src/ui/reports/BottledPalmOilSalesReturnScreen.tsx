@@ -84,7 +84,7 @@ function ReportDocument({ report }: { report: BottledPalmOilSalesReturnReport })
     <DocumentPreview
         title="Bottled palm oil sales return"
         fileName={`bottled-palm-oil-sales-return-${report.financialYear}-${report.asAtIso}.pdf`}
-        page="landscape"
+        page="landscape-wide"
         bodyClass="bposr-print-landscape"
         sourceKey={report}
         isEmpty={empty}

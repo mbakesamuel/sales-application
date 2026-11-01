@@ -5,37 +5,22 @@
   --mpos-period-count: 7;
 }
 
-.mpos-document .mpos-title {
-  margin: 1rem 0 1.25rem;
-  color: #000;
-  font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
-  font-size: 1rem;
-  font-weight: 900;
-  text-align: center;
-  line-height: 1.3;
-  text-decoration: underline;
-}
-
 .mpos-document .report-header {
-  padding-top: 0;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  --report-header-logo-width: 0px;
+  margin-bottom: 8px;
 }
 
-.mpos-document .report-header-company,
-.mpos-document .report-header-title {
-  padding-left: 0;
-  padding-right: 0;
+.mpos-document .report-footer {
+  margin-top: 6px;
+  padding-top: 4px;
 }
 
-.mpos-document .report-header-company-name {
-  font-size: 18px;
+.mpos-document .report-footer-space {
+  height: 28px;
 }
 
-.mpos-document .report-header-department,
-.mpos-document .report-header-commercial-service {
-  font-size: 14px;
+.mpos-document .scr-comments {
+  margin-top: 10px;
+  margin-bottom: 4px;
 }
 
 .mpos-section {
@@ -107,30 +92,29 @@
   }
 
   body.mpos-print-landscape .mpos-document .report-header {
-    margin-bottom: 8px !important;
-    padding-bottom: 6px !important;
-  }
-
-  body.mpos-print-landscape .mpos-document .report-header-company-name {
-    font-size: 16px !important;
-    line-height: 1.2 !important;
-  }
-
-  body.mpos-print-landscape .mpos-document .report-header-department,
-  body.mpos-print-landscape .mpos-document .report-header-commercial-service {
-    font-size: 12px !important;
-    line-height: 1.2 !important;
-  }
-
-  body.mpos-print-landscape .mpos-title {
-    margin: 0.5rem 0 0.75rem !important;
-    font-size: 12px !important;
-    line-height: 1.25 !important;
+    margin-bottom: 6px !important;
   }
 
   body.mpos-print-landscape .mbo-routing {
     margin: 0.35rem 0 0.5rem !important;
     font-size: 11px !important;
+  }
+
+  body.mpos-print-landscape .mpos-document .report-footer,
+  body.scr-print-mode .mpos-document .report-footer {
+    margin-top: 4px !important;
+    padding-top: 2px !important;
+  }
+
+  body.mpos-print-landscape .mpos-document .report-footer-space,
+  body.scr-print-mode .mpos-document .report-footer-space {
+    height: 24px !important;
+  }
+
+  body.mpos-print-landscape .mpos-document .scr-comments,
+  body.scr-print-mode .mpos-document .scr-comments {
+    margin-top: 8px !important;
+    margin-bottom: 2px !important;
   }
 
   body.mpos-print-landscape .mpos-section {

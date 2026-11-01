@@ -394,7 +394,7 @@ export function getBottledPalmOilSalesReturnReport(
   const monthStartIso = period.startDate;
   const openingAsOfIso = dayBeforeIso(monthStartIso);
   const monthLabel = `${period.monthName} ${period.financialYear}`.toUpperCase();
-  const reportTitle = `BOTTLED PALM OIL SALES RETURN FOR THE MONTH OF ${monthLabel} (VALUE WITHOUT TAXES)`;
+  const reportTitle = `BOTTLED PALM OIL STOCKS RECONCILIATION FOR THE MONTH OF ${monthLabel} (VALUE WITHOUT TAXES)`;
 
   const receiptLines = loadReceiptLines(
     monthStartIso,

@@ -16,7 +16,7 @@ import { resolveReportAsAt } from "../financialYears/service.js";
 import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
 import { getSludgeOilPoolProductId } from "../stock/stockIntakeMigration.js";
 import { loadCommitmentMetricsAsOf } from "./commitmentAsOf.js";
-import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportComments } from "./companySettings.js";
 import {
   loadSalesPointsForUser,
   reportScopedSalesPointId,
@@ -443,10 +443,11 @@ function buildBottledSection(
 
 export function getStockCommitmentReport(
   userId?: string | null,
+  hideZeroArg?: boolean | null,
 ): StockCommitmentReport {
   const { asAtIso } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
-  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
+  const hideZero = hideZeroArg ?? true;
   const salesPoints = loadSalesPointsForUser(userId);
   const scopedSalesPointId = reportScopedSalesPointId(userId);
   const categories = loadCategories();

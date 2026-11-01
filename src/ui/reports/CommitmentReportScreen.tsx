@@ -5,6 +5,8 @@ import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { CommitmentReport, CommitmentReportSection } from "../../shared/reports.types.ts";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { HideZeroRowsToggle } from "./HideZeroRowsToggle.tsx";
+import { useHideZeroReportRows } from "./hideZeroReportRows.ts";
 import { isCommitmentReportEmpty, HIDE_ZERO_ROWS_HINT } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 
@@ -131,6 +133,7 @@ export function CommitmentReportScreen({
   windowMode?: boolean;
 }) {
   void windowMode;
+  const [hideZero, setHideZero] = useHideZeroReportRows();
   const [report, setReport] = useState<CommitmentReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +145,7 @@ export function CommitmentReportScreen({
       setLoading(true);
       setError(null);
       try {
-        const data = await getAuthenticatedReports().getCommitmentReport();
+        const data = await getAuthenticatedReports().getCommitmentReport(hideZero);
         if (!cancelled) {
           setReport(data);
         }
@@ -161,13 +164,13 @@ export function CommitmentReportScreen({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [hideZero]);
 
-  if (loading) {
+  if (loading && !report) {
     return <p class="scr-status">Loading commitment report...</p>;
   }
 
-  if (error) {
+  if (error && !report) {
     return <p class="scr-status scr-status-error">{error}</p>;
   }
 
@@ -177,6 +180,14 @@ export function CommitmentReportScreen({
 
   return (
     <div class="scr-page">
+      <div class="scr-toolbar no-print">
+        <HideZeroRowsToggle
+          checked={hideZero}
+          disabled={loading}
+          onChange={setHideZero}
+        />
+      </div>
+      {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}
       <CommitmentReportDocument report={report} />
     </div>
   );

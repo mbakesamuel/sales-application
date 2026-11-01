@@ -47,12 +47,30 @@ function formatPct(value: number | null | undefined): string {
   return `${Math.round(value)}%`;
 }
 
+function ColumnGroup({ periodCount }: { periodCount: number }) {
+  return (
+    <colgroup>
+      <col class="posa-col-label" />
+      {Array.from({ length: periodCount }).flatMap((_, index) => [
+        <col key={`${index}-tons`} class="posa-col-metric" />,
+        <col key={`${index}-fcfa`} class="posa-col-metric" />,
+      ])}
+      <col class="posa-col-pct" />
+    </colgroup>
+  );
+}
+
 function ActivitySectionTable({ section }: { section: PalmOilSalesActivitySection }) {
+  const periodCount = section.monthColumns.length + 1;
   const colSpan = section.monthColumns.length * 2 + 3;
 
   return (
-    <div class="posa-section">
+    <div
+      class="posa-section"
+      style={{ ["--posa-period-count" as string]: String(periodCount) }}
+    >
       <table class="scr-table posa-table">
+        <ColumnGroup periodCount={periodCount} />
         <thead>
           <tr>
             <th class="posa-label-col" rowSpan={2} />
@@ -176,7 +194,7 @@ function ReportDocument({ report }: { report: PalmOilSalesActivityReport }) {
     <DocumentPreview
         title="Palm oil sales activity"
         fileName={`palm-oil-sales-activity-${report.financialYear}-${report.asAtIso}.pdf`}
-        page="landscape"
+        page="landscape-wide"
         bodyClass="posa-print-landscape"
         sourceKey={report}
         isEmpty={empty}

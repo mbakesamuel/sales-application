@@ -1,6 +1,6 @@
 import type { BottleOilStockSalesReport, BottledPalmOilSalesReturnReport, BottledWeeklyIssuesReport, CommitmentReport, DailySalesReport, IndustryProductMonthlySalesReport, MonthlyBottledOilReport, MonthlyDeliveriesByDestinationReport, MonthlyDeliveryReport, MonthlyPalmOilSalesReport, PalmOilSalesActivityReport, MonthlyPaymentDeliveryReport, MonthlyStockReconciliationReport, LooseLpoStockSummaryReport, OtherProductSalesDeliveriesReport, RevenueTaxesReport, SalesBudgetMonthlyCrosstabReport, SalesBudgetMonthlyRevenueCrosstabReport, SalesBudgetWeeklyCrosstabReport, SalesBudgetWeeklyRevenueCrosstabReport, StockCommitmentReport, StockReport, WeeklyDeliveriesReport } from "../../shared/reports.types.ts";
 import type { BinCardReport } from "../../shared/stock.types.ts";
-export declare const HIDE_ZERO_ROWS_HINT = "Turn off Hide rows with zero or empty quantities in Report settings to see zero-balance rows.";
+export declare const HIDE_ZERO_ROWS_HINT = "Turn off Hide zero / empty quantity rows above to see zero-balance rows.";
 export declare function isStockReportEmpty(report: StockReport): boolean;
 export declare function isStockCommitmentReportEmpty(report: StockCommitmentReport): boolean;
 export declare function isCommitmentReportEmpty(report: CommitmentReport): boolean;

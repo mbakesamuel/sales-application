@@ -98,22 +98,22 @@ export function budgetCategoryLabels(category: SalesBudgetCategoryRef): {
   if (text.includes("KERNEL CAKE") || /\bPKC\b/.test(text)) {
     return {
       label,
-      tonsLabel: "P.KERNEL CAKE(tons)",
+      tonsLabel: "P. Kernel Cake(Tons)",
       valueLabel: "PKC (FCFA)",
     };
   }
   if (text.includes("UNCRACKED")) {
     return {
       label,
-      tonsLabel: "Uncracked p.k(Tons)",
-      valueLabel: "Uncracked p.k(FCFA)",
+      tonsLabel: "UNCRACKED P.K(TONS)",
+      valueLabel: "UNCRACKED P.K(FCFA)",
     };
   }
   if (text.includes("CRACKED")) {
     return {
       label,
-      tonsLabel: "cracked p.k(Tons)",
-      valueLabel: "cracked p.k(FCFA)",
+      tonsLabel: "CRACKED P.K(TONS)",
+      valueLabel: "CRACKED P.K(FCFA)",
     };
   }
 

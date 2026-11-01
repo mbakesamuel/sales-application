@@ -19,7 +19,7 @@ import "./MonthlyPalmOilSalesReport.css";
 
 function formatTons(value: number): string {
   if (Math.abs(value) < 0.0005) {
-    return "";
+    return "-";
   }
   return value.toLocaleString("en-US", {
     minimumFractionDigits: 0,
@@ -30,7 +30,7 @@ function formatTons(value: number): string {
 function formatValue(value: number): string {
   const thousands = value / 1000;
   if (Math.abs(thousands) < 0.5) {
-    return "";
+    return "-";
   }
   return Math.round(thousands).toLocaleString("en-US");
 }
@@ -47,6 +47,15 @@ function MonthColumnGroup({ periodCount }: { periodCount: number }) {
   );
 }
 
+function halfRangeLabel(columns: MonthlyPalmOilSalesMonthColumn[]): string {
+  const first = columns[0]?.label;
+  const last = columns[columns.length - 1]?.label;
+  if (!first || !last) {
+    return "";
+  }
+  return `${first} TO ${last}`;
+}
+
 function MonthBlock({
   columns,
   rows,
@@ -57,6 +66,7 @@ function MonthBlock({
   showYtd: boolean;
 }) {
   const periodCount = columns.length + (showYtd ? 1 : 0);
+  const sectionRange = halfRangeLabel(columns);
 
   return (
     <div class={`mpos-section ${showYtd ? "mpos-section-h2" : "mpos-section-h1"}`}>
@@ -96,10 +106,13 @@ function MonthBlock({
 
             if (row.kind === "section") {
               const colSpan = columns.length * 2 + (showYtd ? 2 : 0) + 1;
+              const sectionLabel = sectionRange
+                ? `${row.label} ${sectionRange}`
+                : row.label;
               return (
                 <tr key={row.id} class={rowClass}>
                   <td colSpan={colSpan}>
-                    <strong>{row.label}</strong>
+                    <strong>{sectionLabel}</strong>
                   </td>
                 </tr>
               );
@@ -144,7 +157,7 @@ function ReportDocument({ report }: { report: MonthlyPalmOilSalesReport }) {
     <DocumentPreview
         title="Monthly palm oil sales"
         fileName={`monthly-palm-oil-sales-${report.financialYear}-${report.asAtIso}.pdf`}
-        page="landscape"
+        page="landscape-wide"
         bodyClass="mpos-print-landscape"
         sourceKey={report}
         isEmpty={empty}
@@ -166,7 +179,7 @@ function ReportDocument({ report }: { report: MonthlyPalmOilSalesReport }) {
           companyName={report.settings.companyName}
           department={report.settings.department ?? null}
           serviceName={report.settings.serviceName ?? null}
-          title=""
+          title={report.reportTitle}
         />
       }
     >
@@ -176,11 +189,11 @@ function ReportDocument({ report }: { report: MonthlyPalmOilSalesReport }) {
         </p>
         <p class="mbo-routing-to">
           <span class="mbo-routing-key">TO:</span> COMMERCIAL DIRECTOR
-          <span class="mbo-routing-date">{formatDisplayDate(report.asAtIso)}</span>
+          <span class="mbo-routing-date">
+            {formatDisplayDate(report.generatedAtIso.slice(0, 10))}
+          </span>
         </p>
       </section>
-
-      <h1 class="mpos-title">{report.reportTitle}</h1>
 
       <MonthBlock
         columns={report.monthColumnsH1}

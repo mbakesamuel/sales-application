@@ -209,10 +209,19 @@ interface AuthApi {
 }
 
 interface ReportsApi {
-  getStockCommitment(authToken: string): Promise<StockCommitmentReport>;
-  getStockReport(authToken: string): Promise<StockReport>;
-  getCommitmentReport(authToken: string): Promise<CommitmentReport>;
-  getBottleOilStockSales(authToken: string): Promise<BottleOilStockSalesReport>;
+  getStockCommitment(
+    authToken: string,
+    hideZero?: boolean,
+  ): Promise<StockCommitmentReport>;
+  getStockReport(authToken: string, hideZero?: boolean): Promise<StockReport>;
+  getCommitmentReport(
+    authToken: string,
+    hideZero?: boolean,
+  ): Promise<CommitmentReport>;
+  getBottleOilStockSales(
+    authToken: string,
+    hideZero?: boolean,
+  ): Promise<BottleOilStockSalesReport>;
   getBottledWeeklyIssues(
     authToken: string,
     estimateBasis?: import("../../shared/reports.types").BottledWeeklyEstimateBasis,
@@ -226,9 +235,13 @@ interface ReportsApi {
   getWeeklyDeliveries(
     authToken: string,
     weekMondayIso?: string,
+    hideZero?: boolean,
   ): Promise<WeeklyDeliveriesReport>;
   getMonthlyDelivery(half: 1 | 2, authToken: string): Promise<MonthlyDeliveryReport>;
-  getMonthlyStockReconciliation(authToken: string): Promise<MonthlyStockReconciliationReport>;
+  getMonthlyStockReconciliation(
+    authToken: string,
+    hideZero?: boolean,
+  ): Promise<MonthlyStockReconciliationReport>;
   getLooseLpoStockSummary(authToken: string): Promise<LooseLpoStockSummaryReport>;
   getMonthlyPaymentDelivery(authToken: string): Promise<MonthlyPaymentDeliveryReport>;
   getTransportCost(authToken: string): Promise<import("../../shared/reports.types").TransportCostReport>;

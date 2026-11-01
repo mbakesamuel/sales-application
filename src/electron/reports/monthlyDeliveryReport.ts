@@ -764,8 +764,8 @@ function buildBudgetSections(input: {
   // on cracked only (matches legacy spreadsheet); uncracked estimate stays blank.
   const uncracked = buildBudgetMetric({
     id: "uncracked",
-    tonsLabel: "Uncracked p.k(Tons)",
-    valueLabel: "Uncracked p.k(FCFA)",
+    tonsLabel: "UNCRACKED P.K(TONS)",
+    valueLabel: "UNCRACKED P.K(FCFA)",
     estimateCatIds: [],
     lineMatches: lineUncrackedPk,
     ...metricContext,
@@ -773,8 +773,8 @@ function buildBudgetSections(input: {
 
   const cracked = buildBudgetMetric({
     id: "cracked",
-    tonsLabel: "cracked p.k(Tons)",
-    valueLabel: "cracked p.k(FCFA)",
+    tonsLabel: "CRACKED P.K(TONS)",
+    valueLabel: "CRACKED P.K(FCFA)",
     estimateCatIds: palmKernelCatIds,
     lineMatches: lineCrackedPk,
     ...metricContext,
@@ -783,7 +783,7 @@ function buildBudgetSections(input: {
   const pKernel = sumBudgetMetrics(
     [uncracked, cracked],
     "p_kernel",
-    "P. KERNEL (tons)",
+    "P. KERNEL (TONS)",
     "P. KERNEL (FCFA)",
   );
 
@@ -807,8 +807,8 @@ function buildBudgetSections(input: {
 
   const pkc = buildBudgetMetric({
     id: "pkc",
-    tonsLabel: "P.KERNEL CAKE(tons)",
-    valueLabel: "P. KERNEL CAKE (FCFA)",
+    tonsLabel: "P. Kernel Cake(Tons)",
+    valueLabel: "P. Kernel Cake (FCFA)",
     estimateCatIds: pkcCatIds,
     lineMatches: lineInCats(new Set(pkcCatIds)),
     ...metricContext,
@@ -822,14 +822,14 @@ function buildBudgetSections(input: {
 
   return {
     kernelPkBudgetSection: {
-      title: `budget ${financialYear}`,
+      title: `Budget ${financialYear}`,
       metrics: [uncracked, cracked, pKernel],
       grandEstimateValue: 0,
       grandActualValue: 0,
       variance: 0,
     },
     budgetSection: {
-      title: `budget ${financialYear}`,
+      title: `Budget ${financialYear}`,
       metrics: [palmOil, pko, pkc],
       grandEstimateValue,
       grandActualValue,

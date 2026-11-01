@@ -15,6 +15,7 @@ import {
   filterLiftedLinesForTransportCostPolicy,
   loadTransportCostMoliweOnlyPolicy,
   resolveMoliweSalesPointId,
+  resolveTransportCostCustomerId,
 } from "../transport/policy.js";
 import { resolveTransportRatePerKg } from "../transport/resolveTransportRate.js";
 
@@ -41,9 +42,11 @@ export function getTransportCostReport(userId?: string | null): TransportCostRep
 
   const transportCostMoliweOnlyPolicy = loadTransportCostMoliweOnlyPolicy();
   const moliweSalesPointId = resolveMoliweSalesPointId();
+  const scrMayCustomerId = resolveTransportCostCustomerId();
   assertTransportCostReportPolicyConfigured(
     transportCostMoliweOnlyPolicy,
     moliweSalesPointId,
+    scrMayCustomerId,
   );
 
   const scopedSalesPointId = reportScopedSalesPointId(userId);
@@ -55,6 +58,7 @@ export function getTransportCostReport(userId?: string | null): TransportCostRep
     ),
     transportCostMoliweOnlyPolicy,
     moliweSalesPointId,
+    scrMayCustomerId,
   );
 
   const groups = new Map<

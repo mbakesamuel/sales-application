@@ -1,0 +1,18 @@
+.hide-zero-rows-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  color: #555;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hide-zero-rows-toggle input {
+  margin: 0;
+  accent-color: var(--accent, #388e3c);
+}
+
+.hide-zero-rows-toggle input:disabled + span {
+  opacity: 0.6;
+}

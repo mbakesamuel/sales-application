@@ -242,7 +242,7 @@ export function getIndustryProductMonthlySalesReport(
   };
 
   const monthName = period.monthName.toUpperCase();
-  const reportTitle = `INDUSTRY PRODUCT MONTHLY SALES FOR ${monthName} ${financialYear} (IN TONS AND '000 FRS) TAXES EXCLUDED`;
+  const reportTitle = `MONTHLY INDUSTRY SALES FOR OTHER PRODUCTS FOR ${monthName} ${financialYear} (IN TONS AND '000 FRS) TAXES EXCLUDED`;
 
   return {
     settings,

@@ -6,7 +6,6 @@ import { formatDisplayDate } from "../../shared/formatDisplayDate.js";
 import {
   loadReportComments,
   loadReportCompanySettings,
-  loadReportDisplaySettings,
 } from "./companySettings.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import {
@@ -339,10 +338,11 @@ function buildOtherRows(
 
 export function getMonthlyStockReconciliationReport(
   userId?: string | null,
+  hideZeroArg?: boolean | null,
 ): MonthlyStockReconciliationReport {
   const { asAtIso, period } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
-  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
+  const hideZero = hideZeroArg ?? true;
   const salesPoints = loadSalesPointsForUser(userId);
   const scopedSalesPointId = reportScopedSalesPointId(userId);
   const products = loadProducts();

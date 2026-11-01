@@ -84,8 +84,7 @@ function ReportTable({ report }: { report: MonthlyDeliveriesByDestinationReport 
             <KgCells {...report.totals} />
           </tr>
           <tr class="scr-row scr-row-total">
-            <td />
-            <td class="mdd-center">TOTAL %</td>
+            <td colSpan={2} />
             <td class="scr-num">{formatPct(report.percentages.industriesPct)}</td>
             <td class="scr-num">{formatPct(report.percentages.wholesalesPct)}</td>
             <td class="scr-num">{formatPct(report.percentages.retailPct)}</td>

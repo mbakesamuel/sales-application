@@ -28,6 +28,7 @@ import stockCss from "../reports/StockCommitmentReport.css?raw";
 import binCardCss from "../stock/BinCardReport.css?raw";
 import transferCss from "../stock/TransferPrintView.css?raw";
 import transportCss from "../transport/TransportCostComputeScreen.css?raw";
+import transportCostReportCss from "../reports/TransportCostReport.css?raw";
 import vcnBordereauCss from "../vehconsignment-note/VcnPrintBordereau.css?raw";
 import vcnProductsCss from "../vehconsignment-note/VcnPrintProductsTable.css?raw";
 import vcnCss from "../vehconsignment-note/VcnPrintView.css?raw";
@@ -56,6 +57,7 @@ const PARTS = [
   otherProductCss,
   posaCss,
   revenueCss,
+  transportCostReportCss,
   binCardCss,
   salePrintCss,
   doPrintCss,

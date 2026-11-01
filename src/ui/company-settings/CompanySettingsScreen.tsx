@@ -978,11 +978,11 @@ export function CompanySettingsScreen({
             }}
           />
           <span>
-            <strong>Moliwe-only transport cost policy</strong>
+            <strong>Moliwe + SCR MAYA transport cost policy</strong>
             <span>
-              When unchecked (default), transport cost applies to all collection
-              points using configured rates. When checked, compute and the monthly
-              report include only the Moliwe collection point.
+              When checked (default), compute and the monthly transportation cost
+              report include only Moliwe invoices raised to customer SCR MAYA.
+              Uncheck only to include all collection points and customers.
             </span>
           </span>
         </label>
