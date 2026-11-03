@@ -116,6 +116,18 @@ export function getBottledStockModuleAccess(snapshot: RolePermissionsSnapshot): 
   return getRouteAccess(snapshot, BOTTLED_STOCK_ROUTE_ID);
 }
 
+/**
+ * Bin card printable report (opened from Stock → Bin card).
+ * Matches getBinCard: stock-bin-card, bottled-stock, or the dedicated report route.
+ */
+export function canAccessBinCardReport(snapshot: RolePermissionsSnapshot): boolean {
+  return (
+    canAccessRoute(snapshot, "stock-bin-card-report") ||
+    canAccessRoute(snapshot, "stock-bin-card") ||
+    canAccessBottledStockModule(snapshot)
+  );
+}
+
 /** True when the role can manage bottled stock (module route or legacy bin-card write). */
 export function hasUnifiedStockBottledCapability(snapshot: RolePermissionsSnapshot): boolean {
   if (getBottledStockModuleAccess(snapshot) === "write") {

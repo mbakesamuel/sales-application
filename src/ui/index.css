@@ -34,7 +34,9 @@ html[data-theme="agro"] {
   --heading: "Segoe UI Semibold", "Segoe UI", system-ui, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
-  font: 18px/145% var(--sans);
+  /* Fixed 16px so maximized packaged builds match the local ~1000px window scale.
+     (Was 18px above 1024px, which made the installed app look zoomed.) */
+  font: 16px/145% var(--sans);
   letter-spacing: 0.18px;
   color-scheme: light;
   color: var(--text);
@@ -43,10 +45,6 @@ html[data-theme="agro"] {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
 /* Agro: remap stray blues and strengthen green/yellow badges. */
@@ -66,8 +64,26 @@ html[data-theme="agro"] .customers-link-btn-primary {
 }
 
 html[data-theme="agro"] .customers-checkbox,
-html[data-theme="agro"] .form-dialog-checkbox-label input {
+html[data-theme="agro"] .form-dialog-checkbox-label input,
+html[data-theme="agro"] .sales-checkbox input[type="checkbox"],
+html[data-theme="agro"] .sales-checkbox-inline input[type="checkbox"],
+html[data-theme="agro"] .sales-client input[type="checkbox"],
+html[data-theme="agro"] .sales-client input[type="radio"] {
   accent-color: var(--accent);
+}
+
+html[data-theme="agro"] .sales-link-btn,
+html[data-theme="agro"] .sales-btn-link,
+html[data-theme="agro"] a.sales-link-btn {
+  color: var(--accent) !important;
+}
+
+html[data-theme="agro"] .sales-list-edit-btn {
+  color: var(--accent);
+}
+
+html[data-theme="agro"] .do-list-edit-btn {
+  color: var(--accent);
 }
 
 html[data-theme="agro"] .customers-stat-icon-blue,

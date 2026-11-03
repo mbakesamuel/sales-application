@@ -13,6 +13,8 @@ export interface CarryForwardCommitmentRow {
   outstandingQty: number;
   dateIssued: string;
   notes: string | null;
+  /** Original paper/booklet DO number (required on new CF rows). */
+  sourceDocumentNo: string | null;
 }
 
 export interface CarryForwardCommitmentPendingRow {
@@ -28,6 +30,7 @@ export interface CarryForwardCommitmentPendingRow {
   orderQty: number;
   outstandingQty: number;
   dateIssued: string;
+  sourceDocumentNo: string | null;
 }
 
 export interface CarryForwardFormOptions {
@@ -43,6 +46,10 @@ export interface UpsertCarryForwardInput {
   productId: number;
   /** Desired outstanding kg (what still needs to be sold). */
   outstandingQty: number;
+  /** Original paper/booklet DO # — required when outstandingQty > 0. */
+  sourceDocumentNo?: string | null;
+  /** When set, update this existing CF detail instead of creating a new CF DO. */
+  detailId?: number | null;
   notes?: string | null;
 }
 
@@ -50,6 +57,9 @@ export interface UpsertCarryForwardBatchLine {
   customerId: number;
   /** Desired outstanding kg; omit / NaN lines are skipped by the batch API. */
   outstandingQty: number;
+  /** Original paper/booklet DO # — required when outstandingQty > 0. */
+  sourceDocumentNo: string;
+  detailId?: number | null;
 }
 
 export interface UpsertCarryForwardBatchInput {

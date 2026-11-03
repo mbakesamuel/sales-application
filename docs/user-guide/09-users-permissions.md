@@ -1,10 +1,16 @@
 # Users and permissions
 
-## Users
+Sidebar section: **Users & access**.
 
-**Users** (Users & access) maintains login accounts and role assignment.
+| Sidebar item | Purpose |
+|--------------|---------|
+| **Manage Users** | Login accounts and role assignment |
+| **Manage roles** | Create, rename, delete roles; copy permissions from another role |
+| **Role permissions** | Route access matrix and action toggles |
 
 When you create a user (or reset their password), enter a **temporary password** and share it with them. On first sign-in they must change that password before they can use the app.
+
+**Naming note:** Role permissions labels often follow the internal route catalog (e.g. “Sales Invoice”, “Bottled Stock”, “Carry-forward commitments”). The **sidebar** may use different wording (**Invoicing**, **Bottle Stock**, **Register Commitments**). Grant the route that matches the screen the user needs.
 
 ## Roles (defaults)
 
@@ -12,12 +18,12 @@ Default route access is defined per role (admins can change the matrix):
 
 | Role | Typical access |
 |------|----------------|
-| **ADMIN** | All routes write; manage permissions. Commercial Overview. |
-| **MANAGER** | Most routes write (not user admin); validate sales/DOs/consignments; can cancel validated DOs and validated sales invoices. Commercial Overview. |
+| **ADMIN** | All routes write; manage permissions and roles. Commercial Overview. |
+| **MANAGER** | Most routes write (not user admin); validate sales/DOs/consignments/booklets; can cancel validated DOs and validated sales invoices. Commercial Overview. |
 | **SENIOR_SALES_SUPERVISOR** | Operations, customers, inventory read/write; validate sales/DOs/consignments. **Supervisor Overview** (queues + stock). |
-| **JNR_SALES_SUP** (junior sales supervisor) | Custom/manageable role (may already exist in production DBs). Shares **Supervisor Overview** with senior supervisors when granted matching routes; consignment validation route seeded in migration `086`. |
-| **STATISTICS_CLERK** | Broad **read** on operations, budgets, reports, and financial/tax screens; **write** on **Stock**, **Bottled Stock**, **Opening Stock balances**, and **Opening commitment balances** for company-wide transfers (bulk + bottled) and carry-forward entry. Primary transfer operator — draft, dispatch, and location moves across all collection points. Carry-forward saves stay pending until a supervisor validates them. No validate actions by default. Commercial Overview. |
-| **STORE_KEEPER** | Bottled stock and Bottle Oil sales at their assigned collection point; **receive only** for incoming stock transfers (cannot draft or dispatch). Selected reports; **Bottle Oil Overview**. Cannot validate by default. |
+| **JNR_SALES_SUP** (junior sales supervisor) | Custom/manageable role (may already exist in production DBs). Shares **Supervisor Overview** with senior supervisors when granted matching routes. |
+| **STATISTICS_CLERK** | Broad **read** on operations, budgets, reports, and financial/tax screens; **write** on **Stock**, **Bottle Stock**, **Opening Stock balances**, and **Register Commitments** for company-wide transfers (bulk + bottled) and carry-forward entry. Primary transfer operator — draft, dispatch, and location moves across all collection points. Carry-forward saves stay pending until a supervisor validates them. No validate actions by default. Commercial Overview. |
+| **STORE_KEEPER** | **Bottle Stock** (including **Bin card** and printable bin card report) and Bottle Oil sales at their assigned collection point; **Receive transfers** (receive-only; cannot draft or dispatch). Selected reports; **Bottle Oil Overview** with **Pending receive**. Cannot validate by default. |
 
 ## Route access vs actions
 
@@ -26,81 +32,82 @@ Default route access is defined per role (admins can change the matrix):
 
 | Action | Meaning |
 |--------|---------|
-| `validate_sales` | Validate sales invoices (pending invoices saved by clerks or yourself). |
+| `validate_sales` | Validate sales invoices (POS, invoice list, or **Sales validation**). |
 | `direct_validate_sales` | Create and validate a sales invoice in one step from the POS screen (skip pending). |
-| `cancel_validated_sales` | Cancel (void) an already validated sales invoice with a reason; restores stock and DO balance. Requires route **write** on Sales / Bottle Oil Sales as well. |
+| `cancel_validated_sales` | Cancel (void) an already validated sales invoice with a reason; restores stock and DO balance. Requires route **write** on Invoicing / Bottle Oil Sales as well. |
 | `delete_validated_sales` | Permanently delete a validated or cancelled sales invoice (ADMIN by default). |
 | `validate_delivery_orders` | Validate delivery orders (including the **Validation queue** tab under Delivery Order). |
 | `cancel_validated_delivery_order` | Cancel an already validated DO. |
-| `transfer_delivery_order_balance` | Move remaining DO kg to another sales point (**Transfer DO balance** screen). |
-| `validate_vehicle_consignment_notes` | Validate vehicle consignment notes (**Consignment validation** queue). |
+| `transfer_delivery_order_balance` | Move remaining DO kg to another collection point (**Transfer DO balance**). |
+| `validate_vehicle_consignment_notes` | Validate vehicle consignment notes (**Consignment validation**). |
+| `validate_document_booklets` | Validate pending document booklet issuances (**Booklet validation** / booklets screen). |
 | `manage_permissions` | Edit the permission matrix (**Role permissions**). |
 
-Opening **Sales Invoice** does not by itself allow validation — the action flag must be on. The Delivery Order **Validation queue** tab appears only when `validate_delivery_orders` is granted. **Consignment validation** needs route access plus `validate_vehicle_consignment_notes`.
+Opening **Invoicing** does not by itself allow validation — the action flag must be on. The Delivery Order **Validation queue** tab appears only when `validate_delivery_orders` is granted. **Consignment validation** needs route access plus `validate_vehicle_consignment_notes`. **Booklet validation** needs route access plus `validate_document_booklets`.
 
-### Sales / consignment routes
+### Sales / consignment / booklet routes
 
-| Route | Screen |
-|-------|--------|
-| `sales` | Loose Sales Invoice |
+| Route | Sidebar screen |
+|-------|----------------|
+| `sales` | Invoicing |
 | `bottle-oil-sales` | Bottle Oil sales |
-| `sales-validation` | Pending sales validation queue |
-| `vehicle-consignment-notes` | Prepare / print consignment notes |
-| `vehicle-consignment-validation` | Pending consignment validation queue |
+| `sales-validation` | Sales validation |
+| `document-booklets` | Document booklets |
+| `booklet-validation` | Booklet validation |
+| `transport-cost-compute` | Transportation cost |
+| `vehicle-consignment-notes` | Consignment notes |
+| `vehicle-consignment-validation` | Consignment validation |
 
 ### Delivery order routes
 
-| Route | Screen |
-|-------|--------|
-| `delivery-orders` | Create / edit, DO list, validation queue |
-| `delivery-order-tracking` | DO tracking lookup and printable tracking report |
-| `delivery-order-transfer` | Transfer remaining DO balance between sales points |
+| Route | Sidebar screen |
+|-------|----------------|
+| `delivery-orders` | Delivery Order (create / list / validation queue) |
+| `delivery-order-tracking` | DO tracking |
+| `delivery-order-transfer` | Transfer DO balance |
+| `carry-forward-commitments` | Register Commitments |
 
-## Stock module routes
+## Stock routes
 
-The **Stock** sidebar screen combines several permission routes. After changing the matrix, affected users must **log out and sign in again** for buttons to update.
+After changing the matrix, affected users must **log out and sign in again** for buttons to update.
 
-| Route | Stock tab / screen | None | Read | Write |
-|-------|-------------------|------|------|-------|
-| `stock-balance` | On hand | Hidden | View balances | View only (no create buttons) |
-| `stock-movements` | Movements | Hidden | View ledger | View only |
-| `stock-receipts` | Receipts | Hidden | View list | Needed for any receipt changes (also requires draft/post **actions**) |
-| `stock-transfers` | Transfers | Hidden | View list | Needed for any transfer changes (also requires draft/post **actions**) |
-| `stock-adjustments` | Adjustments | Hidden | View list | Needed for any adjustment changes (also requires draft/post **actions**) |
-| `carry-forward-stock` | Opening Stock balances | Hidden | View | Batch-set opening quantities (clerks submit drafts; supervisors with validate post immediately) |
-| `stock-bin-card` | Bin card (ledger + printable report) | Hidden | View / filter / open report | Same as read unless write on related stock routes |
+| Route | Sidebar / behaviour | None | Read | Write |
+|-------|---------------------|------|------|-------|
+| `stock` | **Stock** (unified when write) | Hidden | View | Draft/post stock documents (plus actions) |
+| `bottled-stock` | **Bottle Stock** (Store Keeper nav may show as **Stock**) | Hidden | View bottled tabs | Bottled transfers/adjustments; **Bin card** tab |
+| `receive-transfers` | **Receive transfers** | Hidden | View queue | Receive dispatched transfers (also needs receive action) |
+| `stock-validation` | **Stock validation** | Hidden | View queue | Validate when action granted |
+| `carry-forward-stock` | **Opening Stock balances** | Hidden | View | Batch-set opening quantities (clerks submit drafts; supervisors with validate post immediately) |
+| `stock-bin-card` | Bin card filters (permission matrix; not a separate sidebar item) | Hidden | View / filter | Same as read unless write on related stock routes |
+| `stock-bin-card-report` | Printable bin card overlay (from Bin card → **Open report**) | Hidden | Open printable report | Same as read |
 
-## Delivery order module routes
+Legacy matrix rows (`stock-balance`, `stock-movements`, `stock-receipts`, …) may still appear for older databases; the live hub is gated mainly by **`stock`** / **`bottled-stock`**.
 
-| Route | Screen | None | Read | Write |
-|-------|--------|------|------|-------|
-| `carry-forward-commitments` | Opening commitment balances | Hidden | View | Batch-set opening commitments (clerks submit pending DOs; supervisors with validate save live) |
-
-**Write** on balance or movements does not add create buttons — those tabs are always view-only. Grant **write** on receipts, transfers, or adjustments **plus** the matching action flags below.
+**Store Keeper note:** Defaults use **`bottled-stock`**, **`receive-transfers`**, and seeded **`stock-bin-card`** / **`stock-bin-card-report`**. If **Open report** is denied after an upgrade, confirm those routes are not **None**, then sign out and back in.
 
 ### Stock document actions
-
-These boolean actions appear on **Role permissions** next to Validate sales / Validate delivery orders:
 
 | Action | Allows |
 |--------|--------|
 | Draft stock receipts | New receipt, edit/delete drafts |
 | Post stock receipts | Post and cancel posted receipts |
 | Draft stock transfers | New transfer, edit/delete drafts (Statistics clerk / supervisors) |
-| Post / dispatch stock transfers | Post location moves, dispatch inter-site transfers, cancel posted (Statistics clerk / supervisors) |
-| Receive incoming stock transfers | Receive dispatched transfers at destination collection point (Store Keeper and initiators) |
+| Post / dispatch stock transfers | Post location moves, dispatch inter-site transfers, cancel posted |
+| Receive incoming stock transfers | Receive on **Receive transfers** (Store Keeper and initiators) |
 | Draft stock adjustments | New adjustment, edit/delete drafts |
 | Post stock adjustments | Post (including reclassify) and cancel posted |
 | Post stock receipts directly (skip draft review) | Create and post a new receipt in one step |
 | Post stock transfers directly (skip draft review) | Create and finalize a new transfer in one step |
-| Validate stock documents | Validate pending stock documents on **Stock → Validation** (receipts, transfers, adjustments, including carry-forward opening balances) |
+| Validate stock documents | Validate pending documents on **Stock → Stock validation** |
 
-Example: **Statistics clerk** drafts and dispatches transfers company-wide; **Store Keeper** at the destination collection point receives the stock into a storage location. Supervisors and managers can also initiate transfers when needed. Carry-forward opening balances submitted by clerks stay **draft** until a user with **Validate stock documents** posts them.
+Example: **Statistics clerk** drafts and dispatches transfers company-wide; **Store Keeper** at the destination collection point receives on **Receive transfers**. Supervisors clear drafts on **Stock validation**. Carry-forward opening balances submitted by clerks stay **draft** until a user with **Validate stock documents** posts them.
 
-Users with write access to both **Stock** and **Bottled Stock** (for example Statistics clerk) see a unified Stock screen that lists loose and bottled products together. Transfer, receipt, and adjustment documents still contain either loose or bottled lines only—not both on one document. Store Keepers continue to use **Bottled Stock** for bottled products only.
+## Manage roles
+
+**Manage roles** lets admins create custom roles (copying route/action defaults from an existing role such as Store Keeper), rename labels, and delete non-system roles. System roles (ADMIN, MANAGER, …) cannot be deleted.
 
 ## Role permissions screen
 
-**Role permissions** is admin-only by default. Adjust route and action matrices carefully; incorrect settings can block clerks from selling or allow unauthorized validation.
+**Role permissions** is admin-only by default. Adjust route and action matrices carefully; incorrect settings can block clerks from selling or allow unauthorized validation. Supervisor Overview tiles require grants for `sales-validation`, `stock-validation`, and `vehicle-consignment-validation` as applicable.
 
 Next: [Troubleshooting](10-troubleshooting.md).

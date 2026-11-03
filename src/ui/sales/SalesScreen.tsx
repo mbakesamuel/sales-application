@@ -7,8 +7,11 @@ import {
   type SalesModuleVariant,
 } from "../../shared/salesModule.ts";
 import type { AuthUser } from "../auth/session.ts";
+import { FormDialog } from "../components/FormDialog.tsx";
+import "../components/FormDialog.css";
 import { SalesClient } from "./SalesClient.tsx";
 import { SalesList } from "./SalesList.tsx";
+import "./sales.css";
 
 interface SalesScreenProps {
   user: AuthUser;
@@ -16,8 +19,6 @@ interface SalesScreenProps {
   readOnly?: boolean;
   variant?: SalesModuleVariant;
 }
-
-type SalesView = "pos" | "list";
 
 export function SalesScreen({
   user,
@@ -30,8 +31,9 @@ export function SalesScreen({
     canAccess &&
     !isSalesModuleReadOnlyForVariant(permissions, variant) &&
     !readOnly;
-  const [view, setView] = useState<SalesView>(canUsePos ? "pos" : "list");
+  const [formOpen, setFormOpen] = useState(false);
   const [lookupInvoiceNo, setLookupInvoiceNo] = useState("");
+  const [listReloadKey, setListReloadKey] = useState(0);
 
   if (!canAccess) {
     return (
@@ -42,63 +44,63 @@ export function SalesScreen({
     );
   }
 
-  const posTabLabel =
-    variant === "bottled" ? "Bottle Oil sales" : "Sales screen";
   const listTitle =
     variant === "bottled" ? "Bottle Oil invoices" : "Sales invoices";
+  const formTitle =
+    variant === "bottled" ? "Bottle Oil invoice" : "Invoice details";
+
+  function openNewInvoice() {
+    if (!canUsePos) {
+      return;
+    }
+    setLookupInvoiceNo("");
+    setFormOpen(true);
+  }
 
   function openInvoice(invoiceNo: string) {
+    if (!canUsePos) {
+      return;
+    }
     setLookupInvoiceNo(invoiceNo);
-    setView(canUsePos ? "pos" : "list");
+    setFormOpen(true);
+  }
+
+  function closeForm() {
+    setFormOpen(false);
+    setLookupInvoiceNo("");
+    setListReloadKey((current) => current + 1);
   }
 
   return (
     <div class="sales-screen">
-      <div class="sales-tabs">
-        {canUsePos ? (
-          <button
-            type="button"
-            class={`sales-tab${view === "pos" ? " is-active" : ""}`}
-            onClick={() => setView("pos")}
-          >
-            {posTabLabel}
-          </button>
-        ) : null}
-        <button
-          type="button"
-          class={`sales-tab${view === "list" ? " is-active" : ""}`}
-          onClick={() => setView("list")}
-        >
-          Invoice list
-        </button>
-      </div>
+      <SalesList
+        key={listReloadKey}
+        user={user}
+        variant={variant}
+        listTitle={listTitle}
+        productMode={saleProductModeForVariant(variant)}
+        onOpenInvoice={openInvoice}
+        onOpenScreen={canUsePos ? openNewInvoice : undefined}
+      />
 
-      {view === "pos" && canUsePos ? (
-        <SalesClient
-          key={lookupInvoiceNo || "new"}
-          user={user}
-          permissions={permissions}
-          variant={variant}
-          initialInvoiceNo={lookupInvoiceNo}
-          onOpenList={() => setView("list")}
-        />
-      ) : (
-        <SalesList
-          user={user}
-          variant={variant}
-          listTitle={listTitle}
-          productMode={saleProductModeForVariant(variant)}
-          onOpenInvoice={openInvoice}
-          onOpenPos={
-            canUsePos
-              ? () => {
-                  setLookupInvoiceNo("");
-                  setView("pos");
-                }
-              : undefined
-          }
-        />
-      )}
+      {formOpen && canUsePos ? (
+        <FormDialog
+          ariaLabel={formTitle}
+          title={formTitle}
+          wide
+          panelClassName="sales-form-dialog-panel"
+          onClose={closeForm}
+        >
+          <SalesClient
+            key={lookupInvoiceNo || "new"}
+            user={user}
+            permissions={permissions}
+            variant={variant}
+            initialInvoiceNo={lookupInvoiceNo}
+            onClose={closeForm}
+          />
+        </FormDialog>
+      ) : null}
     </div>
   );
 }

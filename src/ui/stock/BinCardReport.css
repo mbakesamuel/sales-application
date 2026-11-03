@@ -24,6 +24,18 @@
   width: 7rem;
 }
 
+.bcr-particulars-col {
+  width: auto;
+}
+
+.bcr-qty-col {
+  width: 3.25rem;
+}
+
+.bcr-balance-col {
+  width: 4.25rem;
+}
+
 .bcr-location-hint {
   color: #6b7280;
   text-transform: none;

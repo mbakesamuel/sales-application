@@ -127,7 +127,10 @@ function isBooleanColumn(name: string, type: string): boolean {
     name === "loosePalmOilAllowInterSalesPointTransfer" ||
     name === "stockIntakeOilGrouping" ||
     name === "allowsMultiProduct" ||
-    name === "hideZeroReportRows"
+    name === "hideZeroReportRows" ||
+    name === "omitsStorageLocation" ||
+    name === "excludeFromSales" ||
+    name === "excludeFromDeliveryOrders"
   );
 }
 

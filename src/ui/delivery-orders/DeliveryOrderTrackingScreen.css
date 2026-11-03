@@ -31,12 +31,13 @@
 
 .do-track-chip span {
   font-size: 12px;
-  color: var(--text-muted);
+  /* Chip background stays white in dark mode — keep labels readable. */
+  color: #000;
 }
 
 .do-track-chip strong {
   font-size: 15px;
-  color: var(--text-h);
+  color: #000;
 }
 
 .do-track-num {

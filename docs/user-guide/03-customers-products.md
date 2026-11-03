@@ -4,7 +4,7 @@
 
 **Customers** holds registered accounts. Each customer normally has a **customer type**.
 
-Customer type text (code/name) is used on the **Sales/delivery report** to classify loose palm oil into:
+Customer type text (code/name) is used on **Reports → Weekly → Sales/Delivery By Product** to classify loose palm oil into:
 
 - Industries  
 - Wholesales  
@@ -28,9 +28,9 @@ Use **Add Customer** (or edit from the customers list). The form is a **four-ste
 
 Annual-style figures elsewhere in the app use thousand separators; customer fields are plain text except where noted above.
 
-## Customer types
+## Customer Types
 
-**Customer types** is the master list of type definitions assigned to customers.
+Sidebar: **Customers → Customer Types**. Master list of type definitions assigned to customers.
 
 Each type can be marked **exempt from sales tax**. When set, sales for customers of that type are treated as sales-tax exempt (tax lines / totals follow the exemption rules). Changing the flag on an existing type may require an administrator to recalculate affected sales (developers: `npm run recalc:sales-tax-exempt`).
 
@@ -38,9 +38,9 @@ Each type can be marked **exempt from sales tax**. When set, sales for customers
 
 **Products** is the catalog (name, code, category, etc.).
 
-## Categories (important for reports)
+## Product Categories (important for reports)
 
-**Categories** (`ProductCat`) include flags that reports use:
+Sidebar: **Products → Product Categories**. Category flags that reports use:
 
 | Flag | Meaning for reporting |
 |------|------------------------|
@@ -51,12 +51,12 @@ Each type can be marked **exempt from sales tax**. When set, sales for customers
 
 **Loose Palm Oil (reports)** — weekly/monthly LPO sections, stock summary, and reconciliation — include canonical **LPO** plus sludge member grades (Bottom Tank Oil Grade A, Palm Sludge Oil Grade B/C). Sludge is not listed separately under **Other products / PKO**.
 
-Products that are **neither** loose LPO (operations) nor bottled (for example Palm Kernel Oil, kernel cake) appear under **Other products / PKO** on the Sales/delivery report and in dedicated sections on other reports.
+Products that are **neither** loose LPO (operations) nor bottled (for example Palm Kernel Oil, kernel cake) appear under **Other products / PKO** on **Sales/Delivery By Product** and in dedicated sections on other reports.
 
 If a product shows in the wrong report section, check its category flags first.
 
-## Product unit prices
+## Product Unit Prices
 
-Sidebar label: **ProductUnit prices**. These are date-effective schedules. Sales and delivery orders resolve unit prices from these schedules (and related pricing rules) as of the document date / customer context.
+Sidebar: **Products → Product Unit Prices**. Date-effective schedules. Sales and delivery orders resolve unit prices from these schedules (and related pricing rules) as of the document date / customer context.
 
 Next: [Sales invoices](04-sales-invoices.md).

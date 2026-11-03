@@ -515,16 +515,9 @@ export function CarryForwardStockScreen({
   }
 
   return (
-    <div class="cf-screen">
+    <div class="cf-screen cf-screen--bf-stock">
       <header class="cf-header">
-        <div>
-          <h2 class="cf-title">Brought-forward stock entry</h2>
-          <p class="cf-subtitle">
-            Batch-set opening balances by location and collection point: pick the date, then
-            add location, product, and desired quantity rows. Statistics clerks submit drafts
-            for stock validation; supervisors and managers with validate access post immediately.
-          </p>
-        </div>
+        <h2 class="cf-title">Brought-forward stock entry</h2>
         <div class="cf-header-actions">
           <button
             type="button"

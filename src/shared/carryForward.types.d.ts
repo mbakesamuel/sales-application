@@ -13,6 +13,7 @@ export interface CarryForwardCommitmentRow {
     outstandingQty: number;
     dateIssued: string;
     notes: string | null;
+    sourceDocumentNo: string | null;
 }
 export interface CarryForwardCommitmentPendingRow {
     detailId: number;
@@ -27,6 +28,7 @@ export interface CarryForwardCommitmentPendingRow {
     orderQty: number;
     outstandingQty: number;
     dateIssued: string;
+    sourceDocumentNo: string | null;
 }
 export interface CarryForwardFormOptions {
     customers: Array<{
@@ -49,12 +51,16 @@ export interface UpsertCarryForwardInput {
     productId: number;
     /** Desired outstanding kg (what still needs to be sold). */
     outstandingQty: number;
+    sourceDocumentNo?: string | null;
+    detailId?: number | null;
     notes?: string | null;
 }
 export interface UpsertCarryForwardBatchLine {
     customerId: number;
     /** Desired outstanding kg; omit / NaN lines are skipped by the batch API. */
     outstandingQty: number;
+    sourceDocumentNo: string;
+    detailId?: number | null;
 }
 export interface UpsertCarryForwardBatchInput {
     userId: string;

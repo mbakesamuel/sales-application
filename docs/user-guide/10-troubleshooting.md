@@ -2,30 +2,37 @@
 
 ## Cannot save sale / DO / stock document
 
-- Confirm **financial year** and **financial month** are **open**.
+- Confirm **Financial year** and **Financial month** are **open** (**General Parameters**).
 - Check the document **date** falls inside the open month.
 - For sales: payment total must match invoice total (normal dispositions); vehicle number may be required.
 - **Bottle Oil** needs an active **Cash** payment method (code or name `CASH`). Loose sales hide Cash — use cheque, traite, or bank transfer.
 - For **traite** payments on loose sales: enter trait no #, issued date, and maturity date (and bank when shown).
-- For new sales and DOs: enter a **Booklet serial no.** (digits only, at most 20). Blank, letters, or punctuation are rejected.
+- For new sales and DOs when auto-generate is **off**: enter a **Booklet serial no.** (digits only, at most 20). Blank, letters, or punctuation are rejected.
+- If **Enforce booklet validation** is on: serial must belong to an **ACTIVE** booklet for that collection point (**Sales → Document booklets** / **Booklet validation**). Pending booklets cannot be used.
+- If auto-generate is **on**, booklet serial entry is not required (`INV-…` / `DO-…` assigned on save).
 - If save says the serial is already used, check the booklet — another invoice or DO already has that number.
-- Ensure products, payment methods, and storage locations exist.
+- Ensure products, **Payment Options**, and **Locations Assignment** exist.
 - **Insufficient stock as of …** — Sellable qty on that **invoice date** (from receipts/CF/movements through the date) is short at the chosen location. Change the date, reduce qty, or post stock dated on or before the invoice date. Today’s balance alone is not enough if stock arrived later.
 
 ## Sale or DO does not appear on reports
 
-- Report filters usually require **validated** status — pending documents are excluded.
+- Report filters usually require **validated** status — pending documents are excluded. Check **Sales → Sales validation** or **Delivery Order → Validation queue**.
 - Confirm the report **as-at / week / half** covers the document date.
-- On **Sales/delivery report**, use the **week picker** for the week that contains the sale date.
+- On **Sales/Delivery By Product**, use the **week picker** for the week that contains the sale date.
 - PKO / kernel products appear under **3) Other products / PKO**, not under loose palm oil, and **without customer names**.
 
 ## Stock report shows unexpected qty (or missing CF)
 
-- Stock report qty is **as of the open month’s as-at** (earlier of today and month end), from movements — not the live On-hand tab.
+- Reports → Weekly → **Stock** qty is **as of the open month’s as-at** (earlier of today and month end), from movements — not the live On-hand tab under **Stock → Stock**.
 - Carry-forward / receipts only count from their **posting date**. CF posted in July does not appear when January is open.
 - Inventory **On hand** always shows current live balance; that is expected.
 - **Section order** on the Stock report is Palm Oil → PKO → Palm Kernel → PKC → Bottled (last). Non-bottled qty columns align to Palm Oil’s grid; bottled uses its own pack matrix.
 - After cancelling a validated sale, stock should return in the **sale’s open month**. Reversals are dated on the original sale date (not the cancel day), so they appear when that month is still open.
+
+## Transfer dispatched but stock not at destination
+
+- Inter-site transfers must be **received** on **Stock → Receive transfers** (Store Keeper **Pending receive** tile). Dispatch alone does not put stock on hand at the destination.
+- Check App settings **Use receive date for stock posting** if the receive date vs confirm time matters for reports.
 
 ## Commitment report shows unexpected outstanding
 
@@ -36,10 +43,10 @@
 
 ## Pick DO is empty or missing a DO
 
-- Customer and sales point must be selected (list is filtered to both).
+- Customer and collection point must be selected (list is filtered to both).
 - DO must be **validated**.
 - Remaining balance must be greater than zero (fully sold DOs are omitted).
-- Carry-forward commitments appear as **CF** rows, one line per product.
+- Carry-forward commitments appear as **CF** rows — one CF DO per original outstanding DO (with original DO #), not a bulk total per customer (**Register Commitments**).
 
 ## Pick DO did not add lines
 
@@ -47,33 +54,35 @@
 
 ## Wrong report section for a product
 
-- Check the product’s **category** flags: **Main** vs **Bottled** vs neither ([Customers and products](03-customers-products.md)).
+- Check the product’s **Product Categories** flags: **Main** vs **Bottled** vs neither ([Customers and products](03-customers-products.md)).
 
 ## Zero rows missing on a report
 
-- **Report settings → hide zero rows** may be on. Disable it to show empty rows.
+- The report’s **Hide zero / empty quantity rows** toggle may be on. Disable it on that report to show empty rows.
 
 ## Permission denied / menu item missing
 
-- Your role’s **route access** may be `none` or `read`.
-- Validation and cancel buttons need **action** permissions **and** (for cancel/delete) route **write** on Sales / Bottle Oil Sales. Read-only sales plus `cancel_validated_sales` still shows “You do not have permission to modify this module.” Ask an admin to adjust **Role permissions**.
-- **Consignment validation** needs route `vehicle-consignment-validation` plus action `validate_vehicle_consignment_notes`. After migration `086`, restart the app once so the route is seeded.
+- Your role’s **route access** may be `none` or `read`. Sidebar names (**Invoicing**, **Bottle Stock**, …) may differ from Role permissions labels — ask admin to grant the matching route id.
+- Validation and cancel buttons need **action** permissions **and** (for cancel/delete) route **write** on Invoicing / Bottle Oil Sales. Read-only sales plus `cancel_validated_sales` still shows “You do not have permission to modify this module.” Ask an admin to adjust **Role permissions**.
+- **Consignment validation** needs route `vehicle-consignment-validation` plus action `validate_vehicle_consignment_notes`.
+- **Booklet validation** needs route `booklet-validation` plus `validate_document_booklets`.
+- **Stock validation** / **Receive transfers** / **Sales validation** are separate Stock / Sales sidebar routes — grant those explicitly for Overview queue tiles to navigate usefully.
 
 ## Overview looks wrong for my role
 
-- Store Keepers see the Bottle Oil dashboard; senior/junior sales supervisors see the supervisor queues dashboard; other commercial roles see revenue / category / DO charts. Log out and back in after a role change.
+- Store Keepers see the Bottle Oil dashboard (including **Pending receive**); senior/junior sales supervisors see the supervisor queues dashboard; other commercial roles see revenue / category / DO charts. Log out and back in after a role change.
 
 ## Print layout issues
 
 - Use the in-app **Print** control so `scr-print-mode` styles apply.
 - Toolbars are hidden via `no-print`; if content is clipped, try landscape where the screen offers it.
-- **Stock report** and **Commitment report** use tight print margins (2mm top/bottom) by design. If the logo or footer looks clipped, report it — margins are controlled in `StockCommitmentReport.css` (`@page scrCompactTopTight`). Other weekly reports still use 8mm margins.
+- Weekly **Stock** and **Commitments** use tight print margins (2mm top/bottom) by design. If the logo or footer looks clipped, report it — margins are controlled in `StockCommitmentReport.css` (`@page scrCompactTopTight`). Other weekly reports still use 8mm margins.
 
 ## Lost data or need to restore a backup
 
 - **ADMIN** — use **General Parameters → Data backup** to create or restore a full `.db` backup, or configure **automatic daily backup** (while the app is running). See [Data backup and restore](11-data-backup-restore.md).
 - **IT / overnight** — `scripts/backup-windows.ps1` + Windows Task Scheduler when the app is closed (same guide).
-- Manual restore: close the app, replace `sales.db` in the user data folder, remove `-wal`/`-shm`, relaunch.
+- Manual restore: close the app, replace `sales.db` in the user data folder (or custom `databaseDir`), remove `-wal`/`-shm`, relaunch.
 - If **Scheduled backup failed: Backup file not found**, ensure you are on a build that **awaits** SQLite’s async `.backup()` before validating the file (manual **Create backup** and **Run automatic backup now** exercise the same path).
 - Report CSV/PDF exports are **not** full backups.
 
@@ -100,4 +109,4 @@
 
 ## Still stuck
 
-Note the invoice/DO number, date, sales point, product, and whether the document is pending or validated — that is enough for support or a developer to trace the row in SQLite / logs. See [Developer guide — domain modules](../developer-guide/05-domain-modules.md).
+Note the invoice/DO number, date, collection point, product, and whether the document is pending or validated — that is enough for support or a developer to trace the row in SQLite / logs. See [Developer guide — domain modules](../developer-guide/05-domain-modules.md).

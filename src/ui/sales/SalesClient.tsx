@@ -39,7 +39,7 @@ interface SalesClientProps {
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
   variant?: SalesModuleVariant;
-  onOpenList: () => void;
+  onClose: () => void;
   initialInvoiceNo?: string;
 }
 
@@ -333,7 +333,7 @@ export function SalesClient({
   user,
   permissions,
   variant = "loose",
-  onOpenList,
+  onClose,
   initialInvoiceNo = "",
 }: SalesClientProps) {
   const isBottleVariant = variant === "bottled";
@@ -1706,9 +1706,13 @@ export function SalesClient({
           <div class="sales-invoice-header-end">
             <div class="sales-invoice-header-controls">
               {saleId ? (
-                <div class="sales-invoice-no">{invoiceNo}</div>
+                <div class="sales-invoice-no-field">
+                  <span>Invoice #</span>
+                  <div class="sales-invoice-no">{invoiceNo}</div>
+                </div>
               ) : (
                 <label class="sales-field sales-invoice-no-field">
+                  <span>Invoice #</span>
                   <input
                     type="text"
                     inputMode={autoGenerateInvoiceNo ? "text" : "numeric"}
@@ -1735,15 +1739,8 @@ export function SalesClient({
                   />
                 </label>
               )}
-              <div class="sales-invoice-header-actions">
-                <button
-                  type="button"
-                  class="sales-btn-secondary"
-                  onClick={onOpenList}
-                >
-                  View all invoices
-                </button>
-                {saleId ? (
+              {saleId ? (
+                <div class="sales-invoice-header-actions">
                   <button
                     type="button"
                     class="sales-btn-secondary"
@@ -1752,20 +1749,9 @@ export function SalesClient({
                   >
                     New sale
                   </button>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
             </div>
-            {isAwaitingInvoice ? (
-              <p class="sales-hint sales-invoice-serial-hint">
-                Enter invoice no., then press Enter or leave the field to continue.
-              </p>
-            ) : null}
-            {!saleId && autoGenerateInvoiceNo ? (
-              <p class="sales-hint sales-invoice-serial-hint">
-                Leave blank to auto-assign on save, or enter an existing invoice
-                number and press Enter to open it.
-              </p>
-            ) : null}
           </div>
         </div>
 
@@ -1834,16 +1820,6 @@ export function SalesClient({
                   )
                 }
               />
-              {!postingPeriod ? (
-                <span class="sales-muted sales-checkbox-hint">
-                  Open a financial month before posting.
-                </span>
-              ) : (
-                <span class="sales-muted sales-checkbox-hint">
-                  Open month: {postingPeriod.monthName}{" "}
-                  {postingPeriod.financialYear}
-                </span>
-              )}
             </label>
 
             <label class="sales-field">
@@ -2029,6 +2005,9 @@ export function SalesClient({
                           <strong>
                             {row.isCarryForward ? "CF · " : ""}
                             {row.deliveryOrderNo}
+                            {row.isCarryForward && row.sourceDocumentNo
+                              ? ` · orig ${row.sourceDocumentNo}`
+                              : ""}
                           </strong>
                           <span>
                             {row.productName} · {formatDisplayDate(row.dateIssued)} ·{" "}
@@ -2596,6 +2575,14 @@ export function SalesClient({
                 : "Permanently delete"}
           </button>
         ) : null}
+
+        <button
+          type="button"
+          class="sales-btn-secondary"
+          onClick={onClose}
+        >
+          Close
+        </button>
       </div>
 
       {lineModal ? (

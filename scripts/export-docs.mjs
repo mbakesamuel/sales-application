@@ -42,6 +42,13 @@ const DEVELOPER_CHAPTERS = [
 
 const TRAINING_FILE = "3-day-user-training.md";
 
+const PROCEDURE_CHAPTERS = [
+  "00-overview.md",
+  "01-stock.md",
+  "02-delivery-orders.md",
+  "03-sales.md",
+];
+
 const PRINT_CSS = `
   body {
     font-family: "Segoe UI", Calibri, Arial, sans-serif;
@@ -264,6 +271,11 @@ async function main() {
     TRAINING_FILE,
     "Sales Management Application — 3-Day User Training",
   );
+  const proceduresMd = concatGuide(
+    path.join(docsRoot, "procedures"),
+    PROCEDURE_CHAPTERS,
+    "Sales Management Application — Operations Procedures",
+  );
 
   // Intermediate concatenated markdown (handy for debugging; not gitignored individually)
   fs.writeFileSync(
@@ -281,6 +293,14 @@ async function main() {
     trainingMd,
     "utf8",
   );
+  fs.writeFileSync(
+    path.join(
+      exportDir,
+      "Sales-Management-Application-Operations-Procedures.md",
+    ),
+    proceduresMd,
+    "utf8",
+  );
 
   await exportGuide({
     title: "Sales Management Application — User Guide",
@@ -296,6 +316,11 @@ async function main() {
     title: "Sales Management Application — 3-Day User Training",
     basename: "Sales-Management-Application-3-Day-User-Training",
     markdown: trainingMd,
+  });
+  await exportGuide({
+    title: "Sales Management Application — Operations Procedures",
+    basename: "Sales-Management-Application-Operations-Procedures",
+    markdown: proceduresMd,
   });
 
   console.log(`Done. Files in ${path.relative(root, exportDir)}/`);

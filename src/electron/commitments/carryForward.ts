@@ -27,6 +27,7 @@ import {
   SALES_TAX_LABEL,
 } from "../../shared/taxRules.js";
 import { parseAmount } from "../sales/money.js";
+import { validateBookletSerial } from "../../shared/bookletSerial.js";
 
 const ROUTE_ID = "carry-forward-commitments";
 
@@ -102,7 +103,12 @@ export function getCarryForwardFormOptions(): CarryForwardFormOptions {
       .all() as Array<{ id: number; name: string }>,
     products: db
       .prepare(
-        `SELECT productId, productName FROM Product ORDER BY productName ASC`,
+        `SELECT p.productId, p.productName
+         FROM Product p
+         INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
+         WHERE COALESCE(pc.isBottled, 0) = 0
+           AND COALESCE(p.excludeFromDeliveryOrders, 0) = 0
+         ORDER BY p.productName ASC`,
       )
       .all() as Array<{ productId: number; productName: string }>,
     salesPoints: listActiveSalesPoints(db),
@@ -116,14 +122,14 @@ export function listCarryForwardCommitments(): CarryForwardCommitmentRow[] {
               d.customerId, c.name AS customerName,
               d.salesPointId, sp.name AS salesPointName,
               dd.productId, p.productName, dd.orderQty,
-              d.dateIssued, d.orderRef AS notes
+              d.dateIssued, d.orderRef AS notes, d.sourceDocumentNo
        FROM DeliveryOrder d
        INNER JOIN DeliveryOrderDetails dd ON dd.deliveryOrderId = d.id
        INNER JOIN Customer c ON c.id = d.customerId
        INNER JOIN SalesPoint sp ON sp.id = d.salesPointId
        INNER JOIN Product p ON p.productId = dd.productId
        WHERE d.sourceKind = 'CARRY_FORWARD' AND d.status = 'VALIDATED'
-       ORDER BY c.name ASC, sp.name ASC, p.productName ASC`,
+       ORDER BY c.name ASC, sp.name ASC, p.productName ASC, d.deliveryOrderNo ASC`,
     )
     .all() as Array<{
     detailId: number;
@@ -138,6 +144,7 @@ export function listCarryForwardCommitments(): CarryForwardCommitmentRow[] {
     orderQty: number;
     dateIssued: string;
     notes: string | null;
+    sourceDocumentNo: string | null;
   }>;
 
   return rows.map((row) => {
@@ -158,6 +165,7 @@ export function listCarryForwardCommitments(): CarryForwardCommitmentRow[] {
       outstandingQty,
       dateIssued: String(row.dateIssued).slice(0, 10),
       notes: row.notes,
+      sourceDocumentNo: row.sourceDocumentNo?.trim() || null,
     };
   });
 }
@@ -173,7 +181,7 @@ export function listCarryForwardCommitmentsPending(
               d.customerId, c.name AS customerName,
               d.salesPointId, sp.name AS salesPointName,
               dd.productId, p.productName, dd.orderQty,
-              d.dateIssued
+              d.dateIssued, d.sourceDocumentNo
        FROM DeliveryOrder d
        INNER JOIN DeliveryOrderDetails dd ON dd.deliveryOrderId = d.id
        INNER JOIN Customer c ON c.id = d.customerId
@@ -197,6 +205,7 @@ export function listCarryForwardCommitmentsPending(
     productName: string;
     orderQty: number;
     dateIssued: string;
+    sourceDocumentNo: string | null;
   }>;
 
   return rows.map((row) => {
@@ -215,6 +224,7 @@ export function listCarryForwardCommitmentsPending(
       orderQty: row.orderQty,
       outstandingQty,
       dateIssued: String(row.dateIssued).slice(0, 10),
+      sourceDocumentNo: row.sourceDocumentNo?.trim() || null,
     };
   });
 }
@@ -318,6 +328,33 @@ function buildLineAmounts(
   };
 }
 
+function assertSourceDocumentAvailable(
+  sourceDocumentNo: string,
+  excludeDeliveryOrderId: number | null,
+): { ok: true } | { ok: false; error: string } {
+  const db = getDatabase();
+  const row = db
+    .prepare(
+      `SELECT id, deliveryOrderNo FROM DeliveryOrder
+       WHERE sourceKind = 'CARRY_FORWARD'
+         AND status IN ('PENDING', 'VALIDATED')
+         AND sourceDocumentNo = ?
+         AND (? IS NULL OR id != ?)
+       LIMIT 1`,
+    )
+    .get(sourceDocumentNo, excludeDeliveryOrderId, excludeDeliveryOrderId) as
+    | { id: number; deliveryOrderNo: string }
+    | undefined;
+
+  if (row) {
+    return {
+      ok: false,
+      error: `Original DO # ${sourceDocumentNo} is already registered on ${row.deliveryOrderNo}.`,
+    };
+  }
+  return { ok: true };
+}
+
 export function upsertCarryForwardCommitment(
   input: UpsertCarryForwardInput,
 ): CarryForwardMutationResult {
@@ -339,6 +376,32 @@ export function upsertCarryForwardCommitment(
     return { ok: false, error: "Product is required." };
   }
 
+  const detailId =
+    input.detailId != null && Number.isFinite(input.detailId)
+      ? Number(input.detailId)
+      : null;
+
+  let sourceDocumentNo: string | null = null;
+  if (outstandingQty > 0) {
+    const serial = validateBookletSerial(input.sourceDocumentNo);
+    if (!serial.ok) {
+      return {
+        ok: false,
+        error: `Original DO #: ${serial.error}`,
+      };
+    }
+    sourceDocumentNo = serial.serial;
+  } else if (input.sourceDocumentNo?.trim()) {
+    const serial = validateBookletSerial(input.sourceDocumentNo);
+    if (!serial.ok) {
+      return {
+        ok: false,
+        error: `Original DO #: ${serial.error}`,
+      };
+    }
+    sourceDocumentNo = serial.serial;
+  }
+
   const db = getDatabase();
   const customer = db
     .prepare(`SELECT id FROM Customer WHERE id = ?`)
@@ -353,10 +416,36 @@ export function upsertCarryForwardCommitment(
   }
 
   const product = db
-    .prepare(`SELECT productId FROM Product WHERE productId = ?`)
-    .get(input.productId) as { productId: number } | undefined;
+    .prepare(
+      `SELECT p.productId, p.productName,
+              COALESCE(pc.isBottled, 0) AS isBottled,
+              COALESCE(p.excludeFromDeliveryOrders, 0) AS excludeFromDeliveryOrders
+       FROM Product p
+       INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
+       WHERE p.productId = ?`,
+    )
+    .get(input.productId) as
+    | {
+        productId: number;
+        productName: string;
+        isBottled: number;
+        excludeFromDeliveryOrders: number;
+      }
+    | undefined;
   if (!product) {
     return { ok: false, error: "Product not found." };
+  }
+  if (product.isBottled === 1) {
+    return {
+      ok: false,
+      error: `${product.productName} is bottled. Carry-forward commitments are for loose products only.`,
+    };
+  }
+  if (product.excludeFromDeliveryOrders === 1) {
+    return {
+      ok: false,
+      error: `${product.productName} is excluded from delivery orders.`,
+    };
   }
 
   const openPeriod = getOpenPostingPeriod();
@@ -380,19 +469,6 @@ export function upsertCarryForwardCommitment(
 
   try {
     const result = db.transaction(() => {
-      let order = db
-        .prepare(
-          `SELECT id, deliveryOrderNo, status FROM DeliveryOrder
-           WHERE customerId = ? AND salesPointId = ?
-             AND sourceKind = 'CARRY_FORWARD'
-             AND status IN ('PENDING', 'VALIDATED')
-           ORDER BY CASE WHEN status = 'PENDING' THEN 0 ELSE 1 END, id ASC
-           LIMIT 1`,
-        )
-        .get(input.customerId, input.salesPointId) as
-        | { id: number; deliveryOrderNo: string; status: string }
-        | undefined;
-
       const markOrderPending = (orderId: number) => {
         if (!requiresValidation) {
           return;
@@ -404,7 +480,87 @@ export function upsertCarryForwardCommitment(
         ).run(orderId);
       };
 
+      let order: { id: number; deliveryOrderNo: string; status: string } | undefined;
+      let existingLine: { id: number; orderQty: number } | undefined;
+
+      if (detailId != null) {
+        const existing = db
+          .prepare(
+            `SELECT dd.id AS detailId, dd.productId, dd.orderQty,
+                    d.id AS deliveryOrderId, d.deliveryOrderNo, d.status,
+                    d.sourceKind, d.customerId, d.salesPointId
+             FROM DeliveryOrderDetails dd
+             INNER JOIN DeliveryOrder d ON d.id = dd.deliveryOrderId
+             WHERE dd.id = ?`,
+          )
+          .get(detailId) as
+          | {
+              detailId: number;
+              productId: number;
+              orderQty: number;
+              deliveryOrderId: number;
+              deliveryOrderNo: string;
+              status: string;
+              sourceKind: string;
+              customerId: number;
+              salesPointId: number;
+            }
+          | undefined;
+
+        if (!existing || existing.sourceKind !== "CARRY_FORWARD") {
+          return { ok: false as const, error: "Carry-forward line not found." };
+        }
+        if (existing.productId !== input.productId) {
+          return {
+            ok: false as const,
+            error: "Product does not match the selected carry-forward line.",
+          };
+        }
+        if (existing.salesPointId !== input.salesPointId) {
+          return {
+            ok: false as const,
+            error: "Collection point does not match the selected carry-forward line.",
+          };
+        }
+        if (existing.customerId !== input.customerId) {
+          return {
+            ok: false as const,
+            error: "Customer does not match the selected carry-forward line.",
+          };
+        }
+
+        order = {
+          id: existing.deliveryOrderId,
+          deliveryOrderNo: existing.deliveryOrderNo,
+          status: existing.status,
+        };
+        existingLine = { id: existing.detailId, orderQty: existing.orderQty };
+      }
+
+      if (sourceDocumentNo) {
+        const available = assertSourceDocumentAvailable(
+          sourceDocumentNo,
+          order?.id ?? null,
+        );
+        if (!available.ok) {
+          return available;
+        }
+      }
+
       if (!order) {
+        if (outstandingQty === 0) {
+          return {
+            ok: false as const,
+            error: "Nothing to save for zero outstanding.",
+          };
+        }
+        if (!sourceDocumentNo) {
+          return {
+            ok: false as const,
+            error: "Original DO # is required.",
+          };
+        }
+
         const deliveryOrderNo = allocateCarryForwardDeliveryOrderNo(db);
         const stamp = nowIso();
         if (requiresValidation) {
@@ -413,8 +569,8 @@ export function upsertCarryForwardCommitment(
               `INSERT INTO DeliveryOrder (
                 deliveryOrderNo, dateIssued, customerId, orderRef, salesPointId,
                 financialYear, financialMonth, postingCalendarYear, createdByUserId,
-                status, sourceKind
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', 'CARRY_FORWARD')`,
+                status, sourceKind, sourceDocumentNo
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', 'CARRY_FORWARD', ?)`,
             )
             .run(
               deliveryOrderNo,
@@ -426,6 +582,7 @@ export function upsertCarryForwardCommitment(
               postingPeriod.calendarMonth,
               postingPeriod.financialYear,
               input.userId,
+              sourceDocumentNo,
             );
           order = {
             id: Number(insert.lastInsertRowid),
@@ -438,8 +595,8 @@ export function upsertCarryForwardCommitment(
               `INSERT INTO DeliveryOrder (
                 deliveryOrderNo, dateIssued, customerId, orderRef, salesPointId,
                 financialYear, financialMonth, postingCalendarYear, createdByUserId,
-                status, validatedAt, validatedByUserId, sourceKind
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'VALIDATED', ?, ?, 'CARRY_FORWARD')`,
+                status, validatedAt, validatedByUserId, sourceKind, sourceDocumentNo
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'VALIDATED', ?, ?, 'CARRY_FORWARD', ?)`,
             )
             .run(
               deliveryOrderNo,
@@ -453,6 +610,7 @@ export function upsertCarryForwardCommitment(
               input.userId,
               stamp,
               input.userId,
+              sourceDocumentNo,
             );
           order = {
             id: Number(insert.lastInsertRowid),
@@ -460,30 +618,17 @@ export function upsertCarryForwardCommitment(
             status: "VALIDATED",
           };
         }
-      } else if (notes) {
-        db.prepare(`UPDATE DeliveryOrder SET orderRef = ? WHERE id = ?`).run(
-          notes,
-          order.id,
-        );
+      } else {
+        db.prepare(
+          `UPDATE DeliveryOrder
+           SET orderRef = ?,
+               sourceDocumentNo = COALESCE(?, sourceDocumentNo)
+           WHERE id = ?`,
+        ).run(notes, sourceDocumentNo, order.id);
       }
-
-      const existingLine = db
-        .prepare(
-          `SELECT id, orderQty FROM DeliveryOrderDetails
-           WHERE deliveryOrderId = ? AND productId = ?`,
-        )
-        .get(order.id, input.productId) as
-        | { id: number; orderQty: number }
-        | undefined;
 
       const soldQty = getSoldQtyForDoProduct(order.deliveryOrderNo, input.productId);
       const orderQty = soldQty + outstandingQty;
-      if (orderQty < soldQty) {
-        return {
-          ok: false as const,
-          error: `Cannot set outstanding below zero. Already sold ${Math.round(soldQty)} kg against this CF line.`,
-        };
-      }
 
       if (outstandingQty === 0 && soldQty === 0 && existingLine) {
         db.prepare(`DELETE FROM DeliveryOrderDetails WHERE id = ?`).run(existingLine.id);
@@ -493,6 +638,9 @@ export function upsertCarryForwardCommitment(
           )
           .get(order.id) as { count: number };
         if (remaining.count === 0) {
+          db.prepare(
+            `DELETE FROM DeliveryOrderPaymentDetails WHERE deliveryOrderId = ?`,
+          ).run(order.id);
           db.prepare(`DELETE FROM DeliveryOrder WHERE id = ?`).run(order.id);
         }
         return {
@@ -505,6 +653,18 @@ export function upsertCarryForwardCommitment(
 
       if (outstandingQty === 0 && soldQty === 0 && !existingLine) {
         return { ok: false as const, error: "Nothing to save for zero outstanding." };
+      }
+
+      if (outstandingQty > 0 && !sourceDocumentNo) {
+        const current = db
+          .prepare(`SELECT sourceDocumentNo FROM DeliveryOrder WHERE id = ?`)
+          .get(order.id) as { sourceDocumentNo: string | null } | undefined;
+        if (!current?.sourceDocumentNo?.trim()) {
+          return {
+            ok: false as const,
+            error: "Original DO # is required.",
+          };
+        }
       }
 
       const amounts = buildLineAmounts(
@@ -573,13 +733,15 @@ export function upsertCarryForwardCommitment(
 
     return result;
   } catch (error) {
-    return {
-      ok: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Could not save carry-forward commitment.",
-    };
+    const message =
+      error instanceof Error ? error.message : "Could not save carry-forward commitment.";
+    if (/UNIQUE|constraint/i.test(message)) {
+      return {
+        ok: false,
+        error: "Original DO # is already registered on another carry-forward commitment.",
+      };
+    }
+    return { ok: false, error: message };
   }
 }
 
@@ -660,7 +822,14 @@ export function upsertCarryForwardBatch(
     return { ok: false, error: "Collection point and product are required." };
   }
 
-  const prepared: Array<{ customerId: number; outstandingQty: number }> = [];
+  const prepared: Array<{
+    customerId: number;
+    outstandingQty: number;
+    sourceDocumentNo: string;
+    detailId: number | null;
+  }> = [];
+  const seenSourceNos = new Set<string>();
+
   for (const line of input.lines) {
     if (line == null || !Number.isFinite(line.customerId)) {
       continue;
@@ -670,7 +839,6 @@ export function upsertCarryForwardBatch(
       line.outstandingQty === undefined ||
       Number.isNaN(Number(line.outstandingQty))
     ) {
-      // Blank / skipped row (UI sends only filled cells as finite numbers).
       continue;
     }
     const outstandingQty = Math.round(Number(line.outstandingQty));
@@ -680,7 +848,40 @@ export function upsertCarryForwardBatch(
         error: "Outstanding quantity must be zero or a positive whole number.",
       };
     }
-    prepared.push({ customerId: line.customerId, outstandingQty });
+
+    const detailId =
+      line.detailId != null && Number.isFinite(line.detailId)
+        ? Number(line.detailId)
+        : null;
+
+    if (outstandingQty === 0 && detailId == null) {
+      continue;
+    }
+
+    let sourceDocumentNo = "";
+    if (outstandingQty > 0 || String(line.sourceDocumentNo ?? "").trim()) {
+      const serial = validateBookletSerial(line.sourceDocumentNo);
+      if (!serial.ok) {
+        return { ok: false, error: `Original DO #: ${serial.error}` };
+      }
+      sourceDocumentNo = serial.serial;
+      if (seenSourceNos.has(sourceDocumentNo)) {
+        return {
+          ok: false,
+          error: `Original DO # ${sourceDocumentNo} is duplicated in this batch.`,
+        };
+      }
+      seenSourceNos.add(sourceDocumentNo);
+    } else if (outstandingQty > 0) {
+      return { ok: false, error: "Original DO # is required for each line." };
+    }
+
+    prepared.push({
+      customerId: line.customerId,
+      outstandingQty,
+      sourceDocumentNo,
+      detailId,
+    });
   }
 
   if (prepared.length === 0) {
@@ -698,6 +899,8 @@ export function upsertCarryForwardBatch(
           salesPointId: input.salesPointId,
           productId: input.productId,
           outstandingQty: line.outstandingQty,
+          sourceDocumentNo: line.sourceDocumentNo || null,
+          detailId: line.detailId,
           notes: input.notes,
         });
         if (!result.ok) {

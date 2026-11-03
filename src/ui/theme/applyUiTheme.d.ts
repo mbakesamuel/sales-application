@@ -6,5 +6,6 @@ export declare function normalizeUiThemePreset(value: unknown): UiThemePreset;
 export declare function readCachedUiTheme(): UiThemePreset | null;
 export declare function writeCachedUiTheme(preset: UiThemePreset): void;
 export declare function applyUiTheme(preset: unknown): UiThemePreset;
+/** Fetch company theme without painting the document (safe for cancellation). */
 export declare function fetchCompanyThemePreset(): Promise<UiThemePreset>;
 export declare function loadAndApplyCompanyTheme(): Promise<UiThemePreset>;

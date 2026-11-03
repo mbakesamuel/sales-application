@@ -13,7 +13,7 @@ interface SalesListProps {
   listTitle?: string;
   productMode: SaleProductMode;
   onOpenInvoice: (invoiceNo: string) => void;
-  onOpenPos?: () => void;
+  onOpenScreen?: () => void;
 }
 
 const PAGE_SIZE = 15;
@@ -34,13 +34,30 @@ function IconChevronRight() {
   );
 }
 
+function IconPencil() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    </svg>
+  );
+}
+
+function IconEye() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 export function SalesList({
   user,
   variant = "loose",
   listTitle,
   productMode,
   onOpenInvoice,
-  onOpenPos,
+  onOpenScreen,
 }: SalesListProps) {
   const filters = useMemo<SalesListFilters>(
     () => ({
@@ -63,6 +80,9 @@ export function SalesList({
     listTitle ?? (isBottled ? "Bottle Oil invoices" : "Sales invoices");
   const qtyHeader = isBottled ? "Qty (units)" : "Qty (kg)";
   const colCount = isBottled ? 9 : 10;
+  const newInvoiceLabel = isBottled
+    ? "New Bottle Oil invoice"
+    : "New invoice";
 
   useEffect(() => {
     setAppliedFilters((current) => ({
@@ -139,26 +159,21 @@ export function SalesList({
       ) : null}
 
       <div class="sales-panel-header">
-        <div>
-          <h3>{title}</h3>
-          <p class="sales-muted">
-            Filter by invoice number, or view documents in the open posting month or year.
-          </p>
-        </div>
-        {onOpenPos ? (
-          <button type="button" class="sales-btn-secondary" onClick={onOpenPos}>
-            Open sales screen
+        <h3>{title}</h3>
+        {onOpenScreen ? (
+          <button type="button" class="sales-btn-primary" onClick={onOpenScreen}>
+            {newInvoiceLabel}
           </button>
         ) : null}
       </div>
 
       <form class="sales-panel sales-filters" onSubmit={applyFilters}>
         <label class="sales-field">
-          <span>Invoice number</span>
           <input
             type="search"
+            aria-label="Invoice number"
             value={draftQ}
-            placeholder="e.g. 12345"
+            placeholder="Invoice number"
             onInput={(event) =>
               setDraftQ((event.currentTarget as HTMLInputElement).value)
             }
@@ -166,8 +181,8 @@ export function SalesList({
         </label>
 
         <label class="sales-field">
-          <span>Period</span>
           <select
+            aria-label="Period"
             value={appliedFilters.period ?? "month"}
             onChange={(event) =>
               setAppliedFilters((current) => ({
@@ -177,9 +192,9 @@ export function SalesList({
               }))
             }
           >
-            <option value="month">Open month</option>
-            <option value="year">Open year</option>
-            <option value="all">All time</option>
+            <option value="month">Period · Open month</option>
+            <option value="year">Period · Open year</option>
+            <option value="all">Period · All time</option>
           </select>
         </label>
 
@@ -236,13 +251,27 @@ export function SalesList({
                   <td class="sales-num">{row.totalQtyLabel}</td>
                   <td class="sales-num">{row.totalAmountXaf}</td>
                   <td class="sales-actions-cell">
-                    <button
-                      type="button"
-                      class="sales-link-btn"
-                      onClick={() => onOpenInvoice(row.invoiceNo)}
-                    >
-                      View
-                    </button>
+                    {row.status === "PENDING" ? (
+                      <button
+                        type="button"
+                        class="sales-list-pagination-btn sales-list-edit-btn"
+                        aria-label={`Edit ${row.invoiceNo}`}
+                        title="Edit"
+                        onClick={() => onOpenInvoice(row.invoiceNo)}
+                      >
+                        <IconPencil />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        class="sales-list-pagination-btn sales-list-open-btn"
+                        aria-label={`Open ${row.invoiceNo}`}
+                        title="Open"
+                        onClick={() => onOpenInvoice(row.invoiceNo)}
+                      >
+                        <IconEye />
+                      </button>
+                    )}
                     <button
                       type="button"
                       class="sales-link-btn"

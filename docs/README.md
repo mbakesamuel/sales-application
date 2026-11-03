@@ -20,11 +20,22 @@ Step-by-step workflows for day-to-day use.
 12. [Data synchronization](user-guide/12-data-sync.md)
 13. [Troubleshooting](user-guide/10-troubleshooting.md)
 
+## Operations procedures (operators)
+
+Click-path how-tos for **Stock**, **Delivery Order**, and **Sales** (sidebar labels, numbered steps, checks). Use alongside the user guide.
+
+1. [Overview](procedures/00-overview.md)
+2. [Stock](procedures/01-stock.md)
+3. [Delivery orders](procedures/02-delivery-orders.md)
+4. [Sales](procedures/03-sales.md)
+
 ## Training schedule (operators)
 
 Compressed three-day hands-on training plan derived from the user guide:
 
 - [3-Day user training](training/3-day-user-training.md)
+
+Day 2 labs can follow the [operations procedures](procedures/00-overview.md) booklet for exact click paths.
 
 ## Developer guide
 
@@ -57,8 +68,9 @@ Technical reference for the offline-first Hono.js API and PostgreSQL synchroniza
 npm run docs:export
 ```
 
-Writes three guides (PDF + DOCX each) under [`export/`](export/):
+Writes four guides (PDF + DOCX each) under [`export/`](export/):
 
 - `Sales-Management-Application-User-Guide.pdf` / `.docx`
 - `Sales-Management-Application-Developer-Guide.pdf` / `.docx`
 - `Sales-Management-Application-3-Day-User-Training.pdf` / `.docx`
+- `Sales-Management-Application-Operations-Procedures.pdf` / `.docx`

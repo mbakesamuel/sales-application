@@ -25,6 +25,7 @@ interface FormData {
   commercialServiceId: string;
   uom: string;
   omitsStorageLocation: boolean;
+  excludeFromDeliveryOrders: boolean;
 }
 
 const UOM_OPTIONS = ["Kg", "Unit", "Litre", "Ton", "Bag"] as const;
@@ -52,6 +53,7 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
       commercialServiceId: "",
       uom: "Kg",
       omitsStorageLocation: false,
+      excludeFromDeliveryOrders: false,
     };
   }
 
@@ -63,6 +65,7 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
       row.commercialServiceId != null ? String(row.commercialServiceId) : "",
     uom: row.uom != null ? String(row.uom) : "Kg",
     omitsStorageLocation: readBoolean(row.omitsStorageLocation),
+    excludeFromDeliveryOrders: readBoolean(row.excludeFromDeliveryOrders),
   };
 }
 
@@ -175,6 +178,7 @@ export function ProductFormModal({
       uom,
       commercialServiceId: form.commercialServiceId || null,
       omitsStorageLocation: form.omitsStorageLocation ? 1 : 0,
+      excludeFromDeliveryOrders: form.excludeFromDeliveryOrders ? 1 : 0,
     };
 
     try {
@@ -351,6 +355,33 @@ export function ProductFormModal({
               No storage location
             </label>
             <p class="form-dialog-hint">{storageLocationHelp(row)}</p>
+          </div>
+        </div>
+
+        <div class="form-dialog-row">
+          <label class="form-dialog-label" for="product-exclude-do">
+            Delivery orders
+          </label>
+          <div class="form-dialog-control">
+            <label class="form-dialog-checkbox-label">
+              <input
+                id="product-exclude-do"
+                type="checkbox"
+                checked={form.excludeFromDeliveryOrders}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  updateField(
+                    "excludeFromDeliveryOrders",
+                    (event.currentTarget as HTMLInputElement).checked,
+                  )
+                }
+              />
+              Exclude from delivery orders
+            </label>
+            <p class="form-dialog-hint">
+              When checked, this product does not appear on the Delivery Order
+              form (e.g. sludge oil, palm kernel).
+            </p>
           </div>
         </div>
 

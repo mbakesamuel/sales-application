@@ -4,7 +4,7 @@
 
 **Format:** ~6 contact hours per day (09:00–12:00, 13:00–16:00), alternating **demo → guided lab → Q&A**.
 
-**Materials:** Exported user guide (`npm run docs:export`) or [user guide chapters](../user-guide/00-overview.md); training database with open financial month and sample customers/products.
+**Materials:** Exported user guide and [operations procedures](../procedures/00-overview.md) (`npm run docs:export`) or [user guide chapters](../user-guide/00-overview.md); training database with open financial month and sample customers/products.
 
 **Not covered in depth (reference only):** Sales budget phasing/crosstabs, DO balance transfer, PKCP/PKP edge cases, IT backup scripting, developer guide.
 

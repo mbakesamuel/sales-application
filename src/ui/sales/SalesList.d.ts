@@ -7,7 +7,7 @@ interface SalesListProps {
     listTitle?: string;
     productMode: SaleProductMode;
     onOpenInvoice: (invoiceNo: string) => void;
-    onOpenPos?: () => void;
+    onOpenScreen?: () => void;
 }
-export declare function SalesList({ user, variant, listTitle, productMode, onOpenInvoice, onOpenPos, }: SalesListProps): import("preact").JSX.Element;
+export declare function SalesList({ user, variant, listTitle, productMode, onOpenInvoice, onOpenScreen, }: SalesListProps): import("preact").JSX.Element;
 export {};

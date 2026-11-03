@@ -589,18 +589,18 @@ export function getStockBootstrap(
     .all(...productFilterParts.params)
     .map((row) => mapProductRow(row as Parameters<typeof mapProductRow>[0]));
 
-  const receiptProducts =
-    productFilter === "bulk" || productFilter === "all"
-      ? db
-          .prepare(
-            `${productSelectSql}
-             FROM Product p
-             LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-             ORDER BY p.productName ASC`,
-          )
-          .all()
-          .map((row) => mapProductRow(row as Parameters<typeof mapProductRow>[0]))
-      : [];
+  // Always load both loose and bottled: the receipt modal filters by its
+  // Bottled-products checkbox (locked from the Stock view filter when Loose/Bottled).
+  // Returning [] for bottled view left the unified Stock → Receipts picker empty.
+  const receiptProducts = db
+    .prepare(
+      `${productSelectSql}
+       FROM Product p
+       LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
+       ORDER BY p.productName ASC`,
+    )
+    .all()
+    .map((row) => mapProductRow(row as Parameters<typeof mapProductRow>[0]));
 
   const documentNumberSettings = loadStockDocumentNumberSettings();
 

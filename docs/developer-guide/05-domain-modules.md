@@ -130,7 +130,7 @@ Validation queue: `listValidationQueue` / `validateMany`. Route seed for supervi
 
 `list()` returns validated CF commitment lines; `listPending(userId)` returns the submitting clerk’s pending CF delivery-order lines for the **Awaiting validation** section on the commitments screen.
 
-One validated `CARRY_FORWARD` DO per customer + sales point; lines upserted per product. Uses auto CF numbering (not booklet serials). Users without `validate_stock_documents` or `validate_delivery_orders` save as **draft** stock adjustments / **pending** DOs for supervisor validation (`carryForwardRequiresValidation` in `permissions/service.ts`).
+One `CARRY_FORWARD` DO **per outstanding original DO** (`sourceDocumentNo` required on create; unique among open CF). Auto CF numbering (not booklet serials). Batch upsert creates/updates by `detailId` — no merge by customer+point. Users without `validate_stock_documents` or `validate_delivery_orders` save as **draft** stock adjustments / **pending** DOs for supervisor validation (`carryForwardRequiresValidation` in `permissions/service.ts`).
 
 ## Stock
 

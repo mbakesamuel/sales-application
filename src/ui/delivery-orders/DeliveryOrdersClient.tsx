@@ -16,8 +16,8 @@ import {
   isValidBookletSerial,
   validateBookletSerial,
 } from "../../shared/bookletSerial.ts";
-import { DeliveryOrderPrintView } from "./DeliveryOrderPrintView.tsx";
 import "../sales/sales.css";
+import "./deliveryOrders.css";
 
 function clampDateToPeriod(
   isoDate: string,
@@ -33,8 +33,8 @@ interface DeliveryOrdersClientProps {
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
   initialLookupNo?: string;
-  onOpenList: () => void;
-  onOpenQueue: () => void;
+  /** Close the hosting modal (list refresh is handled by the parent). */
+  onClose?: () => void;
 }
 
 type LineRow = {
@@ -101,6 +101,14 @@ function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function emptyPayment(): PaymentRow {
+  return {
+    paymentMethodId: "",
+    paymentDate: todayIsoDate(),
+    ...emptyPaymentExtras(),
+  };
+}
+
 function parseDec(value: string): number {
   const parsed = Number.parseFloat(String(value ?? "").replace(",", "."));
   return Number.isFinite(parsed) ? parsed : 0;
@@ -127,8 +135,7 @@ export function DeliveryOrdersClient({
   user,
   permissions,
   initialLookupNo = "",
-  onOpenList,
-  onOpenQueue,
+  onClose,
 }: DeliveryOrdersClientProps) {
   const [options, setOptions] = useState<DeliveryOrdersFormOptions | null>(
     null,
@@ -139,7 +146,6 @@ export function DeliveryOrdersClient({
     text: string;
   } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [printOpen, setPrintOpen] = useState(false);
 
   const [orderId, setOrderId] = useState<number | null>(null);
   const [deliveryOrderNo, setDeliveryOrderNo] = useState(initialLookupNo);
@@ -156,7 +162,7 @@ export function DeliveryOrdersClient({
   const [orderRef, setOrderRef] = useState("");
   const [salesPointId, setSalesPointId] = useState("");
   const [lines, setLines] = useState<LineRow[]>([]);
-  const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [payments, setPayments] = useState<PaymentRow[]>([emptyPayment()]);
   const [pendingDos, setPendingDos] = useState<PendingDeliveryOrderRow[]>([]);
   const [pendingOpen, setPendingOpen] = useState(false);
   const [taxPreview, setTaxPreview] = useState<DeliveryOrderTaxPreview | null>(
@@ -226,14 +232,6 @@ export function DeliveryOrdersClient({
     return { productId: "", orderQty: "0", orderUnit: "kg", unitPrice: "" };
   }
 
-  function emptyPayment(): PaymentRow {
-    return {
-      paymentMethodId: "",
-      paymentDate: todayIsoDate(),
-      ...emptyPaymentExtras(),
-    };
-  }
-
   useEffect(() => {
     async function bootstrap() {
       try {
@@ -251,6 +249,7 @@ export function DeliveryOrdersClient({
             : "",
         );
         setLines(formOptions.products.length > 0 ? [emptyLine()] : []);
+        setPayments([emptyPayment()]);
       } catch (error) {
         setLoadError(
           error instanceof Error
@@ -485,7 +484,7 @@ export function DeliveryOrdersClient({
         : "",
     );
     setLines(options.products.length > 0 ? [emptyLine()] : []);
-    setPayments([]);
+    setPayments([emptyPayment()]);
     setAllowAutoUnitPrice(true);
     setLinePriceErrors({});
     setBanner(null);
@@ -560,7 +559,7 @@ export function DeliveryOrdersClient({
               traiteIssuedOn: payment.traiteIssuedOn,
               traiteMaturityOn: payment.traiteMaturityOn,
             }))
-          : [],
+          : [emptyPayment()],
       );
     } catch (error) {
       setBanner({
@@ -829,7 +828,7 @@ export function DeliveryOrdersClient({
   }
 
   return (
-    <div class="sales-client sales-client-compact">
+    <div class="sales-client sales-client-compact do-client">
       {banner ? (
         <div class={`sales-banner sales-banner-${banner.type}`}>
           {banner.text}
@@ -839,7 +838,7 @@ export function DeliveryOrdersClient({
       <section class="sales-panel">
         <div class="sales-invoice-header">
           <div>
-            <h2>Order details</h2>
+            <h2>Delivery order details</h2>
             <p class="sales-muted">
               Status{" "}
               {docStatus ? (
@@ -852,10 +851,24 @@ export function DeliveryOrdersClient({
           </div>
           <div class="sales-invoice-header-end">
             <div class="sales-invoice-header-controls">
+              {canValidate && pendingDos.length > 0 ? (
+                <button
+                  type="button"
+                  class="sales-btn-secondary"
+                  disabled={busy !== null}
+                  onClick={() => setPendingOpen((open) => !open)}
+                >
+                  {pendingDos.length} pending {pendingOpen ? "▴" : "▾"}
+                </button>
+              ) : null}
               {orderId ? (
-                <div class="sales-invoice-no">{deliveryOrderNo}</div>
+                <div class="sales-invoice-no-field">
+                  <span>DO #</span>
+                  <div class="sales-invoice-no">{deliveryOrderNo}</div>
+                </div>
               ) : (
                 <label class="sales-field sales-invoice-no-field">
+                  <span>DO #</span>
                   <input
                     type="text"
                     inputMode={autoGenerateDeliveryOrderNo ? "text" : "numeric"}
@@ -882,34 +895,8 @@ export function DeliveryOrdersClient({
                   />
                 </label>
               )}
-              {canValidate && pendingDos.length > 0 ? (
-                <button
-                  type="button"
-                  class="sales-btn-secondary"
-                  disabled={busy !== null}
-                  onClick={() => setPendingOpen((open) => !open)}
-                >
-                  {pendingDos.length} pending {pendingOpen ? "▴" : "▾"}
-                </button>
-              ) : null}
-              <div class="sales-invoice-header-actions">
-                <button
-                  type="button"
-                  class="sales-btn-secondary"
-                  onClick={onOpenList}
-                >
-                  View all DOs
-                </button>
-                {canValidate ? (
-                  <button
-                    type="button"
-                    class="sales-btn-secondary"
-                    onClick={onOpenQueue}
-                  >
-                    Validation queue
-                  </button>
-                ) : null}
-                {orderId ? (
+              {orderId ? (
+                <div class="sales-invoice-header-actions">
                   <button
                     type="button"
                     class="sales-btn-secondary"
@@ -918,8 +905,8 @@ export function DeliveryOrdersClient({
                   >
                     New order
                   </button>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
             </div>
             {isAwaitingOrder ? (
               <p class="sales-hint sales-invoice-serial-hint">
@@ -928,8 +915,8 @@ export function DeliveryOrdersClient({
             ) : null}
             {!orderId && autoGenerateDeliveryOrderNo ? (
               <p class="sales-hint sales-invoice-serial-hint">
-                Leave blank to auto-assign on save, or enter an existing DO number
-                and press Enter to open it.
+                Leave blank to auto-assign on save, or enter an existing DO
+                number and press Enter to open it.
               </p>
             ) : null}
           </div>
@@ -963,7 +950,7 @@ export function DeliveryOrdersClient({
           class={`sales-invoice-form${isAwaitingOrder ? " sales-form-locked" : ""}`}
         >
           <div class="sales-invoice-grid">
-            <label class="sales-field sales-field-span-2">
+            <label class="sales-field">
               <span>Customer</span>
               <select
                 value={customerId}
@@ -984,7 +971,7 @@ export function DeliveryOrdersClient({
               </select>
             </label>
 
-            <label class="sales-field sales-field-span-2">
+            <label class="sales-field">
               <span>Date issued</span>
               <input
                 type="date"
@@ -1267,10 +1254,7 @@ export function DeliveryOrdersClient({
           ) : null}
         </div>
 
-        {payments.length === 0 ? (
-          <p class="sales-muted">No payments on this order yet.</p>
-        ) : (
-          <div class="sales-payments-form">
+        <div class="sales-payments-form">
             {payments.map((payment, index) => {
               const method = paymentMethods.find(
                 (item) => item.id === payment.paymentMethodId,
@@ -1537,6 +1521,7 @@ export function DeliveryOrdersClient({
                     <button
                       type="button"
                       class="sales-btn-secondary sales-payment-remove"
+                      disabled={payments.length === 1}
                       onClick={() =>
                         setPayments((current) =>
                           current.filter((_, itemIndex) => itemIndex !== index),
@@ -1550,7 +1535,6 @@ export function DeliveryOrdersClient({
               );
             })}
           </div>
-        )}
       </section>
 
       <div class="sales-actions">
@@ -1566,17 +1550,6 @@ export function DeliveryOrdersClient({
               : orderId != null
                 ? "Update delivery order"
                 : "Save delivery order"}
-          </button>
-        ) : null}
-
-        {orderId != null ? (
-          <button
-            type="button"
-            class="sales-btn-secondary"
-            disabled={busy !== null}
-            onClick={() => setPrintOpen(true)}
-          >
-            Print delivery order
           </button>
         ) : null}
 
@@ -1601,14 +1574,18 @@ export function DeliveryOrdersClient({
             Delete order
           </button>
         ) : null}
-      </div>
 
-      {printOpen && orderId != null ? (
-        <DeliveryOrderPrintView
-          orderId={orderId}
-          onClose={() => setPrintOpen(false)}
-        />
-      ) : null}
+        {onClose ? (
+          <button
+            type="button"
+            class="sales-btn-secondary"
+            disabled={busy !== null}
+            onClick={onClose}
+          >
+            Close
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

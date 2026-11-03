@@ -57,6 +57,7 @@ interface ProductRow {
   commercialServiceLabel: string;
   uom: string;
   omitsStorageLocation: boolean;
+  excludeFromDeliveryOrders: boolean;
   createdAt: string;
   updatedAt: string;
   raw: Record<string, unknown>;
@@ -405,6 +406,9 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
             uom: String(row.uom ?? "Kg"),
             omitsStorageLocation:
               row.omitsStorageLocation === 1 || row.omitsStorageLocation === true,
+            excludeFromDeliveryOrders:
+              row.excludeFromDeliveryOrders === 1 ||
+              row.excludeFromDeliveryOrders === true,
             createdAt: formatDate(row.createdAt),
             updatedAt: formatDate(row.updatedAt),
             raw: row,
@@ -997,6 +1001,10 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
               ["Category code", viewRow.categoryCode],
               ["UOM", viewRow.uom],
               ["Storage location", viewRow.omitsStorageLocation ? "No location" : "Required"],
+              [
+                "Delivery orders",
+                viewRow.excludeFromDeliveryOrders ? "Excluded" : "Allowed",
+              ],
               ["Commercial service", viewRow.commercialServiceLabel],
               ["Main category", viewRow.categoryIsMain ? "Yes" : "No"],
               ["Bottled category", viewRow.categoryIsBottled ? "Yes" : "No"],

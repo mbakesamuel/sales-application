@@ -1,0 +1,406 @@
+.do-list-edit-btn {
+  color: var(--accent);
+}
+
+.do-list-edit-btn:hover:not(:disabled) {
+  color: var(--accent-hover);
+}
+
+.do-list-open-btn {
+  color: var(--text-h);
+}
+
+.do-list-open-btn:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+/* Modal hosting the DO create/edit form over the list. */
+.form-dialog-panel.do-form-dialog-panel {
+  width: min(88vw, 780px);
+  max-width: 90vw;
+  height: min(86vh, 720px);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-dialog-panel.do-form-dialog-panel > .form-dialog-header {
+  flex-shrink: 0;
+  padding: 8px 12px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .form-dialog-title {
+  font-size: 13px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .form-dialog-close {
+  display: none;
+}
+
+.form-dialog-panel.do-form-dialog-panel > .do-client {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* Prefer fitting without page scroll; payments area scrolls when needed. */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 14px 10px;
+  gap: 6px;
+  --do-gap-y: 6px;
+  --do-gap-x: 10px;
+  --do-panel-pad-y: 6px;
+  --do-panel-pad-x: 10px;
+  --do-control-h: 34px;
+  --do-control-h-lg: 36px;
+  --do-font: 13px;
+  --do-label-font: 12px;
+  --do-section-gap: 4px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-panel {
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-items-panel,
+.form-dialog-panel.do-form-dialog-panel .sales-payments-panel {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-payments-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-payments-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  gap: 6px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-payment-row {
+  padding-bottom: 6px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-invoice-header,
+.form-dialog-panel.do-form-dialog-panel .sales-section-header {
+  margin-bottom: 4px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-field {
+  gap: 3px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-invoice-grid {
+  gap: 6px 10px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-invoice-grid .sales-field input:not([type="checkbox"]),
+.form-dialog-panel.do-form-dialog-panel .sales-invoice-grid .sales-field select,
+.form-dialog-panel.do-form-dialog-panel .sales-payment-grid .sales-field input,
+.form-dialog-panel.do-form-dialog-panel .sales-payment-grid .sales-field select,
+.form-dialog-panel.do-form-dialog-panel .sales-line-grid .sales-field input,
+.form-dialog-panel.do-form-dialog-panel .sales-line-grid .sales-field select,
+.form-dialog-panel.do-form-dialog-panel .sales-field input,
+.form-dialog-panel.do-form-dialog-panel .sales-field select {
+  height: var(--do-control-h);
+  min-height: var(--do-control-h);
+  padding: 6px 12px;
+  font-size: var(--do-font);
+  box-sizing: border-box;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-line-card > .sales-field select {
+  height: var(--do-control-h-lg);
+  min-height: var(--do-control-h-lg);
+  padding: 6px 12px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-hint {
+  font-size: 11px;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-tax-hint-row {
+  margin-top: 0;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-line-card {
+  padding: 8px 10px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-line-card > .sales-field {
+  margin-bottom: 4px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-lines-list {
+  gap: 6px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-line-grid {
+  gap: 6px 10px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-totals-row {
+  margin-top: 6px;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-actions {
+  flex-shrink: 0;
+  gap: 8px;
+  margin-top: auto;
+  justify-content: flex-end;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 8px 0 2px;
+  background: var(--bg-elevated);
+}
+
+.form-dialog-panel.do-form-dialog-panel .sales-btn-primary,
+.form-dialog-panel.do-form-dialog-panel .sales-btn-secondary,
+.form-dialog-panel.do-form-dialog-panel .sales-btn-danger {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.form-dialog-panel.do-form-dialog-panel .do-pending-list {
+  margin: 0 0 4px;
+  max-height: 72px;
+  overflow-y: auto;
+}
+
+/* Delivery Order form — viewport-proportional controls and responsive grids. */
+.do-client {
+  --do-gap-y: clamp(10px, 1.8vh, 16px);
+  --do-gap-x: clamp(8px, 1vw, 12px);
+  --do-panel-pad-y: clamp(8px, 1.2vh, 12px);
+  --do-panel-pad-x: clamp(8px, 1vw, 12px);
+  --do-control-h: clamp(30px, 3.6vh, 34px);
+  --do-control-h-lg: clamp(32px, 4vh, 36px);
+  --do-font: clamp(12px, 1vw, 13px);
+  --do-label-font: clamp(11px, 0.95vw, 12px);
+  --do-section-gap: clamp(8px, 1.4vh, 12px);
+
+  gap: var(--do-gap-y);
+}
+
+.do-client .sales-invoice-form,
+.do-client .sales-payments-form,
+.do-client .sales-items-panel {
+  --sales-control-height: var(--do-control-h);
+}
+
+.do-client .sales-field {
+  font-size: var(--do-font);
+  gap: clamp(4px, 0.8vh, 8px);
+}
+
+.do-client .sales-invoice-grid .sales-field > span:first-child,
+.do-client .sales-payment-grid .sales-field > span:first-child,
+.do-client .sales-line-grid .sales-field > span:first-child,
+.do-client .sales-field > span:first-child {
+  font-size: var(--do-label-font);
+}
+
+.do-client .sales-invoice-grid .sales-field input:not([type="checkbox"]),
+.do-client .sales-invoice-grid .sales-field select,
+.do-client .sales-payment-grid .sales-field input,
+.do-client .sales-payment-grid .sales-field select,
+.do-client .sales-line-grid .sales-field input,
+.do-client .sales-line-grid .sales-field select,
+.do-client .sales-field input,
+.do-client .sales-field select {
+  font-size: var(--do-font);
+  height: var(--do-control-h);
+  min-height: var(--do-control-h);
+  padding: clamp(2px, 0.5vh, 6px) clamp(8px, 1vw, 12px);
+  box-sizing: border-box;
+}
+
+.do-client .sales-panel {
+  padding: var(--do-panel-pad-y) var(--do-panel-pad-x);
+}
+
+.do-client .sales-panel-header,
+.do-client .sales-invoice-header,
+.do-client .sales-section-header {
+  margin-bottom: var(--do-section-gap);
+  gap: clamp(8px, 1.2vw, 14px);
+}
+
+.do-client .sales-invoice-header h2,
+.do-client .sales-section-header h3,
+.do-client .sales-panel-header h3 {
+  font-size: clamp(14px, 1.35vw, 17px);
+}
+
+/* Header fields: DO full width; then pairs fill the row. */
+.do-client .sales-invoice-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--do-gap-y) var(--do-gap-x);
+  width: 100%;
+}
+
+.do-client .sales-invoice-grid > .sales-field {
+  min-width: 0;
+  width: 100%;
+}
+
+.do-client .sales-invoice-grid > .sales-field-span-full {
+  grid-column: 1 / -1;
+}
+
+.do-client .sales-invoice-grid > .sales-field input,
+.do-client .sales-invoice-grid > .sales-field select,
+.do-client .sales-invoice-grid > .sales-field .sales-invoice-no {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.do-client .sales-lines-list {
+  gap: var(--do-gap-y);
+}
+
+.do-client .sales-line-card {
+  padding: clamp(10px, 1.5vh, 16px) clamp(10px, 1.2vw, 14px);
+}
+
+.do-client .sales-line-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--do-gap-y) var(--do-gap-x);
+}
+
+.do-client .sales-line-card > .sales-field {
+  margin-bottom: clamp(8px, 1.2vh, 12px);
+}
+
+.do-client .sales-line-card > .sales-field select {
+  height: var(--do-control-h-lg);
+  min-height: var(--do-control-h-lg);
+  padding: clamp(4px, 0.7vh, 8px) clamp(8px, 1vw, 12px);
+  font-size: var(--do-font);
+  box-sizing: border-box;
+}
+
+.do-client .sales-payments-form {
+  gap: var(--do-gap-y);
+}
+
+.do-client .sales-payment-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--do-gap-x);
+  padding-bottom: var(--do-section-gap);
+}
+
+.do-client .sales-payment-grid {
+  flex: 1 1 16rem;
+  min-width: 0;
+  gap: var(--do-gap-y) var(--do-gap-x);
+}
+
+.do-client .sales-payment-remove {
+  height: var(--do-control-h);
+  padding: 0 clamp(10px, 1.2vw, 14px);
+  font-size: var(--do-font);
+}
+
+.do-client .sales-totals-row {
+  margin-top: var(--do-section-gap);
+  gap: clamp(10px, 1.5vw, 16px);
+  font-size: var(--do-label-font);
+}
+
+.do-client .sales-actions {
+  gap: clamp(8px, 1vw, 12px);
+  flex-wrap: wrap;
+}
+
+.do-client .sales-btn-primary,
+.do-client .sales-btn-secondary,
+.do-client .sales-btn-danger {
+  padding: clamp(6px, 0.9vh, 10px) clamp(12px, 1.4vw, 16px);
+  font-size: var(--do-font);
+}
+
+.do-client.sales-client-compact .sales-invoice-header-actions .sales-btn-secondary,
+.do-client.sales-client-compact .sales-invoice-header-actions .sales-btn-primary,
+.do-client.sales-client-compact .sales-invoice-header-controls .sales-btn-secondary {
+  height: auto;
+  min-height: var(--do-control-h);
+  padding: clamp(8px, 1.1vh, 12px) clamp(12px, 1.4vw, 16px);
+  line-height: 1.25;
+  box-sizing: border-box;
+}
+
+.do-client .do-pending-list {
+  margin: 0 0 var(--do-section-gap);
+}
+
+/* Breakpoints — collapse grids as the viewport narrows */
+@media (max-width: 1100px) {
+  .do-client .sales-line-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .do-client .sales-payment-grid--cols-6,
+  .do-client .sales-payment-grid--cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1101px) {
+  .do-client .sales-line-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .do-client .sales-line-grid > .sales-field {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .do-client .sales-invoice-grid,
+  .do-client .sales-line-grid,
+  .do-client .sales-payment-grid,
+  .do-client .sales-payment-grid--cols-3,
+  .do-client .sales-payment-grid--cols-4,
+  .do-client .sales-payment-grid--cols-6 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .do-client .sales-invoice-header,
+  .do-client .sales-section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .do-client .sales-invoice-header-end {
+    align-items: stretch;
+  }
+
+  .do-client .sales-invoice-header-controls,
+  .do-client .sales-invoice-header-actions {
+    justify-content: flex-start;
+  }
+
+  .do-client .sales-payment-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .do-client .sales-payment-remove {
+    width: 100%;
+  }
+}

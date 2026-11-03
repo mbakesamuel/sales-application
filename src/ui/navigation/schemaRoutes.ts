@@ -1,3 +1,5 @@
+import { ROUTE_DEFINITIONS } from "../../shared/routeCatalog.ts";
+
 export interface SchemaRoute {
   id: string;
   label: string;
@@ -167,7 +169,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
   },
   {
     id: "inventory",
-    label: "Oil Stocks",
+    label: "Stock",
     routes: [
       {
         id: "carry-forward-stock",
@@ -221,7 +223,8 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         id: "delivery-orders",
         label: "Delivery Order",
         table: "DeliveryOrder",
-        description: "Create and manage delivery orders.",
+        description:
+          "Browse the DO list; create or edit delivery orders in a modal; validate pending DOs.",
       },
       {
         id: "delivery-order-tracking",
@@ -542,6 +545,18 @@ export function findRouteById(routeId: string): SchemaRoute | null {
     if (route) {
       return route;
     }
+  }
+
+  // Overlay-only routes (e.g. stock-bin-card-report) live in the catalog but
+  // are intentionally omitted from the sidebar schema.
+  const catalogRoute = ROUTE_DEFINITIONS.find((item) => item.id === routeId);
+  if (catalogRoute) {
+    return {
+      id: catalogRoute.id,
+      label: catalogRoute.label,
+      table: catalogRoute.table ?? "",
+      description: "",
+    };
   }
 
   return null;

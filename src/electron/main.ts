@@ -73,6 +73,38 @@ async function loadDevUrl(mainWindow: BrowserWindow): Promise<void> {
   }
 }
 
+/** Ctrl/Cmd +/- / 0 — works even with Menu.setApplicationMenu(null). */
+function wireZoomShortcuts(win: BrowserWindow): void {
+  win.webContents.setZoomFactor(1);
+  win.webContents.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown") {
+      return;
+    }
+    if (!(input.control || input.meta)) {
+      return;
+    }
+    const key = input.key;
+    if (key === "=" || key === "+" || key === "Add") {
+      event.preventDefault();
+      win.webContents.setZoomFactor(
+        Math.min(win.webContents.getZoomFactor() + 0.1, 1.5),
+      );
+      return;
+    }
+    if (key === "-" || key === "_" || key === "Subtract") {
+      event.preventDefault();
+      win.webContents.setZoomFactor(
+        Math.max(win.webContents.getZoomFactor() - 0.1, 0.7),
+      );
+      return;
+    }
+    if (key === "0" || key === "NumPad0") {
+      event.preventDefault();
+      win.webContents.setZoomFactor(1);
+    }
+  });
+}
+
 function createWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
     width: 1000,
@@ -83,8 +115,11 @@ function createWindow(): BrowserWindow {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      zoomFactor: 1,
     },
   });
+
+  wireZoomShortcuts(mainWindow);
 
   if (!app.isPackaged) {
     void loadDevUrl(mainWindow).catch((error) => {

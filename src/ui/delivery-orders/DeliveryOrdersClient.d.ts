@@ -5,8 +5,8 @@ interface DeliveryOrdersClientProps {
     user: AuthUser;
     permissions: RolePermissionsSnapshot;
     initialLookupNo?: string;
-    onOpenList: () => void;
-    onOpenQueue: () => void;
+    /** Close the hosting modal (list refresh is handled by the parent). */
+    onClose?: () => void;
 }
-export declare function DeliveryOrdersClient({ user, permissions, initialLookupNo, onOpenList, onOpenQueue, }: DeliveryOrdersClientProps): import("preact").JSX.Element;
+export declare function DeliveryOrdersClient({ user, permissions, initialLookupNo, onClose, }: DeliveryOrdersClientProps): import("preact").JSX.Element;
 export {};

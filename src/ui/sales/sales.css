@@ -53,7 +53,7 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  gap: 16px;
+  gap: 8px;
   overflow: hidden;
 }
 
@@ -110,7 +110,9 @@
   gap: 8px;
 }
 
-.sales-invoice-no-field {
+.sales-invoice-no-field,
+.sales-field.sales-invoice-no-field {
+  display: flex;
   flex-direction: row;
   align-items: center;
   gap: 8px;
@@ -263,7 +265,7 @@
   border-radius: 8px;
   font: inherit;
   box-sizing: border-box;
-  background: #fff;
+  background: var(--bg-elevated);
   color: var(--text-h);
 }
 
@@ -300,7 +302,7 @@
   border: 1px solid var(--border-strong);
   border-left: none;
   border-radius: 0 8px 8px 0;
-  background: #fff;
+  background: var(--bg-elevated);
   font: inherit;
   cursor: pointer;
 }
@@ -399,7 +401,7 @@
   margin: 0;
   flex: 0 0 16px;
   cursor: pointer;
-  accent-color: #2563eb;
+  accent-color: var(--accent);
 }
 
 .sales-checkbox input[type="checkbox"]:disabled {
@@ -427,7 +429,7 @@
   margin: 0;
   flex: 0 0 16px;
   cursor: pointer;
-  accent-color: #2563eb;
+  accent-color: var(--accent);
 }
 
 .sales-invoice-grid {
@@ -467,7 +469,7 @@
   border-radius: 8px;
   font: inherit;
   box-sizing: border-box;
-  background: #fff;
+  background: var(--bg-elevated);
 }
 
 .sales-invoice-grid .sales-field input:not([type="checkbox"]):disabled,
@@ -508,6 +510,11 @@
 .sales-list .sales-filters,
 .sales-list .sales-error {
   flex-shrink: 0;
+}
+
+.sales-list > .sales-panel-header {
+  align-items: center;
+  margin-bottom: 0;
 }
 
 .sales-list .sales-table-wrap {
@@ -687,6 +694,7 @@
 .sales-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
 }
 
@@ -714,7 +722,7 @@
   padding: 10px 16px;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  background: #fff;
+  background: var(--bg-elevated);
   color: var(--text-h);
 }
 
@@ -722,7 +730,7 @@
   padding: 10px 16px;
   border: 1px solid #fecaca;
   border-radius: 8px;
-  background: #fff;
+  background: var(--bg-elevated);
   color: #b42318;
 }
 
@@ -730,7 +738,7 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: #2563eb;
+  color: var(--accent);
   text-decoration: underline;
 }
 
@@ -1029,7 +1037,7 @@
   border-radius: 8px;
   font: inherit;
   line-height: calc(var(--sales-control-height) - 2px);
-  background: #fff;
+  background: var(--bg-elevated);
   color: var(--text-h);
 }
 
@@ -1100,7 +1108,7 @@
 .sales-btn-link {
   border: none;
   background: transparent;
-  color: #2563eb;
+  color: var(--accent);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -1392,4 +1400,146 @@
   justify-content: flex-end;
   gap: 8px;
   margin-top: 16px;
+}
+
+.sales-list-edit-btn {
+  color: var(--accent);
+}
+
+.sales-list-edit-btn:hover:not(:disabled) {
+  color: var(--accent-hover);
+}
+
+.sales-list-open-btn {
+  color: var(--text-h);
+}
+
+.sales-list-open-btn:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+/* Modal hosting the sales create/view form over the invoice list. */
+.form-dialog-panel.sales-form-dialog-panel {
+  width: min(92vw, 960px);
+  max-width: 94vw;
+  height: min(90vh, 820px);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-dialog-panel.sales-form-dialog-panel > .form-dialog-header {
+  flex-shrink: 0;
+  padding: 8px 12px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .form-dialog-title {
+  font-size: 13px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .form-dialog-close {
+  display: none;
+}
+
+.form-dialog-panel.sales-form-dialog-panel > .sales-client {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 14px 10px;
+  gap: 6px;
+  --sales-modal-gap-y: 6px;
+  --sales-modal-gap-x: 10px;
+  --sales-modal-panel-pad-y: 6px;
+  --sales-modal-panel-pad-x: 10px;
+  --sales-modal-control-h: 34px;
+  --sales-modal-font: 13px;
+  --sales-modal-label-font: 12px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-panel {
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-items-panel,
+.form-dialog-panel.sales-form-dialog-panel .sales-payments-panel {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-invoice-header,
+.form-dialog-panel.sales-form-dialog-panel .sales-section-header {
+  margin-bottom: 4px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-field {
+  gap: 3px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-invoice-grid {
+  gap: 6px 10px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-invoice-grid .sales-field input:not([type="checkbox"]),
+.form-dialog-panel.sales-form-dialog-panel .sales-invoice-grid .sales-field select,
+.form-dialog-panel.sales-form-dialog-panel .sales-payment-grid .sales-field input,
+.form-dialog-panel.sales-form-dialog-panel .sales-payment-grid .sales-field select,
+.form-dialog-panel.sales-form-dialog-panel .sales-line-grid .sales-field input,
+.form-dialog-panel.sales-form-dialog-panel .sales-line-grid .sales-field select,
+.form-dialog-panel.sales-form-dialog-panel .sales-field input,
+.form-dialog-panel.sales-form-dialog-panel .sales-field select {
+  height: var(--sales-modal-control-h);
+  min-height: var(--sales-modal-control-h);
+  padding: 6px 12px;
+  font-size: var(--sales-modal-font);
+  box-sizing: border-box;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-hint {
+  font-size: 11px;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-line-card {
+  padding: 8px 10px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-line-card > .sales-field {
+  margin-bottom: 4px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-lines-list {
+  gap: 6px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-line-grid {
+  gap: 6px 10px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-totals-row {
+  margin-top: 6px;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-actions {
+  flex-shrink: 0;
+  gap: 8px;
+  margin-top: auto;
+  justify-content: flex-end;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 8px 0 2px;
+  background: var(--bg-elevated);
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-btn-primary,
+.form-dialog-panel.sales-form-dialog-panel .sales-btn-secondary,
+.form-dialog-panel.sales-form-dialog-panel .sales-btn-danger {
+  padding: 6px 12px;
+  font-size: 13px;
 }

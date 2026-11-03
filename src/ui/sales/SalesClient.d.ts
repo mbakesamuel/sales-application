@@ -6,8 +6,8 @@ interface SalesClientProps {
     user: AuthUser;
     permissions: RolePermissionsSnapshot;
     variant?: SalesModuleVariant;
-    onOpenList: () => void;
+    onClose: () => void;
     initialInvoiceNo?: string;
 }
-export declare function SalesClient({ user, permissions, variant, onOpenList, initialInvoiceNo, }: SalesClientProps): import("preact").JSX.Element;
+export declare function SalesClient({ user, permissions, variant, onClose, initialInvoiceNo, }: SalesClientProps): import("preact").JSX.Element;
 export {};

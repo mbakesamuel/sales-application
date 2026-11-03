@@ -25,6 +25,11 @@ export declare function canAccessStockModule(snapshot: RolePermissionsSnapshot):
 export declare function getStockModuleAccess(snapshot: RolePermissionsSnapshot): RouteAccess;
 export declare function canAccessBottledStockModule(snapshot: RolePermissionsSnapshot): boolean;
 export declare function getBottledStockModuleAccess(snapshot: RolePermissionsSnapshot): RouteAccess;
+/**
+ * Bin card printable report (opened from Stock → Bin card).
+ * Matches getBinCard: stock-bin-card, bottled-stock, or the dedicated report route.
+ */
+export declare function canAccessBinCardReport(snapshot: RolePermissionsSnapshot): boolean;
 /** True when the role can manage bottled stock (module route or legacy bin-card write). */
 export declare function hasUnifiedStockBottledCapability(snapshot: RolePermissionsSnapshot): boolean;
 export declare function canAccessStockTab(snapshot: RolePermissionsSnapshot, _tabId: StockTabId): boolean;

@@ -252,6 +252,8 @@ export interface AvailableDeliveryOrderRow {
   /** Remaining kg for this product only (not DO total). */
   balanceKg: string;
   isCarryForward?: boolean;
+  /** Original paper/booklet DO # when this row is a carry-forward commitment. */
+  sourceDocumentNo?: string | null;
 }
 
 export interface DeliveryOrderProductRow {
@@ -281,6 +283,7 @@ export interface DeliveryOrderLookupResult {
   customerMatches: boolean;
   balanceKg: string;
   isCarryForward: boolean;
+  sourceDocumentNo?: string | null;
   perProduct: DeliveryOrderProductRow[];
   payments: DeliveryOrderLookupPayment[];
 }

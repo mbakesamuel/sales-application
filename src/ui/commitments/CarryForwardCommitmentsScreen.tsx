@@ -5,6 +5,7 @@ import type {
   CarryForwardCommitmentPendingRow,
   CarryForwardCommitmentRow,
   CarryForwardFormOptions,
+  UpsertCarryForwardBatchLine,
 } from "../../shared/carryForward.types.ts";
 import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
@@ -21,17 +22,37 @@ interface CarryForwardCommitmentsScreenProps {
 interface BatchDialogState {
   salesPointId: string;
   productId: string;
-  focusCustomerId: number | null;
+  focusKey: string | null;
 }
 
-type BatchExistingEntry = {
+type BatchLineDraft = {
+  key: string;
+  detailId: number | null;
+  customerId: string;
+  sourceDocumentNo: string;
+  outstandingQty: string;
   soldQty: number;
-  outstandingQty: number;
-  deliveryOrderNo: string;
+  deliveryOrderNo: string | null;
 };
 
 function formatKg(value: number): string {
   return Math.round(value).toLocaleString("en-US");
+}
+
+function newLineKey(): string {
+  return `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function emptyLine(): BatchLineDraft {
+  return {
+    key: newLineKey(),
+    detailId: null,
+    customerId: "",
+    sourceDocumentNo: "",
+    outstandingQty: "",
+    soldQty: 0,
+    deliveryOrderNo: null,
+  };
 }
 
 export function CarryForwardCommitmentsScreen({
@@ -57,10 +78,8 @@ export function CarryForwardCommitmentsScreen({
 
   const [batchSalesPointId, setBatchSalesPointId] = useState("");
   const [batchProductId, setBatchProductId] = useState("");
-  const [batchNotes, setBatchNotes] = useState("Carry-forward commitment");
-  const [customerFilter, setCustomerFilter] = useState("");
-  /** customerId -> outstanding qty string (blank = skip on save) */
-  const [qtyByCustomer, setQtyByCustomer] = useState<Record<string, string>>({});
+  const [batchNotes, setBatchNotes] = useState("");
+  const [batchLines, setBatchLines] = useState<BatchLineDraft[]>([]);
 
   async function reload() {
     setLoading(true);
@@ -102,7 +121,8 @@ export function CarryForwardCommitmentsScreen({
         row.customerName.toLowerCase().includes(query) ||
         row.salesPointName.toLowerCase().includes(query) ||
         row.productName.toLowerCase().includes(query) ||
-        row.deliveryOrderNo.toLowerCase().includes(query),
+        row.deliveryOrderNo.toLowerCase().includes(query) ||
+        (row.sourceDocumentNo ?? "").toLowerCase().includes(query),
     );
   }, [rows, search]);
 
@@ -116,7 +136,8 @@ export function CarryForwardCommitmentsScreen({
         row.customerName.toLowerCase().includes(query) ||
         row.salesPointName.toLowerCase().includes(query) ||
         row.productName.toLowerCase().includes(query) ||
-        row.deliveryOrderNo.toLowerCase().includes(query),
+        row.deliveryOrderNo.toLowerCase().includes(query) ||
+        (row.sourceDocumentNo ?? "").toLowerCase().includes(query),
     );
   }, [pendingRows, search]);
 
@@ -125,92 +146,111 @@ export function CarryForwardCommitmentsScreen({
     [filteredPending],
   );
 
-  const existingForBatch = useMemo(() => {
-    const spId = Number.parseInt(batchSalesPointId, 10);
-    const pId = Number.parseInt(batchProductId, 10);
+  function linesForScope(
+    salesPointId: string,
+    productId: string,
+    focusDetailId?: number | null,
+  ): BatchLineDraft[] {
+    const spId = Number.parseInt(salesPointId, 10);
+    const pId = Number.parseInt(productId, 10);
     if (!Number.isFinite(spId) || !Number.isFinite(pId)) {
-      return new Map<number, BatchExistingEntry>();
+      return [emptyLine()];
     }
-    const map = new Map<number, BatchExistingEntry>();
+
+    const next: BatchLineDraft[] = [];
     for (const row of rows) {
       if (row.salesPointId === spId && row.productId === pId) {
-        map.set(row.customerId, {
+        next.push({
+          key: `detail-${row.detailId}`,
+          detailId: row.detailId,
+          customerId: String(row.customerId),
+          sourceDocumentNo: row.sourceDocumentNo ?? "",
+          outstandingQty: String(Math.round(row.outstandingQty)),
           soldQty: row.soldQty,
-          outstandingQty: row.outstandingQty,
           deliveryOrderNo: row.deliveryOrderNo,
         });
       }
     }
     for (const row of pendingRows) {
       if (row.salesPointId === spId && row.productId === pId) {
-        map.set(row.customerId, {
+        next.push({
+          key: `detail-${row.detailId}`,
+          detailId: row.detailId,
+          customerId: String(row.customerId),
+          sourceDocumentNo: row.sourceDocumentNo ?? "",
+          outstandingQty: String(Math.round(row.outstandingQty)),
           soldQty: 0,
-          outstandingQty: row.outstandingQty,
           deliveryOrderNo: row.deliveryOrderNo,
         });
       }
     }
-    return map;
-  }, [rows, pendingRows, batchSalesPointId, batchProductId]);
 
-  const batchCustomers = useMemo(() => {
-    if (!options) {
-      return [];
+    if (next.length === 0) {
+      return [emptyLine()];
     }
-    const query = customerFilter.trim().toLowerCase();
-    return options.customers.filter(
-      (customer) => !query || customer.name.toLowerCase().includes(query),
-    );
-  }, [options, customerFilter]);
 
-  function hydrateQtyFromExisting(salesPointId: string, productId: string) {
-    const spId = Number.parseInt(salesPointId, 10);
-    const pId = Number.parseInt(productId, 10);
-    const next: Record<string, string> = {};
-    if (Number.isFinite(spId) && Number.isFinite(pId)) {
-      for (const row of rows) {
-        if (row.salesPointId === spId && row.productId === pId) {
-          next[String(row.customerId)] = String(Math.round(row.outstandingQty));
-        }
-      }
-      for (const row of pendingRows) {
-        if (row.salesPointId === spId && row.productId === pId) {
-          next[String(row.customerId)] = String(Math.round(row.outstandingQty));
-        }
+    if (focusDetailId != null) {
+      const focused = next.find((line) => line.detailId === focusDetailId);
+      if (focused) {
+        return [focused, ...next.filter((line) => line.key !== focused.key)];
       }
     }
-    setQtyByCustomer(next);
+
+    return next;
   }
 
   function openBatchEntry(prefill?: {
     salesPointId: number;
     productId: number;
-    focusCustomerId?: number;
+    focusDetailId?: number;
   }) {
     setActionError(null);
     setActionSuccess(null);
-    setCustomerFilter("");
-    setBatchNotes("Carry-forward commitment");
+    setBatchNotes("");
     const salesPointId = prefill ? String(prefill.salesPointId) : "";
     const productId = prefill ? String(prefill.productId) : "";
     setBatchSalesPointId(salesPointId);
     setBatchProductId(productId);
-    if (salesPointId && productId) {
-      hydrateQtyFromExisting(salesPointId, productId);
-    } else {
-      setQtyByCustomer({});
-    }
+    const lines = linesForScope(
+      salesPointId,
+      productId,
+      prefill?.focusDetailId ?? null,
+    );
+    setBatchLines(lines);
     setBatchDialog({
       salesPointId,
       productId,
-      focusCustomerId: prefill?.focusCustomerId ?? null,
+      focusKey: prefill?.focusDetailId
+        ? `detail-${prefill.focusDetailId}`
+        : lines[0]?.key ?? null,
     });
   }
 
   function onBatchScopeChange(nextSalesPointId: string, nextProductId: string) {
     setBatchSalesPointId(nextSalesPointId);
     setBatchProductId(nextProductId);
-    hydrateQtyFromExisting(nextSalesPointId, nextProductId);
+    setBatchLines(linesForScope(nextSalesPointId, nextProductId));
+  }
+
+  function updateLine(key: string, patch: Partial<BatchLineDraft>) {
+    setBatchLines((current) =>
+      current.map((line) => (line.key === key ? { ...line, ...patch } : line)),
+    );
+  }
+
+  function addLine() {
+    const line = emptyLine();
+    setBatchLines((current) => [...current, line]);
+    setBatchDialog((current) =>
+      current ? { ...current, focusKey: line.key } : current,
+    );
+  }
+
+  function removeLine(key: string) {
+    setBatchLines((current) => {
+      const next = current.filter((line) => line.key !== key);
+      return next.length > 0 ? next : [emptyLine()];
+    });
   }
 
   async function saveBatch() {
@@ -225,25 +265,47 @@ export function CarryForwardCommitmentsScreen({
       return;
     }
 
-    const lines: Array<{ customerId: number; outstandingQty: number }> = [];
-    for (const [customerIdKey, raw] of Object.entries(qtyByCustomer)) {
-      const trimmed = raw.trim();
-      if (trimmed === "") {
+    const lines: UpsertCarryForwardBatchLine[] = [];
+    for (const line of batchLines) {
+      const customerId = Number.parseInt(line.customerId, 10);
+      const qtyRaw = line.outstandingQty.trim();
+      const sourceRaw = line.sourceDocumentNo.trim();
+
+      if (!line.customerId && qtyRaw === "" && sourceRaw === "" && line.detailId == null) {
         continue;
       }
-      const outstandingQty = Number.parseInt(trimmed, 10);
+
+      if (!Number.isFinite(customerId)) {
+        setActionError("Select a customer on every filled line.");
+        return;
+      }
+
+      if (qtyRaw === "" && line.detailId == null) {
+        continue;
+      }
+
+      const outstandingQty =
+        qtyRaw === "" ? 0 : Number.parseInt(qtyRaw, 10);
       if (!Number.isFinite(outstandingQty) || outstandingQty < 0) {
         setActionError("Outstanding quantities must be whole numbers ≥ 0.");
         return;
       }
+
+      if (outstandingQty > 0 && !sourceRaw) {
+        setActionError("Enter the original DO # on every line with outstanding kg.");
+        return;
+      }
+
       lines.push({
-        customerId: Number.parseInt(customerIdKey, 10),
+        customerId,
         outstandingQty,
+        sourceDocumentNo: sourceRaw,
+        detailId: line.detailId,
       });
     }
 
     if (lines.length === 0) {
-      setActionError("Enter at least one outstanding quantity.");
+      setActionError("Add at least one line with outstanding kg.");
       return;
     }
 
@@ -316,26 +378,21 @@ export function CarryForwardCommitmentsScreen({
   }
 
   useEffect(() => {
-    if (!batchDialog?.focusCustomerId) {
+    if (!batchDialog?.focusKey) {
       return;
     }
     const el = document.getElementById(
-      `cf-qty-${batchDialog.focusCustomerId}`,
+      `cf-line-${batchDialog.focusKey}`,
     ) as HTMLInputElement | null;
     el?.focus();
     el?.select();
-  }, [batchDialog?.focusCustomerId, batchSalesPointId, batchProductId]);
+  }, [batchDialog?.focusKey, batchSalesPointId, batchProductId]);
 
   return (
     <div class="cf-screen">
       <header class="cf-header">
         <div>
           <h2 class="cf-title">Carry-forward commitments</h2>
-          <p class="cf-subtitle">
-            Batch-enter opening balances per collection point and product across customers.
-            Statistics clerks submit pending CF delivery orders for validation; supervisors and
-            managers with validate access save them as live commitments immediately.
-          </p>
         </div>
         <div class="cf-header-actions">
           <button
@@ -367,7 +424,7 @@ export function CarryForwardCommitmentsScreen({
           class="cf-search"
           type="search"
           value={search}
-          placeholder="Search customer, product, collection point, DO…"
+          placeholder="Search customer, product, collection point, original DO…"
           onInput={(event) =>
             setSearch((event.currentTarget as HTMLInputElement).value)
           }
@@ -405,6 +462,7 @@ export function CarryForwardCommitmentsScreen({
                   <th>Customer</th>
                   <th>Collection point</th>
                   <th>Product</th>
+                  <th>Original DO #</th>
                   <th class="cf-num">Outstanding (kg)</th>
                   <th>CF DO</th>
                 </tr>
@@ -419,6 +477,13 @@ export function CarryForwardCommitmentsScreen({
                     <td>{row.customerName}</td>
                     <td>{row.salesPointName}</td>
                     <td>{row.productName}</td>
+                    <td>
+                      {row.sourceDocumentNo ? (
+                        <code>{row.sourceDocumentNo}</code>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td class="cf-num">{formatKg(row.outstandingQty)}</td>
                     <td>
                       <code>{row.deliveryOrderNo}</code>
@@ -442,6 +507,7 @@ export function CarryForwardCommitmentsScreen({
               <th>Customer</th>
               <th>Collection point</th>
               <th>Product</th>
+              <th>Original DO #</th>
               <th>CF DO</th>
               <th class="cf-num">Outstanding (kg)</th>
               <th class="cf-num">Sold (kg)</th>
@@ -452,7 +518,7 @@ export function CarryForwardCommitmentsScreen({
           <tbody>
             {filtered.length === 0 && !loading ? (
               <tr>
-                <td colSpan={8} class="cf-empty">
+                <td colSpan={9} class="cf-empty">
                   No carry-forward commitments yet. Use Batch entry to add them.
                 </td>
               </tr>
@@ -462,6 +528,13 @@ export function CarryForwardCommitmentsScreen({
                 <td>{row.customerName}</td>
                 <td>{row.salesPointName}</td>
                 <td>{row.productName}</td>
+                <td>
+                  {row.sourceDocumentNo ? (
+                    <code>{row.sourceDocumentNo}</code>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td>
                   <code>{row.deliveryOrderNo}</code>
                 </td>
@@ -478,7 +551,7 @@ export function CarryForwardCommitmentsScreen({
                           openBatchEntry({
                             salesPointId: row.salesPointId,
                             productId: row.productId,
-                            focusCustomerId: row.customerId,
+                            focusDetailId: row.detailId,
                           })
                         }
                       >
@@ -504,8 +577,9 @@ export function CarryForwardCommitmentsScreen({
         <FormDialog
           ariaLabel="Batch carry-forward entry"
           title="Batch carry-forward entry"
-          subtitle="Pick collection point and product, then enter outstanding kg per customer."
+          subtitle="Pick collection point and product, then add one line per original outstanding DO."
           wide
+          panelClassName="cf-batch-dialog-panel"
           onClose={() => {
             if (!saving) {
               setBatchDialog(null);
@@ -516,8 +590,8 @@ export function CarryForwardCommitmentsScreen({
           <div class="cf-batch">
             <div class="cf-batch-scope">
               <label class="cf-field">
-                <span>Collection point</span>
                 <select
+                  aria-label="Collection point"
                   value={batchSalesPointId}
                   disabled={saving}
                   onChange={(event) => {
@@ -525,7 +599,7 @@ export function CarryForwardCommitmentsScreen({
                     onBatchScopeChange(next, batchProductId);
                   }}
                 >
-                  <option value="">Select collection point…</option>
+                  <option value="">Collection point…</option>
                   {options.salesPoints.map((point) => (
                     <option key={point.id} value={point.id}>
                       {point.name}
@@ -535,8 +609,8 @@ export function CarryForwardCommitmentsScreen({
               </label>
 
               <label class="cf-field">
-                <span>Product</span>
                 <select
+                  aria-label="Product"
                   value={batchProductId}
                   disabled={saving}
                   onChange={(event) => {
@@ -544,7 +618,7 @@ export function CarryForwardCommitmentsScreen({
                     onBatchScopeChange(batchSalesPointId, next);
                   }}
                 >
-                  <option value="">Select product…</option>
+                  <option value="">Product…</option>
                   {options.products.map((product) => (
                     <option key={product.productId} value={product.productId}>
                       {product.productName}
@@ -554,9 +628,10 @@ export function CarryForwardCommitmentsScreen({
               </label>
 
               <label class="cf-field cf-field-notes">
-                <span>Notes</span>
                 <input
                   type="text"
+                  aria-label="Notes"
+                  placeholder="Notes (optional)"
                   value={batchNotes}
                   disabled={saving}
                   onInput={(event) =>
@@ -567,85 +642,127 @@ export function CarryForwardCommitmentsScreen({
             </div>
 
             <div class="cf-batch-toolbar">
-              <input
-                class="cf-search"
-                type="search"
-                value={customerFilter}
-                placeholder="Filter customers…"
+              <button
+                type="button"
+                class="cf-btn cf-btn-secondary"
                 disabled={saving || !batchSalesPointId || !batchProductId}
-                onInput={(event) =>
-                  setCustomerFilter((event.currentTarget as HTMLInputElement).value)
-                }
-              />
+                onClick={addLine}
+              >
+                Add line
+              </button>
               <span class="cf-count">
-                {batchCustomers.length} customer
-                {batchCustomers.length === 1 ? "" : "s"}
+                {batchSalesPointId && batchProductId ? batchLines.length : 0} line
+                {(batchSalesPointId && batchProductId ? batchLines.length : 0) === 1
+                  ? ""
+                  : "s"}
               </span>
             </div>
 
-            {!batchSalesPointId || !batchProductId ? (
-              <p class="cf-hint">Select collection point and product to load the customer grid.</p>
-            ) : (
-              <div class="cf-batch-grid-wrap">
-                <table class="cf-table cf-batch-grid">
-                  <thead>
-                    <tr>
-                      <th>Customer</th>
-                      <th class="cf-num">Sold (kg)</th>
-                      <th class="cf-num">Outstanding (kg)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {batchCustomers.map((customer) => {
-                      const existing = existingForBatch.get(customer.id);
-                      const key = String(customer.id);
-                      return (
-                        <tr key={customer.id}>
+            <div class="cf-batch-grid-wrap">
+              <table class="cf-table cf-batch-grid">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Original DO #</th>
+                    <th class="cf-num">Sold (kg)</th>
+                    <th class="cf-num">Outstanding (kg)</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {batchSalesPointId && batchProductId
+                    ? batchLines.map((line) => (
+                        <tr key={line.key}>
                           <td>
-                            {customer.name}
-                            {existing && existing.soldQty > 0 ? (
+                            <select
+                              aria-label="Customer"
+                              value={line.customerId}
+                              disabled={saving || line.detailId != null}
+                              onChange={(event) =>
+                                updateLine(line.key, {
+                                  customerId: (
+                                    event.currentTarget as HTMLSelectElement
+                                  ).value,
+                                })
+                              }
+                            >
+                              <option value="">Customer…</option>
+                              {options.customers.map((customer) => (
+                                <option key={customer.id} value={String(customer.id)}>
+                                  {customer.name}
+                                </option>
+                              ))}
+                            </select>
+                            {line.deliveryOrderNo ? (
                               <span class="cf-hint-inline">
                                 {" "}
-                                · sold against {existing.deliveryOrderNo}
+                                · {line.deliveryOrderNo}
                               </span>
                             ) : null}
                           </td>
+                          <td>
+                            <input
+                              id={`cf-line-${line.key}`}
+                              class="cf-source-input"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="\d*"
+                              placeholder="Original DO #"
+                              disabled={saving}
+                              value={line.sourceDocumentNo}
+                              onInput={(event) =>
+                                updateLine(line.key, {
+                                  sourceDocumentNo: (
+                                    event.currentTarget as HTMLInputElement
+                                  ).value,
+                                })
+                              }
+                            />
+                          </td>
                           <td class="cf-num">
-                            {existing ? formatKg(existing.soldQty) : "—"}
+                            {line.detailId != null ? formatKg(line.soldQty) : "—"}
                           </td>
                           <td class="cf-num">
                             <input
-                              id={`cf-qty-${customer.id}`}
                               class="cf-qty-input"
                               type="number"
                               min="0"
                               step="1"
                               inputMode="numeric"
                               disabled={saving}
-                              value={qtyByCustomer[key] ?? ""}
+                              value={line.outstandingQty}
                               placeholder="—"
-                              onInput={(event) => {
-                                const value = (
-                                  event.currentTarget as HTMLInputElement
-                                ).value;
-                                setQtyByCustomer((current) => ({
-                                  ...current,
-                                  [key]: value,
-                                }));
-                              }}
+                              onInput={(event) =>
+                                updateLine(line.key, {
+                                  outstandingQty: (
+                                    event.currentTarget as HTMLInputElement
+                                  ).value,
+                                })
+                              }
                             />
                           </td>
+                          <td>
+                            {line.detailId == null ? (
+                              <button
+                                type="button"
+                                class="cf-link cf-link-danger"
+                                disabled={saving}
+                                onClick={() => removeLine(line.key)}
+                              >
+                                Remove
+                              </button>
+                            ) : null}
+                          </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                      ))
+                    : null}
+                </tbody>
+              </table>
+            </div>
 
             {actionError ? <p class="cf-error">{actionError}</p> : null}
 
-            <div class="form-dialog-actions" style="padding-left: 0; margin-top: 12px;">
+            <div class="form-dialog-actions">
               <button
                 type="button"
                 class="form-dialog-btn-primary"

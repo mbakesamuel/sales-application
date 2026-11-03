@@ -1,5 +1,8 @@
 import type { ComponentChildren } from "preact";
+import "../components/FormDialog.css";
+import "../company-settings/CompanySettingsScreen.css";
 import "./ReportOverlayShell.css";
+import "./ReportComments.css";
 interface ReportOverlayShellProps {
     reportId?: string;
     title?: string;

@@ -78,7 +78,8 @@ export function listAvailableDeliveryOrders(
   const orders = getDatabase()
     .prepare(
       `SELECT d.id, d.deliveryOrderNo, d.dateIssued, c.name AS customerName,
-              COALESCE(d.sourceKind, 'NORMAL') AS sourceKind
+              COALESCE(d.sourceKind, 'NORMAL') AS sourceKind,
+              d.sourceDocumentNo
        FROM DeliveryOrder d
        INNER JOIN Customer c ON c.id = d.customerId
        WHERE d.salesPointId = ?
@@ -93,6 +94,7 @@ export function listAvailableDeliveryOrders(
     dateIssued: string;
     customerName: string;
     sourceKind: string;
+    sourceDocumentNo: string | null;
   }>;
 
   const rows: AvailableDeliveryOrderRow[] = [];
@@ -127,6 +129,10 @@ export function listAvailableDeliveryOrders(
         productName: detail.productName,
         balanceKg: trimQty(balanceKg),
         isCarryForward: order.sourceKind === "CARRY_FORWARD",
+        sourceDocumentNo:
+          order.sourceKind === "CARRY_FORWARD"
+            ? order.sourceDocumentNo?.trim() || null
+            : null,
       });
     }
   }
@@ -147,7 +153,8 @@ export function lookupDeliveryOrder(
   const order = getDatabase()
     .prepare(
       `SELECT d.id, d.deliveryOrderNo, d.dateIssued, d.customerId, c.name AS customerName,
-              COALESCE(d.sourceKind, 'NORMAL') AS sourceKind
+              COALESCE(d.sourceKind, 'NORMAL') AS sourceKind,
+              d.sourceDocumentNo
        FROM DeliveryOrder d
        INNER JOIN Customer c ON c.id = d.customerId
        WHERE d.deliveryOrderNo = ? AND d.salesPointId = ? AND d.status = 'VALIDATED'`,
@@ -160,6 +167,7 @@ export function lookupDeliveryOrder(
         customerId: number;
         customerName: string;
         sourceKind: string;
+        sourceDocumentNo: string | null;
       }
     | undefined;
 
@@ -209,6 +217,10 @@ export function lookupDeliveryOrder(
     customerMatches: order.customerId === parseCustomerId(selectedCustomerId),
     balanceKg: trimQty(totalBalance),
     isCarryForward: order.sourceKind === "CARRY_FORWARD",
+    sourceDocumentNo:
+      order.sourceKind === "CARRY_FORWARD"
+        ? order.sourceDocumentNo?.trim() || null
+        : null,
     perProduct,
     payments: loadDeliveryOrderPayments(order.id),
   };

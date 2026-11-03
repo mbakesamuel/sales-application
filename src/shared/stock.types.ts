@@ -254,7 +254,7 @@ export interface StockBootstrap {
   salesPoints: SalesPointOption[];
   storageLocations: StorageLocationOption[];
   products: ProductOption[];
-  /** All products for Stock receipt modal (bottled + other). Empty on bottled bootstrap. */
+  /** All products for Stock receipt modal (bottled + loose); UI filters by document type. */
   receiptProducts: ProductOption[];
   autoGenerateReceiptNo: boolean;
   autoGenerateTransferNo: boolean;

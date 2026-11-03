@@ -104,26 +104,28 @@ function ReportDocument({ report }: { report: BinCardReport }) {
             <tr>
               <th class="bcr-date-col">Date</th>
               <th class="bcr-ref-col">Reference</th>
-              <th>Particulars</th>
-              <th>In</th>
-              <th>Out</th>
-              <th>Balance</th>
+              <th class="bcr-particulars-col">Particulars</th>
+              <th class="bcr-qty-col">In</th>
+              <th class="bcr-qty-col">Out</th>
+              <th class="bcr-balance-col">Balance</th>
             </tr>
           </thead>
           <tbody>
             <tr class="scr-row scr-row-total">
-              <td>{formatDate(report.fromIso)}</td>
-              <td>—</td>
-              <td>Opening balance</td>
-              <td class="scr-num">—</td>
-              <td class="scr-num">—</td>
-              <td class="scr-num">{formatQty(report.openingBalance)}</td>
+              <td class="bcr-date-col">{formatDate(report.fromIso)}</td>
+              <td class="bcr-ref-col">—</td>
+              <td class="bcr-particulars-col">Opening balance</td>
+              <td class="scr-num bcr-qty-col">—</td>
+              <td class="scr-num bcr-qty-col">—</td>
+              <td class="scr-num bcr-balance-col">
+                {formatQty(report.openingBalance)}
+              </td>
             </tr>
             {report.lines.map((line) => (
               <tr key={line.id} class="scr-row">
-                <td>{formatDate(line.occurredAtIso)}</td>
-                <td>{line.reference}</td>
-                <td>
+                <td class="bcr-date-col">{formatDate(line.occurredAtIso)}</td>
+                <td class="bcr-ref-col">{line.reference}</td>
+                <td class="bcr-particulars-col">
                   {line.particulars}
                   {report.salesPointId == null ||
                   report.storageLocationId == null ? (
@@ -137,22 +139,26 @@ function ReportDocument({ report }: { report: BinCardReport }) {
                     </span>
                   ) : null}
                 </td>
-                <td class="scr-num">
+                <td class="scr-num bcr-qty-col">
                   {line.qtyIn > 0 ? formatQty(line.qtyIn) : "—"}
                 </td>
-                <td class="scr-num">
+                <td class="scr-num bcr-qty-col">
                   {line.qtyOut > 0 ? formatQty(line.qtyOut) : "—"}
                 </td>
-                <td class="scr-num">{formatQty(line.balance)}</td>
+                <td class="scr-num bcr-balance-col">
+                  {formatQty(line.balance)}
+                </td>
               </tr>
             ))}
             <tr class="scr-row scr-row-total">
-              <td>{formatDate(report.toIso)}</td>
-              <td>—</td>
-              <td>Closing balance</td>
-              <td class="scr-num">—</td>
-              <td class="scr-num">—</td>
-              <td class="scr-num">{formatQty(report.closingBalance)}</td>
+              <td class="bcr-date-col">{formatDate(report.toIso)}</td>
+              <td class="bcr-ref-col">—</td>
+              <td class="bcr-particulars-col">Closing balance</td>
+              <td class="scr-num bcr-qty-col">—</td>
+              <td class="scr-num bcr-qty-col">—</td>
+              <td class="scr-num bcr-balance-col">
+                {formatQty(report.closingBalance)}
+              </td>
             </tr>
           </tbody>
         </table>

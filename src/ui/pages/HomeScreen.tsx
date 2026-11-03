@@ -53,6 +53,7 @@ import { StockValidationScreen } from "../stock/StockValidationScreen.tsx";
 import { ReceiveTransfersScreen } from "../stock/ReceiveTransfersScreen.tsx";
 import { SalesBudgetScreen } from "../sales-budget/SalesBudgetScreen.tsx";
 import {
+  canAccessBinCardReport,
   canAccessBottledStockModule,
   canAccessStockModule,
 } from "../../shared/stockModule.ts";
@@ -191,7 +192,9 @@ function RouteContent({
       ? !canAccessStockModule(permissions)
       : route.id === "bottled-stock"
         ? !canAccessBottledStockModule(permissions)
-        : !canAccessRouteFromSnapshot(permissions, route.id)
+        : route.id === "stock-bin-card-report"
+          ? !canAccessBinCardReport(permissions)
+          : !canAccessRouteFromSnapshot(permissions, route.id)
   ) {
     return (
       <p class="home-access-denied">
@@ -632,7 +635,9 @@ export function HomeScreen({
         ? canAccessStockModule(permissions)
         : activeRouteId === "bottled-stock"
           ? canAccessBottledStockModule(permissions)
-          : canAccessRouteFromSnapshot(permissions, activeRouteId);
+          : activeRouteId === "stock-bin-card-report"
+            ? canAccessBinCardReport(permissions)
+            : canAccessRouteFromSnapshot(permissions, activeRouteId);
 
     if (!canAccess) {
       setActiveRouteId(DEFAULT_ROUTE_ID);

@@ -19,7 +19,9 @@ The installer does **not** delete the userData folder when you upgrade the appli
 
 ### Optional: custom database directory
 
-Packaged builds ship `app.settings.config` **next to the application `.exe`** (e.g. in `win-unpacked` or the install folder). Edit that file to place `sales.db` outside AppData:
+Packaged builds (including the Windows installer) ship `app.settings.config` **next to the application `.exe`** in the install folder. You can edit it **before the first launch** or later; the app reads it on every startup.
+
+Edit that file to place `sales.db` outside AppData:
 
 ```json
 {
@@ -28,10 +30,11 @@ Packaged builds ship `app.settings.config` **next to the application `.exe`** (e
 ```
 
 - Use an **absolute** folder path. Prefer **forward slashes** (`D:/sales-db`). If you use backslashes, escape them in JSON (`D:\\sales-db`). A value like `"D:\sales-db"` is invalid JSON and is ignored.
-- Edit the file **next to the application `.exe`** (packaged build). The template under `packaging/` is only copied at build time.
+- Edit the file **next to the application `.exe`** (installed or `win-unpacked` folder). The template under `packaging/` is only copied at build time.
 - The app creates the folder if needed and opens `{databaseDir}\sales.db`.
 - Leave `"databaseDir": ""` (or omit the key) to keep the default AppData database.
-- Save the file and **restart** the application. Existing AppData data is **not** copied automatically into the new folder.
+- Save the file and **restart** the application (or launch for the first time). Existing AppData data is **not** copied automatically into the new folder.
+- Editing under **Program Files** may require administrator rights.
 - Automatic backup schedule settings remain in AppData even when the database directory is customized.
 
 ## Create a backup (in-app)

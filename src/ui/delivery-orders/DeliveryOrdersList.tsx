@@ -7,6 +7,7 @@ import type {
   DeliveryOrdersListResult,
   DeliveryOrdersSalesPointOption,
 } from "./types.ts";
+import { DeliveryOrderPrintView } from "./DeliveryOrderPrintView.tsx";
 import "../sales/sales.css";
 
 interface DeliveryOrdersListProps {
@@ -33,6 +34,23 @@ function IconChevronRight() {
   );
 }
 
+function IconPencil() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    </svg>
+  );
+}
+
+function IconEye() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 export function DeliveryOrdersList({
   user,
   onOpenOrder,
@@ -52,6 +70,7 @@ export function DeliveryOrdersList({
   const [result, setResult] = useState<DeliveryOrdersListResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [printOrderId, setPrintOrderId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -150,6 +169,13 @@ export function DeliveryOrdersList({
 
   return (
     <div class="sales-list">
+      {printOrderId != null ? (
+        <DeliveryOrderPrintView
+          orderId={printOrderId}
+          onClose={() => setPrintOrderId(null)}
+        />
+      ) : null}
+
       <div class="sales-panel-header">
         <div>
           <h3>Delivery orders</h3>
@@ -158,19 +184,19 @@ export function DeliveryOrdersList({
           </p>
         </div>
         {onOpenScreen ? (
-          <button type="button" class="sales-btn-secondary" onClick={onOpenScreen}>
-            Open DO screen
+          <button type="button" class="sales-btn-primary" onClick={onOpenScreen}>
+            New delivery order
           </button>
         ) : null}
       </div>
 
       <form class="sales-panel sales-filters" onSubmit={applyFilters}>
         <label class="sales-field">
-          <span>DO number</span>
           <input
             type="search"
+            aria-label="DO number"
             value={draftQ}
-            placeholder="e.g. 12345"
+            placeholder="DO number"
             onInput={(event) =>
               setDraftQ((event.currentTarget as HTMLInputElement).value)
             }
@@ -178,8 +204,8 @@ export function DeliveryOrdersList({
         </label>
 
         <label class="sales-field">
-          <span>Period</span>
           <select
+            aria-label="Period"
             value={filters.period ?? "month"}
             onChange={(event) =>
               setFilters((current) => ({
@@ -189,15 +215,15 @@ export function DeliveryOrdersList({
               }))
             }
           >
-            <option value="month">Open month</option>
-            <option value="year">Open year</option>
-            <option value="all">All time</option>
+            <option value="month">Period · Open month</option>
+            <option value="year">Period · Open year</option>
+            <option value="all">Period · All time</option>
           </select>
         </label>
 
         <label class="sales-field">
-          <span>Collection point</span>
           <select
+            aria-label="Collection point"
             value={filters.salesPointId == null ? "" : String(filters.salesPointId)}
             disabled={scopedSalesPointId != null}
             onChange={(event) => {
@@ -208,7 +234,7 @@ export function DeliveryOrdersList({
               }));
             }}
           >
-            <option value="">All collection points</option>
+            <option value="">Collection point…</option>
             {salesPoints.map((point) => (
               <option key={point.id} value={String(point.id)}>
                 {point.name}
@@ -268,12 +294,33 @@ export function DeliveryOrdersList({
                   <td class="sales-num">{row.totalQtyLabel}</td>
                   <td class="sales-num">{row.totalAmountXaf}</td>
                   <td class="sales-actions-cell">
+                    {row.status === "PENDING" ? (
+                      <button
+                        type="button"
+                        class="sales-list-pagination-btn do-list-edit-btn"
+                        aria-label={`Edit ${row.deliveryOrderNo}`}
+                        title="Edit"
+                        onClick={() => onOpenOrder(row.deliveryOrderNo)}
+                      >
+                        <IconPencil />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        class="sales-list-pagination-btn do-list-open-btn"
+                        aria-label={`Open ${row.deliveryOrderNo}`}
+                        title="Open"
+                        onClick={() => onOpenOrder(row.deliveryOrderNo)}
+                      >
+                        <IconEye />
+                      </button>
+                    )}
                     <button
                       type="button"
                       class="sales-link-btn"
-                      onClick={() => onOpenOrder(row.deliveryOrderNo)}
+                      onClick={() => setPrintOrderId(row.id)}
                     >
-                      Open
+                      Print
                     </button>
                   </td>
                 </tr>

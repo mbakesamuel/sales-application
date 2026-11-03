@@ -191,6 +191,7 @@ export function getDeliveryOrdersFormOptions(
        FROM Product p
        INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE COALESCE(pc.isBottled, 0) = 0
+         AND COALESCE(p.excludeFromDeliveryOrders, 0) = 0
        ORDER BY p.productName ASC
        LIMIT 200`,
     )
@@ -720,12 +721,20 @@ export function saveDeliveryOrder(input: SaveDeliveryOrderInput): SaveDeliveryOr
 
     const productRow = db
       .prepare(
-        `SELECT p.productName, COALESCE(pc.isBottled, 0) AS isBottled
+        `SELECT p.productName,
+                COALESCE(pc.isBottled, 0) AS isBottled,
+                COALESCE(p.excludeFromDeliveryOrders, 0) AS excludeFromDeliveryOrders
          FROM Product p
          INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
          WHERE p.productId = ?`,
       )
-      .get(line.productId) as { productName: string; isBottled: number } | undefined;
+      .get(line.productId) as
+      | {
+          productName: string;
+          isBottled: number;
+          excludeFromDeliveryOrders: number;
+        }
+      | undefined;
 
     if (!productRow) {
       return { ok: false, error: "Product not found." };
@@ -734,6 +743,12 @@ export function saveDeliveryOrder(input: SaveDeliveryOrderInput): SaveDeliveryOr
       return {
         ok: false,
         error: `${productRow.productName} is bottled. Delivery orders are for loose products only.`,
+      };
+    }
+    if (productRow.excludeFromDeliveryOrders === 1) {
+      return {
+        ok: false,
+        error: `${productRow.productName} is excluded from delivery orders.`,
       };
     }
 
