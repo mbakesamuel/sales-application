@@ -48,6 +48,7 @@ import {
 } from "../salesPoints/active.js";
 import {
   getCustomerTypeIdForCustomer,
+  getRetailCustomerTypeId,
   getStaffWorkerCustomerTypeId,
   resolveUnitPriceExTax,
 } from "../pricing/resolveUnitPrice.js";
@@ -660,16 +661,11 @@ export function previewSaleUnitPrice(input: {
     customerTypeId = getCustomerTypeIdForCustomer(cid);
   } else if (input.saleDisposition === "RATION") {
     customerTypeId = getStaffWorkerCustomerTypeId();
+  } else if (input.saleDisposition === "PUBLIC_RELATION") {
+    customerTypeId = getRetailCustomerTypeId();
   } else {
-    const posPlaceholder = getDatabase()
-      .prepare(
-        `SELECT customerTypeId FROM Customer
-         WHERE COALESCE(isPosPlaceholder, 0) = 1
-         LIMIT 1`,
-      )
-      .get() as { customerTypeId: string | null } | undefined;
-
-    customerTypeId = posPlaceholder?.customerTypeId ?? null;
+    // Normal invoice-only / unregistered: no customer type — LPO price requires a registered customer.
+    customerTypeId = null;
   }
 
   const result = resolveUnitPriceExTax(input.productId, customerTypeId, asOfDate);

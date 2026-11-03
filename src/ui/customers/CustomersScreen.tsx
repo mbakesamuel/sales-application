@@ -86,11 +86,7 @@ function residencyLabel(value: unknown): string {
   return code || "—";
 }
 
-function typeBadgeClass(label: string, isPlaceholder: boolean): string {
-  if (isPlaceholder) {
-    return "customers-badge customers-badge-amber";
-  }
-
+function typeBadgeClass(label: string): string {
   const normalized = label.toLowerCase();
   if (normalized === "industry") {
     return "customers-badge customers-badge-slate";
@@ -113,10 +109,6 @@ function matchesCustomerTypeTab(
     return true;
   }
 
-  if (customer.isPosPlaceholder) {
-    return false;
-  }
-
   return customer.customerTypeLabel.toLowerCase() === tab.toLowerCase();
 }
 
@@ -126,7 +118,6 @@ function countByCustomerType(
 ): number {
   return rows.filter(
     (customer) =>
-      !customer.isPosPlaceholder &&
       customer.customerTypeLabel.toLowerCase() === type.toLowerCase(),
   ).length;
 }
@@ -442,12 +433,8 @@ export function CustomersScreen({
         );
 
         const mapped = customerResult.rows.map((row) => {
-          const isPosPlaceholder =
-            row.isPosPlaceholder === 1 || row.isPosPlaceholder === true;
           const customerTypeId = String(row.customerTypeId ?? "");
-          const customerTypeLabel = isPosPlaceholder
-            ? "Placeholder"
-            : (typeMap.get(customerTypeId) ?? customerTypeId);
+          const customerTypeLabel = typeMap.get(customerTypeId) ?? customerTypeId;
           const residency = String(row.residency ?? "");
           const commercialServiceId = String(row.commercialServiceId ?? "");
 
@@ -471,7 +458,8 @@ export function CustomersScreen({
               row.hasTaxpayerId === 1 ||
               row.hasTaxpayerId === true ||
               Boolean(row.taxpayerId),
-            isPosPlaceholder,
+            isPosPlaceholder:
+              row.isPosPlaceholder === 1 || row.isPosPlaceholder === true,
             commercialServiceId,
             commercialServiceLabel:
               serviceMap.get(commercialServiceId) ?? commercialServiceId,
@@ -998,12 +986,7 @@ export function CustomersScreen({
                     </td>
 
                     <td>
-                      <span
-                        class={typeBadgeClass(
-                          customer.customerTypeLabel,
-                          customer.isPosPlaceholder,
-                        )}
-                      >
+                      <span class={typeBadgeClass(customer.customerTypeLabel)}>
                         {customer.customerTypeLabel}
                       </span>
                     </td>
@@ -1088,8 +1071,6 @@ export function CustomersScreen({
               ["Tax regime", viewCustomer.taxRegimeLabel],
               ["Taxpayer ID", viewCustomer.taxpayerId || "—"],
               ["Commercial service", viewCustomer.commercialServiceLabel],
-              ["Has taxpayer ID", viewCustomer.hasTaxpayerId ? "Yes" : "No"],
-              ["POS placeholder", viewCustomer.isPosPlaceholder ? "Yes" : "No"],
               ["Created", viewCustomer.createdAt],
               ["Updated", viewCustomer.updatedAt],
             ].map(([label, value]) => (

@@ -40,7 +40,7 @@ CSS: `StockCommitmentReport.css` (shared report chrome), plus report-specific **
 
 ## Forms and dialogs
 
-[`FormDialog.tsx`](../../src/ui/components/FormDialog.tsx) + [`FormDialog.css`](../../src/ui/components/FormDialog.css) — standard modal shell (`form-dialog-panel`, label/control rows, primary/secondary actions). Used by master-data modals (users, customer types, payment methods, tax, etc.) and by **[`CustomerFormModal`](../../src/ui/customers/CustomerFormModal.tsx)** (four-step add/edit customer wizard; tax step labels **Has TPN?** / **Tax Payer's No.**). Keep textareas constrained (`box-sizing`, max-height) so they do not overflow the panel.
+[`FormDialog.tsx`](../../src/ui/components/FormDialog.tsx) + [`FormDialog.css`](../../src/ui/components/FormDialog.css) — standard modal shell (`form-dialog-panel`, label/control rows, primary/secondary actions). Used by master-data modals (users, customer types, payment methods, tax, etc.) and by **[`CustomerFormModal`](../../src/ui/customers/CustomerFormModal.tsx)** (two-step add/edit customer wizard; Basic includes tax regime / TPN and commercial service; regime select drives `hasTaxpayerId`). Keep textareas constrained (`box-sizing`, max-height) so they do not overflow the panel.
 
 ## Permissions in UI
 

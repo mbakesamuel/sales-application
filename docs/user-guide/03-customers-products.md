@@ -17,14 +17,12 @@ Invoice-only / walk-in flows (no registered customer) are available on sales for
 
 ### Add / edit customer
 
-Use **Add Customer** (or edit from the customers list). The form is a **four-step wizard** (Basic → Contact → Tax & IDs → Service), matching the standard modal layout used elsewhere in the app.
+Use **Add Customer** (or edit from the customers list). The form is a **two-step wizard** (Basic → Contact), matching the standard modal layout used elsewhere in the app.
 
 | Step | Fields |
 |------|--------|
-| **Basic** | Full name, customer type, residency (Domestic / Foreign), optional **POS placeholder** (generic walk-in account). |
+| **Basic** | Full name, customer type, tax regime (optional; choosing a regime other than **None** requires **Tax Payer's No.**), residency (Domestic / Foreign), commercial service (required). |
 | **Contact** | Email, phone, address (all optional except where your process requires them). |
-| **Tax & IDs** | Tax regime (optional), **Has TPN?** checkbox, and **Tax Payer's No.** when TPN applies. |
-| **Service** | Commercial service (required) and a **Review** summary before save. |
 
 Annual-style figures elsewhere in the app use thousand separators; customer fields are plain text except where noted above.
 

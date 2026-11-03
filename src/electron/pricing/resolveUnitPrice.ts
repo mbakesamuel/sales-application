@@ -52,6 +52,24 @@ export function getStaffWorkerCustomerTypeId(): string | null {
   return row?.id ?? null;
 }
 
+/** Retail type — used for Public relation disposition pricing (no walk-in placeholder). */
+export function getRetailCustomerTypeId(): string | null {
+  const row = getDatabase()
+    .prepare(
+      `SELECT id FROM CustomerTypeDefinition
+       WHERE isActive = 1
+         AND (
+           UPPER(code) LIKE '%RETAIL%'
+           OR UPPER(name) LIKE '%RETAIL%'
+         )
+       ORDER BY sortOrder ASC
+       LIMIT 1`,
+    )
+    .get() as { id: string } | undefined;
+
+  return row?.id ?? null;
+}
+
 /**
  * Latest schedule row with effectiveFrom <= transaction calendar day.
  * Bottled products use a single direct price (customerTypeId null).

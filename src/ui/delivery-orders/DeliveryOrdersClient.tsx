@@ -488,7 +488,6 @@ export function DeliveryOrdersClient({
     setAllowAutoUnitPrice(true);
     setLinePriceErrors({});
     setBanner(null);
-    setPrintOpen(false);
   }
 
   useEffect(() => {

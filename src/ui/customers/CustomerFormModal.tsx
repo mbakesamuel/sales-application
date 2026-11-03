@@ -18,12 +18,10 @@ interface CustomerFormData {
   name: string;
   customerTypeId: string;
   residency: "LOCAL" | "OVERSEAS";
-  isPosPlaceholder: boolean;
   email: string;
   phone: string;
   address: string;
   taxRegimeId: string;
-  hasTaxpayerId: boolean;
   taxpayerId: string;
   commercialServiceId: string;
 }
@@ -40,21 +38,22 @@ const EMPTY_FORM: CustomerFormData = {
   name: "",
   customerTypeId: "",
   residency: "LOCAL",
-  isPosPlaceholder: false,
   email: "",
   phone: "",
   address: "",
   taxRegimeId: "",
-  hasTaxpayerId: false,
   taxpayerId: "",
   commercialServiceId: "",
 };
 
+/** Tax regime selected (not None) ⇒ customer has a TPN; None ⇒ no TPN. */
+function hasTaxpayerIdFromRegime(taxRegimeId: string): boolean {
+  return taxRegimeId.trim().length > 0;
+}
+
 const STEPS = [
   { id: "basic", label: "Basic" },
   { id: "contact", label: "Contact" },
-  { id: "tax", label: "Tax & IDs" },
-  { id: "service", label: "Service" },
 ] as const;
 
 function FieldRow({
@@ -111,15 +110,10 @@ function initFromRow(
     name: row.name != null ? String(row.name) : "",
     customerTypeId: row.customerTypeId != null ? String(row.customerTypeId) : "",
     residency: residency === "OVERSEAS" ? "OVERSEAS" : "LOCAL",
-    isPosPlaceholder: row.isPosPlaceholder === 1 || row.isPosPlaceholder === true,
     email: row.email != null ? String(row.email) : "",
     phone: row.phone != null ? String(row.phone) : "",
     address: row.address != null ? String(row.address) : "",
     taxRegimeId: row.taxRegimeId != null ? String(row.taxRegimeId) : "",
-    hasTaxpayerId:
-      row.hasTaxpayerId === 1 ||
-      row.hasTaxpayerId === true ||
-      Boolean(row.taxpayerId),
     taxpayerId: row.taxpayerId != null ? String(row.taxpayerId) : "",
     commercialServiceId:
       row.commercialServiceId != null ? String(row.commercialServiceId) : "",
@@ -238,23 +232,17 @@ export function CustomerFormModal({
       if (!form.customerTypeId) {
         stepErrors.customerTypeId = "Customer type is required.";
       }
+      if (hasTaxpayerIdFromRegime(form.taxRegimeId) && !form.taxpayerId.trim()) {
+        stepErrors.taxpayerId = "Tax Payer's No. is required when a tax regime is selected.";
+      }
+      if (!form.commercialServiceId) {
+        stepErrors.commercialServiceId = "Commercial service is required.";
+      }
     }
 
     if (target === 1) {
       if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
         stepErrors.email = "Invalid email address.";
-      }
-    }
-
-    if (target === 2) {
-      if (form.hasTaxpayerId && !form.taxpayerId.trim()) {
-        stepErrors.taxpayerId = "Taxpayer ID is required when enabled.";
-      }
-    }
-
-    if (target === 3) {
-      if (!form.commercialServiceId) {
-        stepErrors.commercialServiceId = "Commercial service is required.";
       }
     }
 
@@ -272,25 +260,6 @@ export function CustomerFormModal({
     setStep((current) => Math.max(current - 1, 0));
   }
 
-  const typeLabel = useMemo(
-    () =>
-      customerTypes.find((option) => option.id === form.customerTypeId)?.label ??
-      form.customerTypeId,
-    [customerTypes, form.customerTypeId],
-  );
-  const regimeLabel = useMemo(
-    () =>
-      taxRegimes.find((option) => option.id === form.taxRegimeId)?.label ??
-      (form.taxRegimeId || "—"),
-    [taxRegimes, form.taxRegimeId],
-  );
-  const serviceLabel = useMemo(
-    () =>
-      commercialServices.find((option) => option.id === form.commercialServiceId)
-        ?.label ?? (form.commercialServiceId || "—"),
-    [commercialServices, form.commercialServiceId],
-  );
-
   async function submit() {
     for (let index = 0; index < STEPS.length; index += 1) {
       if (!validateStep(index)) {
@@ -306,13 +275,15 @@ export function CustomerFormModal({
       name: form.name.trim(),
       customerTypeId: form.customerTypeId,
       residency: form.residency,
-      isPosPlaceholder: form.isPosPlaceholder ? 1 : 0,
+      isPosPlaceholder: 0,
       email: form.email.trim(),
       phone: form.phone.trim(),
       address: form.address.trim(),
-      taxRegimeId: form.taxRegimeId,
-      hasTaxpayerId: form.hasTaxpayerId ? 1 : 0,
-      taxpayerId: form.hasTaxpayerId ? form.taxpayerId.trim() : "",
+      taxRegimeId: form.taxRegimeId.trim() ? form.taxRegimeId.trim() : null,
+      hasTaxpayerId: hasTaxpayerIdFromRegime(form.taxRegimeId) ? 1 : 0,
+      taxpayerId: hasTaxpayerIdFromRegime(form.taxRegimeId)
+        ? form.taxpayerId.trim()
+        : "",
       commercialServiceId: form.commercialServiceId,
     };
 
@@ -382,7 +353,7 @@ export function CustomerFormModal({
                 class="form-dialog-input"
                 value={form.name}
                 disabled={isSubmitting}
-                placeholder="e.g. Martina Voss"
+                placeholder="Business Name"
                 onInput={(event) =>
                   setField("name", (event.currentTarget as HTMLInputElement).value)
                 }
@@ -416,6 +387,65 @@ export function CustomerFormModal({
               </select>
             </FieldRow>
 
+            <FieldRow label="Tax regime" htmlFor="cfm-regime">
+              <select
+                id="cfm-regime"
+                class="form-dialog-input"
+                value={form.taxRegimeId}
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  const next = (event.currentTarget as HTMLSelectElement).value;
+                  setForm((current) => ({
+                    ...current,
+                    taxRegimeId: next,
+                    taxpayerId: next.trim() ? current.taxpayerId : "",
+                  }));
+                  setErrors((current) => {
+                    if (!current.taxpayerId) {
+                      return current;
+                    }
+                    const nextErrors = { ...current };
+                    delete nextErrors.taxpayerId;
+                    return nextErrors;
+                  });
+                }}
+              >
+                <option value="">— None —</option>
+                {taxRegimes.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p class="form-dialog-hint">
+                Determines how this customer is taxed on invoices. Select a regime
+                only when the customer has a Tax Payer's No.
+              </p>
+            </FieldRow>
+
+            {hasTaxpayerIdFromRegime(form.taxRegimeId) ? (
+              <FieldRow
+                label="Tax Payer's No."
+                required
+                error={errors.taxpayerId}
+                htmlFor="cfm-taxpayer"
+              >
+                <input
+                  id="cfm-taxpayer"
+                  class="form-dialog-input form-dialog-input-mono"
+                  value={form.taxpayerId}
+                  disabled={isSubmitting}
+                  placeholder="P0000000000000"
+                  onInput={(event) =>
+                    setField(
+                      "taxpayerId",
+                      (event.currentTarget as HTMLInputElement).value,
+                    )
+                  }
+                />
+              </FieldRow>
+            ) : null}
+
             <FieldRow label="Residency" required htmlFor="cfm-residency">
               <select
                 id="cfm-residency"
@@ -436,25 +466,35 @@ export function CustomerFormModal({
               </select>
             </FieldRow>
 
-            <div class="form-dialog-row">
-              <span class="form-dialog-label">POS placeholder</span>
-              <div class="form-dialog-control">
-                <label class="form-dialog-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={form.isPosPlaceholder}
-                    disabled={isSubmitting}
-                    onChange={(event) =>
-                      setField(
-                        "isPosPlaceholder",
-                        (event.currentTarget as HTMLInputElement).checked,
-                      )
-                    }
-                  />
-                  Generic walk-in customer for point-of-sale
-                </label>
-              </div>
-            </div>
+            <FieldRow
+              label="Commercial service"
+              required
+              error={errors.commercialServiceId}
+              htmlFor="cfm-service"
+            >
+              <select
+                id="cfm-service"
+                class="form-dialog-input"
+                value={form.commercialServiceId}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  setField(
+                    "commercialServiceId",
+                    (event.currentTarget as HTMLSelectElement).value,
+                  )
+                }
+              >
+                <option value="">Select a service…</option>
+                {commercialServices.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p class="form-dialog-hint">
+                Assigns the customer to a commercial service and pricing structure.
+              </p>
+            </FieldRow>
           </>
         ) : null}
 
@@ -507,138 +547,6 @@ export function CustomerFormModal({
                   }
                 />
               </div>
-            </div>
-          </>
-        ) : null}
-
-        {step === 2 ? (
-          <>
-            <FieldRow label="Tax regime" htmlFor="cfm-regime">
-              <select
-                id="cfm-regime"
-                class="form-dialog-input"
-                value={form.taxRegimeId}
-                disabled={isSubmitting}
-                onChange={(event) =>
-                  setField("taxRegimeId", (event.currentTarget as HTMLSelectElement).value)
-                }
-              >
-                <option value="">— None —</option>
-                {taxRegimes.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <p class="form-dialog-hint">
-                Determines how this customer is taxed on invoices.
-              </p>
-            </FieldRow>
-
-            <div class="form-dialog-row">
-              <span class="form-dialog-label">Has TPN?</span>
-              <div class="form-dialog-control">
-                <label class="form-dialog-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={form.hasTaxpayerId}
-                    disabled={isSubmitting}
-                    onChange={(event) =>
-                      setField(
-                        "hasTaxpayerId",
-                        (event.currentTarget as HTMLInputElement).checked,
-                      )
-                    }
-                  />
-                  Customer has a registered tax ID
-                </label>
-              </div>
-            </div>
-
-            {form.hasTaxpayerId ? (
-              <FieldRow
-                label="Tax Payer's No."
-                required
-                error={errors.taxpayerId}
-                htmlFor="cfm-taxpayer"
-              >
-                <input
-                  id="cfm-taxpayer"
-                  class="form-dialog-input form-dialog-input-mono"
-                  value={form.taxpayerId}
-                  disabled={isSubmitting}
-                  placeholder="e.g. MVS-847291"
-                  onInput={(event) =>
-                    setField(
-                      "taxpayerId",
-                      (event.currentTarget as HTMLInputElement).value,
-                    )
-                  }
-                />
-              </FieldRow>
-            ) : null}
-
-            <p class="form-dialog-hint">
-              Taxpayer IDs should match the tax authority registry exactly.
-            </p>
-          </>
-        ) : null}
-
-        {step === 3 ? (
-          <>
-            <FieldRow
-              label="Commercial service"
-              required
-              error={errors.commercialServiceId}
-              htmlFor="cfm-service"
-            >
-              <select
-                id="cfm-service"
-                class="form-dialog-input"
-                value={form.commercialServiceId}
-                disabled={isSubmitting}
-                onChange={(event) =>
-                  setField(
-                    "commercialServiceId",
-                    (event.currentTarget as HTMLSelectElement).value,
-                  )
-                }
-              >
-                <option value="">Select a service…</option>
-                {commercialServices.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <p class="form-dialog-hint">
-                Assigns the customer to a commercial service and pricing structure.
-              </p>
-            </FieldRow>
-
-            <div class="cfm-review">
-              <p class="cfm-review-title">Review</p>
-              {[
-                { label: "Name", value: form.name || "—" },
-                { label: "Type", value: typeLabel || "—" },
-                { label: "Email", value: form.email || "—" },
-                { label: "Phone", value: form.phone || "—" },
-                {
-                  label: "Residency",
-                  value: form.residency === "OVERSEAS" ? "Foreign" : "Domestic",
-                },
-                { label: "Tax regime", value: regimeLabel },
-                {
-                  label: "Tax Payer's No.",
-                  value: form.hasTaxpayerId ? form.taxpayerId || "—" : "N/A",
-                },
-                { label: "Service", value: serviceLabel },
-              ].map((reviewRow) => (
-                <div key={reviewRow.label} class="cfm-review-row">
-                  <span>{reviewRow.label}</span>
-                  <span>{reviewRow.value}</span>
-                </div>
-              ))}
             </div>
           </>
         ) : null}

@@ -1,6 +1,7 @@
 import type { AuthUser } from "../auth/session.ts";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import "../sales/sales.css";
+import "./deliveryOrders.css";
 interface DeliveryOrdersClientProps {
     user: AuthUser;
     permissions: RolePermissionsSnapshot;

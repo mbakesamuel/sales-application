@@ -1,5 +1,7 @@
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import type { AuthUser } from "../auth/session.ts";
+import "../components/FormDialog.css";
+import "./deliveryOrders.css";
 interface DeliveryOrdersScreenProps {
     user: AuthUser;
     permissions: RolePermissionsSnapshot;
