@@ -516,8 +516,20 @@ function buildSalesPointQtySection(
 export function getStockReport(
   userId?: string | null,
   hideZeroArg?: boolean | null,
+  asAtIsoArg?: string | null,
 ): StockReport {
-  const { asAtIso } = resolveReportAsAt();
+  const { asAtIso: defaultAsAt, period } = resolveReportAsAt();
+  let asAtIso = defaultAsAt;
+  if (typeof asAtIsoArg === "string" && /^\d{4}-\d{2}-\d{2}$/.test(asAtIsoArg.trim())) {
+    const raw = asAtIsoArg.trim().slice(0, 10);
+    if (raw < period.startDate) {
+      asAtIso = period.startDate;
+    } else if (raw > period.endDate) {
+      asAtIso = period.endDate;
+    } else {
+      asAtIso = raw;
+    }
+  }
   const settings = loadReportCompanySettings(userId, asAtIso);
   const hideZero = hideZeroArg ?? true;
   const salesPoints = loadSalesPointsForUser(userId);

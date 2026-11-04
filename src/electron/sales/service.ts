@@ -35,6 +35,10 @@ import {
   SALES_TAX_LABEL,
 } from "../../shared/taxRules.js";
 import { isLooseLpoProduct } from "../../shared/looseLpoProduct.js";
+import {
+  DO_RETAIL_WHOLESALE_THRESHOLD_KG,
+  retailSaleQtyTooHighMessage,
+} from "../../shared/doPricingCustomerType.js";
 import { assertRouteWrite, assertAction, canPerformAction, canWriteRoute } from "../auth/permissions/service.js";
 import {
   collectionPointScopeError,
@@ -658,10 +662,16 @@ export function previewSaleUnitPrice(input: {
       return { ok: false, error: "Customer not found." };
     }
 
-    customerTypeId = getCustomerTypeIdForCustomer(cid);
+    customerTypeId =
+      input.saleDisposition === "RETAIL"
+        ? getRetailCustomerTypeId()
+        : getCustomerTypeIdForCustomer(cid);
   } else if (input.saleDisposition === "RATION") {
     customerTypeId = getStaffWorkerCustomerTypeId();
-  } else if (input.saleDisposition === "PUBLIC_RELATION") {
+  } else if (
+    input.saleDisposition === "PUBLIC_RELATION" ||
+    input.saleDisposition === "RETAIL"
+  ) {
     customerTypeId = getRetailCustomerTypeId();
   } else {
     // Normal invoice-only / unregistered: no customer type — LPO price requires a registered customer.
@@ -1098,6 +1108,9 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
   const saleDisposition = input.saleDisposition ?? "NORMAL";
   const isSpecialDisposition =
     saleDisposition === "RATION" || saleDisposition === "PUBLIC_RELATION";
+  /** Ration / Public relation / Retail: invoice name only (no directory customer). */
+  const isInvoiceOnlyDisposition =
+    isSpecialDisposition || saleDisposition === "RETAIL";
   const registeredCustomerId = parseCustomerId(input.customerId);
   const bottleOilUseRegisteredCustomers = isBottleMode
     ? loadBottleOilUseRegisteredCustomers(db)
@@ -1129,7 +1142,7 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     };
   }
 
-  const useRegisteredCustomer = isSpecialDisposition
+  const useRegisteredCustomer = isInvoiceOnlyDisposition
     ? false
     : isBottleMode
       ? bottleOilUseRegisteredCustomers
@@ -1150,7 +1163,7 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
 
   if (
     !isBottleMode &&
-    !isSpecialDisposition &&
+    !isInvoiceOnlyDisposition &&
     !looseAllowUnregistered &&
     registeredCustomerId == null &&
     input.customerNameOverride?.trim()
@@ -1170,7 +1183,12 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     return { ok: false, error: "Select a customer." };
   }
 
-  if (!isBottleMode && !isSpecialDisposition && !input.vehicleNumber.trim()) {
+  if (
+    !isBottleMode &&
+    !isSpecialDisposition &&
+    saleDisposition !== "RETAIL" &&
+    !input.vehicleNumber.trim()
+  ) {
     return { ok: false, error: "Enter a vehicle number." };
   }
 
@@ -1272,7 +1290,35 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     salesTaxRate = 0;
   }
 
+  if (saleDisposition === "RETAIL") {
+    if (isBottleMode) {
+      return {
+        ok: false,
+        error: "Retail disposition is only available for loose product sales.",
+      };
+    }
+    if (input.deliveryOrderNo?.trim()) {
+      return {
+        ok: false,
+        error:
+          "Retail sales cannot be linked to a delivery order. Clear the DO or use a normal disposition.",
+      };
+    }
+    for (const line of activeLines) {
+      const qty = parseAmount(line.qtyKg);
+      if (qty >= DO_RETAIL_WHOLESALE_THRESHOLD_KG) {
+        return { ok: false, error: retailSaleQtyTooHighMessage() };
+      }
+    }
+  }
+
   if (input.deliveryOrderNo?.trim() && !isBottleMode && !isSpecialDisposition) {
+    if (saleDisposition === "RETAIL") {
+      return {
+        ok: false,
+        error: "Retail sales cannot be linked to a delivery order.",
+      };
+    }
     if (!useRegisteredCustomer || !customerId) {
       return {
         ok: false,

@@ -248,14 +248,14 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     routes: [
       {
         id: "sales",
-        label: "Invoicing",
+        label: "Sales Invoice",
         table: "Sale",
         description:
           "Create and manage loose-product sales invoices (POS screen).",
       },
       {
         id: "bottle-oil-sales",
-        label: "Bottle Oil sales",
+        label: "Bottle Oil Sales",
         table: "Sale",
         description: "Create and manage bottled palm-oil sales invoices.",
       },

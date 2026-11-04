@@ -97,14 +97,14 @@ export function OnHandTab({ salesPoints, scopedSalesPointId, rows }: OnHandTabPr
       <div class="stock-filters">
         {scopedSalesPointId == null ? (
           <label class="stock-field">
-            <span>Collection point</span>
             <select
               value={salesPointId}
               onChange={(event) =>
                 setSalesPointId((event.currentTarget as HTMLSelectElement).value)
               }
+              aria-label="Collection point"
             >
-              <option value="">All</option>
+              <option value="">Collection point</option>
               {salesPoints.map((sp) => (
                 <option key={sp.id} value={sp.id}>
                   {sp.name}
@@ -114,11 +114,11 @@ export function OnHandTab({ salesPoints, scopedSalesPointId, rows }: OnHandTabPr
           </label>
         ) : null}
         <label class="stock-field stock-field-grow">
-          <span>Search</span>
           <input
             value={search}
             onInput={(event) => setSearch((event.currentTarget as HTMLInputElement).value)}
-            placeholder="Product or collection point"
+            placeholder="Search product or collection point"
+            aria-label="Search"
           />
         </label>
       </div>

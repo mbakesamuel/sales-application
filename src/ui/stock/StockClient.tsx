@@ -44,7 +44,7 @@ const TAB_DEFINITIONS: {
 }[] = [
   { id: "on-hand", stockTabId: "balance", label: "On hand" },
   { id: "movements", stockTabId: "movements", label: "Movements" },
-  { id: "receipts", stockTabId: "receipts", label: "Receipts" },
+  { id: "receipts", stockTabId: "receipts", label: "Reception" },
   { id: "transfers", stockTabId: "transfers", label: "Transfers" },
   { id: "adjustments", stockTabId: "adjustments", label: "Adjustments" },
 ];
@@ -187,55 +187,57 @@ export function StockClient({
         </div>
       </header>
 
-      {showProductToggle ? (
-        <div
-          class="stock-product-toggle"
-          role="group"
-          aria-label="Product view"
-        >
-          {PRODUCT_VIEW_OPTIONS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              class={`stock-product-toggle-btn${
-                viewFilter === option.id ? " is-active" : ""
-              }`}
-              aria-pressed={viewFilter === option.id}
-              onClick={() => {
-                if (viewFilter === option.id) {
-                  return;
-                }
-                setBanner(null);
-                onViewFilterChange(option.id);
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
       {banner ? (
         <div class={`stock-banner stock-banner-${banner.type}`}>
           {banner.text}
         </div>
       ) : null}
 
-      <nav class="stock-tabs">
-        {visibleTabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            class={`stock-tab${activeTab === t.id ? " is-active" : ""}`}
-            onClick={() => {
-              setBanner(null);
-              setTab(t.id);
-            }}
+      <div class="stock-tabs-row">
+        <nav class="stock-tabs">
+          {visibleTabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              class={`stock-tab${activeTab === t.id ? " is-active" : ""}`}
+              onClick={() => {
+                setBanner(null);
+                setTab(t.id);
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+
+        {showProductToggle ? (
+          <div
+            class="stock-product-toggle"
+            role="group"
+            aria-label="Product view"
           >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+            {PRODUCT_VIEW_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                class={`stock-product-toggle-btn${
+                  viewFilter === option.id ? " is-active" : ""
+                }`}
+                aria-pressed={viewFilter === option.id}
+                onClick={() => {
+                  if (viewFilter === option.id) {
+                    return;
+                  }
+                  setBanner(null);
+                  onViewFilterChange(option.id);
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
 
       <div class="stock-tab-panel">
         {activeTab === "bin-card" ? (

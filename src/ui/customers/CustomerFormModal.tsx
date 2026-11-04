@@ -4,6 +4,7 @@ import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import { buildRowKey } from "../utils/formRowKey.ts";
+import { isIndustryCustomerType } from "../../shared/doPricingCustomerType.ts";
 import "../components/FormDialog.css";
 import "./CustomerFormModal.css";
 
@@ -131,10 +132,43 @@ export function CustomerFormModal({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [customerTypes, setCustomerTypes] = useState<LookupOption[]>([]);
+  const [customerTypes, setCustomerTypes] = useState<
+    Array<LookupOption & { code: string; name: string }>
+  >([]);
   const [taxRegimes, setTaxRegimes] = useState<LookupOption[]>([]);
   const [commercialServices, setCommercialServices] = useState<LookupOption[]>([]);
   const rowKey = useMemo(() => buildRowKey(row, ["id"]), [row]);
+
+  const industryType = useMemo(
+    () =>
+      customerTypes.find((option) =>
+        isIndustryCustomerType(option.code, option.name),
+      ) ?? null,
+    [customerTypes],
+  );
+  const nonIndustryType = useMemo(() => {
+    const retail = customerTypes.find((option) => {
+      const text = `${option.code} ${option.name}`.toUpperCase();
+      return text.includes("RETAIL");
+    });
+    if (retail) {
+      return retail;
+    }
+    return (
+      customerTypes.find(
+        (option) => !isIndustryCustomerType(option.code, option.name),
+      ) ?? null
+    );
+  }, [customerTypes]);
+
+  const customerChannel =
+    form.customerTypeId &&
+    industryType &&
+    form.customerTypeId === industryType.id
+      ? "industry"
+      : form.customerTypeId
+        ? "nonIndustry"
+        : "";
 
   useEffect(() => {
     setForm(initFromRow(mode, row));
@@ -168,6 +202,8 @@ export function CustomerFormModal({
             .map((optionRow) => ({
               id: String(optionRow.id ?? ""),
               label: buildLabel(optionRow, ["name", "code"]),
+              code: String(optionRow.code ?? ""),
+              name: String(optionRow.name ?? ""),
             }))
             .sort((left, right) => left.label.localeCompare(right.label)),
         );
@@ -361,7 +397,7 @@ export function CustomerFormModal({
             </FieldRow>
 
             <FieldRow
-              label="Customer type"
+              label="Customer channel"
               required
               error={errors.customerTypeId}
               htmlFor="cfm-type"
@@ -369,21 +405,29 @@ export function CustomerFormModal({
               <select
                 id="cfm-type"
                 class="form-dialog-input"
-                value={form.customerTypeId}
+                value={customerChannel}
                 disabled={isSubmitting}
-                onChange={(event) =>
-                  setField(
-                    "customerTypeId",
-                    (event.currentTarget as HTMLSelectElement).value,
-                  )
-                }
+                onChange={(event) => {
+                  const channel = (event.currentTarget as HTMLSelectElement)
+                    .value;
+                  if (channel === "industry" && industryType) {
+                    setField("customerTypeId", industryType.id);
+                    return;
+                  }
+                  if (channel === "nonIndustry" && nonIndustryType) {
+                    setField("customerTypeId", nonIndustryType.id);
+                    return;
+                  }
+                  setField("customerTypeId", "");
+                }}
               >
                 <option value="">Select…</option>
-                {customerTypes.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
+                <option value="industry" disabled={!industryType}>
+                  Industry
+                </option>
+                <option value="nonIndustry" disabled={!nonIndustryType}>
+                  Non-industry
+                </option>
               </select>
             </FieldRow>
 
@@ -417,10 +461,6 @@ export function CustomerFormModal({
                   </option>
                 ))}
               </select>
-              <p class="form-dialog-hint">
-                Determines how this customer is taxed on invoices. Select a regime
-                only when the customer has a Tax Payer's No.
-              </p>
             </FieldRow>
 
             {hasTaxpayerIdFromRegime(form.taxRegimeId) ? (

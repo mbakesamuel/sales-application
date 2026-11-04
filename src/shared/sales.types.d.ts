@@ -1,7 +1,7 @@
 export type SaleStatus = "PENDING" | "VALIDATED" | "REJECTED";
 export type PaymentMethodKind = "SIMPLE" | "CHEQUE" | "TRAITE" | "CREDIT" | "BANK_TRANSFER" | "PUBLIC_RELATION";
 export type SaleProductMode = "LOOSE" | "BOTTLE";
-export type SaleDisposition = "NORMAL" | "RATION" | "PUBLIC_RELATION";
+export type SaleDisposition = "NORMAL" | "RATION" | "PUBLIC_RELATION" | "RETAIL";
 export interface SalesCustomerOption {
     id: number;
     name: string;

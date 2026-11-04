@@ -173,13 +173,23 @@ export function registerDeliveryOrdersHandlers(): void {
     "deliveryOrders:previewUnitPrice",
     (
       _event,
-      payload: { customerId: string; productId: number; dateIssued: string },
+      payload: {
+        customerId: string;
+        productId: number;
+        dateIssued: string;
+        orderQty?: number | string;
+      },
     ): UnitPricePreviewResult => {
       if (!payload?.customerId || !payload?.productId || !payload?.dateIssued) {
         return { ok: false, error: "Customer, product, and date are required." };
       }
 
-      return previewProductUnitPrice(payload.customerId, payload.productId, payload.dateIssued);
+      return previewProductUnitPrice(
+        payload.customerId,
+        payload.productId,
+        payload.dateIssued,
+        payload.orderQty,
+      );
     },
   );
 

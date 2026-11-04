@@ -333,6 +333,7 @@ export function DeliveryOrdersClient({
               customerId: Number.parseInt(customerId, 10),
               productId,
               dateIssued,
+              orderQty: line.orderQty,
             },
           );
 
@@ -367,7 +368,7 @@ export function DeliveryOrdersClient({
     allowAutoUnitPrice,
     customerId,
     dateIssued,
-    lines.map((l) => l.productId).join(","),
+    lines.map((l) => `${l.productId}:${l.orderQty}`).join(","),
   ]);
 
   useEffect(() => {
@@ -1124,6 +1125,7 @@ export function DeliveryOrdersClient({
                               customerId: parsedCustomerId,
                               productId: parsedProductId,
                               dateIssued,
+                              orderQty: lines[lineIndex]?.orderQty,
                             })
                             .then((result) => {
                               if (result.ok === false) {

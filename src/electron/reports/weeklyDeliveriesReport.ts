@@ -70,6 +70,9 @@ function resolveLooseCategoryId(
   if (saleDisposition === "RATION") {
     return "ration";
   }
+  if (saleDisposition === "RETAIL") {
+    return "retail";
+  }
 
   const text = `${customerTypeCode} ${customerTypeName}`.toUpperCase();
   if (text.includes("WHOLESALE")) {
@@ -92,7 +95,9 @@ function loadSaleLines(
   const sp = salesPointFilterSql("s.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
-      `SELECT s.salesPointId, s.saleDisposition, ct.code AS customerTypeCode, ct.name AS customerTypeName,
+      `SELECT s.salesPointId, s.saleDisposition,
+              COALESCE(pct.code, ct.code) AS customerTypeCode,
+              COALESCE(pct.name, ct.name) AS customerTypeName,
               sl.productId, p.productName, p.productCode,
               COALESCE(pc.isBottled, 0) AS isBottled, sl.qtyKg, sl.qtyUnits
        FROM Sale s
@@ -101,6 +106,13 @@ function loadSaleLines(
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
        LEFT JOIN Customer c ON c.id = s.customerId
        LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
+       LEFT JOIN DeliveryOrder d
+         ON d.deliveryOrderNo = s.deliveryOrderNo
+        AND d.status = 'VALIDATED'
+       LEFT JOIN DeliveryOrderDetails dd
+         ON dd.deliveryOrderId = d.id
+        AND dd.productId = sl.productId
+       LEFT JOIN CustomerTypeDefinition pct ON pct.id = dd.pricingCustomerTypeId
        WHERE s.status = 'VALIDATED'
          AND s.dateIssued >= ?
          AND s.dateIssued <= ?${sp.clause}`,

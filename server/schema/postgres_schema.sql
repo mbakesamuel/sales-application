@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS company_settings (
   hide_zero_report_rows BOOLEAN NOT NULL DEFAULT true,
   stock_commitment_report_comments TEXT,
   report_comments_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  delivery_order_block_retail_quantity BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -347,6 +348,7 @@ CREATE TABLE IF NOT EXISTS delivery_order_details (
   order_qty INTEGER NOT NULL,
   order_unit TEXT,
   unit_price TEXT,
+  pricing_customer_type_id TEXT,
   amount TEXT,
   line_subtotal_ex_tax TEXT,
   vat_rate TEXT,

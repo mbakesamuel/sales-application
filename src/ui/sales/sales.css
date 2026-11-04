@@ -439,6 +439,43 @@
   align-items: stretch;
 }
 
+.sales-invoice-balance-row {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: inherit;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.sales-invoice-balance-row--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sales-invoice-balance-row--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sales-invoice-details-fields {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: inherit;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.sales-invoice-grid > .sales-invoice-no-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.sales-invoice-grid > .sales-invoice-no-field input,
+.sales-invoice-grid > .sales-invoice-no-field .sales-invoice-no {
+  width: 100%;
+  max-width: 16rem;
+}
+
 .sales-invoice-grid-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -888,6 +925,10 @@
   background: var(--bg-elevated);
 }
 
+.sales-items-panel-tall .sales-items-table-wrap {
+  min-height: 16rem;
+}
+
 .sales-items-table {
   margin: 0;
 }
@@ -1191,6 +1232,10 @@
   gap: 8px 12px;
 }
 
+.sales-client-compact .sales-invoice-details-fields {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .sales-client-compact .sales-invoice-grid .sales-field,
 .sales-client-compact .sales-payment-grid .sales-field {
   gap: 4px;
@@ -1420,10 +1465,10 @@
 
 /* Modal hosting the sales create/view form over the invoice list. */
 .form-dialog-panel.sales-form-dialog-panel {
-  width: min(92vw, 960px);
+  width: min(72vw, 860px);
   max-width: 94vw;
-  height: min(90vh, 820px);
-  max-height: 92vh;
+  height: min(80vh, 820px);
+  max-height: 82vh;
   display: flex;
   flex-direction: column;
 }

@@ -47,6 +47,9 @@ export function resolveDailyCustomerCategory(
   if (saleDisposition === "RATION") {
     return "cdcWorkers";
   }
+  if (saleDisposition === "RETAIL") {
+    return "retail";
+  }
 
   const text = `${customerTypeCode} ${customerTypeName}`.toUpperCase();
   if (text.includes("WHOLESALE")) {
@@ -124,13 +127,21 @@ export function loadRawSaleLinesForRange(
               sl.productId, p.productName,
               COALESCE(pc.isBottled, 0) AS isBottled,
               sl.qtyKg, sl.qtyUnits,
-              ct.code AS customerTypeCode, ct.name AS customerTypeName
+              COALESCE(pct.code, ct.code) AS customerTypeCode,
+              COALESCE(pct.name, ct.name) AS customerTypeName
        FROM Sale s
        INNER JOIN SaleLine sl ON sl.saleId = s.id
        INNER JOIN Product p ON p.productId = sl.productId
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
        LEFT JOIN Customer c ON c.id = s.customerId
        LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
+       LEFT JOIN DeliveryOrder d
+         ON d.deliveryOrderNo = s.deliveryOrderNo
+        AND d.status = 'VALIDATED'
+       LEFT JOIN DeliveryOrderDetails dd
+         ON dd.deliveryOrderId = d.id
+        AND dd.productId = sl.productId
+       LEFT JOIN CustomerTypeDefinition pct ON pct.id = dd.pricingCustomerTypeId
        WHERE s.status = 'VALIDATED'
          AND substr(s.dateIssued, 1, 10) >= ?
          AND substr(s.dateIssued, 1, 10) <= ?

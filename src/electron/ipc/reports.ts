@@ -86,17 +86,35 @@ function parseHideZero(value: unknown): boolean | undefined {
 export function registerReportsHandlers(): void {
   ipcMain.handle(
     "reports:getStockCommitment",
-    (_event, authToken: string, hideZero?: unknown): StockCommitmentReport => {
+    (
+      _event,
+      authToken: string,
+      hideZero?: unknown,
+      asAtIso?: unknown,
+    ): StockCommitmentReport => {
       const user = requireAuthUser(authToken);
-      return getStockCommitmentReport(user.id, parseHideZero(hideZero));
+      const asAt =
+        typeof asAtIso === "string" && /^\d{4}-\d{2}-\d{2}$/.test(asAtIso.trim())
+          ? asAtIso.trim().slice(0, 10)
+          : null;
+      return getStockCommitmentReport(user.id, parseHideZero(hideZero), asAt);
     },
   );
 
   ipcMain.handle(
     "reports:getStockReport",
-    (_event, authToken: string, hideZero?: unknown): StockReport => {
+    (
+      _event,
+      authToken: string,
+      hideZero?: unknown,
+      asAtIso?: unknown,
+    ): StockReport => {
       const user = requireAuthUser(authToken);
-      return getStockReport(user.id, parseHideZero(hideZero));
+      const asAt =
+        typeof asAtIso === "string" && /^\d{4}-\d{2}-\d{2}$/.test(asAtIso.trim())
+          ? asAtIso.trim().slice(0, 10)
+          : null;
+      return getStockReport(user.id, parseHideZero(hideZero), asAt);
     },
   );
 

@@ -1653,6 +1653,27 @@ function runMigrations(database: Database.Database): void {
       continue;
     }
 
+    if (fileName === "126_do_retail_wholesale_pricing.sql") {
+      // Columns may already exist from a previous failed run of this migration.
+      if (!getTableColumns(database, "CompanySettings").has("deliveryOrderBlockRetailQuantity")) {
+        database.exec(`
+          ALTER TABLE CompanySettings
+            ADD COLUMN deliveryOrderBlockRetailQuantity INTEGER NOT NULL DEFAULT 1
+            CHECK (deliveryOrderBlockRetailQuantity IN (0, 1));
+        `);
+      }
+      if (!getTableColumns(database, "DeliveryOrderDetails").has("pricingCustomerTypeId")) {
+        database.exec(`
+          ALTER TABLE DeliveryOrderDetails
+            ADD COLUMN pricingCustomerTypeId TEXT REFERENCES CustomerTypeDefinition(id);
+        `);
+      }
+      const sql = readFileSync(path.join(getMigrationsDir(), fileName), "utf8");
+      database.exec(sql);
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
     const sql = readFileSync(path.join(getMigrationsDir(), fileName), "utf8");
     database.exec(sql);
     database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);

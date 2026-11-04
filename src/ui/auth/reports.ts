@@ -13,10 +13,10 @@ export function getAuthenticatedReports() {
   const api = getElectronApi().reports;
 
   return {
-    getStockCommitment: (hideZero?: boolean) =>
-      api.getStockCommitment(requireAuthToken(), hideZero),
-    getStockReport: (hideZero?: boolean) =>
-      api.getStockReport(requireAuthToken(), hideZero),
+    getStockCommitment: (hideZero?: boolean, asAtIso?: string) =>
+      api.getStockCommitment(requireAuthToken(), hideZero, asAtIso),
+    getStockReport: (hideZero?: boolean, asAtIso?: string) =>
+      api.getStockReport(requireAuthToken(), hideZero, asAtIso),
     getCommitmentReport: (hideZero?: boolean) =>
       api.getCommitmentReport(requireAuthToken(), hideZero),
     getBottleOilStockSales: (hideZero?: boolean) =>

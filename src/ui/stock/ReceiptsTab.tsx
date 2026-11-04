@@ -510,22 +510,6 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
       <div class="stock-section-header">
         <div>
           <h2>Stock receipts</h2>
-          {/* {props.canPost ? (
-            <p class="stock-hint">
-              Pull a draft voucher by its number to cross-check the lines before
-              posting.
-            </p>
-          ) : (
-            <p class="stock-hint">
-              Draft a receipt, then submit it to your supervisor for posting.
-            </p>
-          )} */}
-
-          <p class="stock-hint">
-            Use this screen to record incoming stock into Collection Point (By
-            Product and Storage Location). To Sales, Oil Mills are considered
-            collection points.
-          </p>
         </div>
         <div class="stock-header-actions">
           {props.canPost ? (
@@ -545,7 +529,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               />
               <button
                 type="submit"
-                class="stock-btn-secondary"
+                class="stock-btn-primary"
                 disabled={lookupBusy || !lookupNo.trim()}
               >
                 {lookupBusy ? "…" : "Pull voucher"}
@@ -558,7 +542,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               class="stock-btn-primary"
               onClick={openCreate}
             >
-              New receipt
+              New Reception
             </button>
           ) : null}
         </div>
@@ -585,7 +569,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                   {props.canDraft ? (
                     <>
                       {" "}
-                      Use <span class="stock-strong">New receipt</span> to
+                      Use <span class="stock-strong">New Reception</span> to
                       create one.
                     </>
                   ) : null}
@@ -751,7 +735,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
 
       {open ? (
         <DocDialog
-          title={editingId ? "Edit receipt" : "New receipt"}
+          title={editingId ? "Edit receipt" : "New Reception"}
           wide
           message={modalMessage}
           onClose={closeFormModal}

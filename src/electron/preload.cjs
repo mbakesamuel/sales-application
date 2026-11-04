@@ -121,10 +121,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("transportCost:compute", authToken, input),
   },
   reports: {
-    getStockCommitment: (authToken, hideZero) =>
-      ipcRenderer.invoke("reports:getStockCommitment", authToken, hideZero),
-    getStockReport: (authToken, hideZero) =>
-      ipcRenderer.invoke("reports:getStockReport", authToken, hideZero),
+    getStockCommitment: (authToken, hideZero, asAtIso) =>
+      ipcRenderer.invoke("reports:getStockCommitment", authToken, hideZero, asAtIso),
+    getStockReport: (authToken, hideZero, asAtIso) =>
+      ipcRenderer.invoke("reports:getStockReport", authToken, hideZero, asAtIso),
     getCommitmentReport: (authToken, hideZero) =>
       ipcRenderer.invoke("reports:getCommitmentReport", authToken, hideZero),
     getBottleOilStockSales: (authToken, hideZero) =>

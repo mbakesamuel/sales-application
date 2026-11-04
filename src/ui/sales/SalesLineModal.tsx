@@ -92,7 +92,10 @@ export function SalesLineModal({
         ? "Enter the loose product, sales tank, and weight."
         : "Enter the loose product, location, and weight.";
 
-  const allowAutoUnitPrice = lockUnitPriceFromSchedule || isBottleMode;
+  const allowAutoUnitPrice =
+    lockUnitPriceFromSchedule ||
+    isBottleMode ||
+    saleDisposition === "RETAIL";
 
   useEffect(() => {
     setDraft(line);

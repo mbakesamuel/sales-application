@@ -261,6 +261,7 @@ export function transferDeliveryOrderBalance(
         qtyKg: number;
         orderUnit: string | null;
         unitPrice: string;
+        pricingCustomerTypeId: string | null;
         lineSubtotalExTax: string;
         vatRate: string;
         vatAmount: string;
@@ -274,7 +275,8 @@ export function transferDeliveryOrderBalance(
       for (const [productId, qtyKg] of requested) {
         const detail = db
           .prepare(
-            `SELECT dd.id, dd.orderQty, dd.orderUnit, dd.unitPrice, p.productName
+            `SELECT dd.id, dd.orderQty, dd.orderUnit, dd.unitPrice,
+                    dd.pricingCustomerTypeId, p.productName
              FROM DeliveryOrderDetails dd
              INNER JOIN Product p ON p.productId = dd.productId
              WHERE dd.deliveryOrderId = ? AND dd.productId = ?
@@ -287,6 +289,7 @@ export function transferDeliveryOrderBalance(
               orderQty: number;
               orderUnit: string | null;
               unitPrice: string | null;
+              pricingCustomerTypeId: string | null;
               productName: string;
             }
           | undefined;
@@ -326,6 +329,7 @@ export function transferDeliveryOrderBalance(
           qtyKg,
           orderUnit: detail.orderUnit,
           unitPrice: roundMoney2(unit),
+          pricingCustomerTypeId: detail.pricingCustomerTypeId,
           lineSubtotalExTax: roundMoney2(lineSubtotal),
           vatRate: String(normalizeTaxRateDecimal(vatRate)),
           vatAmount: roundMoney2(vatAmount),
@@ -368,8 +372,9 @@ export function transferDeliveryOrderBalance(
       const insertLine = db.prepare(
         `INSERT INTO DeliveryOrderDetails (
           deliveryOrderId, productId, orderQty, orderUnit, unitPrice,
+          pricingCustomerTypeId,
           lineSubtotalExTax, vatRate, vatAmount, otherTaxLabel, otherTaxAmount, amount
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
 
       const updateSource = db.prepare(
@@ -384,6 +389,7 @@ export function transferDeliveryOrderBalance(
           line.qtyKg,
           line.orderUnit,
           line.unitPrice,
+          line.pricingCustomerTypeId,
           line.lineSubtotalExTax,
           line.vatRate,
           line.vatAmount,

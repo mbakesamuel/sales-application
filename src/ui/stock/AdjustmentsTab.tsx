@@ -386,11 +386,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
       <div class="stock-section-header">
         <div>
           <h2>Stock adjustments</h2>
-          {props.canPost ? (
-            <p class="stock-hint">
-              Pull a draft voucher by its number to cross-check the lines before posting.
-            </p>
-          ) : (
+          {props.canPost ? null : (
             <p class="stock-hint">
               Draft an adjustment, then submit it to your supervisor for posting.
             </p>
@@ -408,7 +404,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
               />
               <button
                 type="submit"
-                class="stock-btn-secondary"
+                class="stock-btn-primary"
                 disabled={lookupBusy || !lookupNo.trim()}
               >
                 {lookupBusy ? "…" : "Pull voucher"}

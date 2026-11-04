@@ -10,7 +10,11 @@ export type PaymentMethodKind =
 
 export type SaleProductMode = "LOOSE" | "BOTTLE";
 
-export type SaleDisposition = "NORMAL" | "RATION" | "PUBLIC_RELATION";
+export type SaleDisposition =
+  | "NORMAL"
+  | "RATION"
+  | "PUBLIC_RELATION"
+  | "RETAIL";
 
 export interface SalesCustomerOption {
   id: number;

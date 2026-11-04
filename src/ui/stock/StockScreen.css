@@ -43,15 +43,24 @@
   color: var(--text-muted);
 }
 
+.stock-tabs-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
 .stock-product-toggle {
   display: inline-flex;
   flex-shrink: 0;
-  align-self: flex-start;
   gap: 0;
   padding: 3px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-soft);
+  margin-left: auto;
 }
 
 .stock-product-toggle-btn {
@@ -88,7 +97,6 @@
 .stock-tabs {
   display: inline-flex;
   flex-wrap: wrap;
-  align-self: flex-start;
   gap: 4px;
   flex-shrink: 0;
   padding: 4px;
@@ -250,6 +258,10 @@
   flex-shrink: 0;
 }
 
+.stock-section-header + .stock-filters {
+  margin-top: -4px;
+}
+
 .stock-field {
   display: flex;
   flex-direction: column;
@@ -296,24 +308,19 @@ textarea.stock-form-control:focus,
 /* Lookup */
 .stock-lookup-row {
   display: flex;
-  align-items: stretch;
-  gap: 0;
+  align-items: center;
+  gap: 8px;
 }
 
 .stock-lookup-input {
   width: 12rem;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
 }
 
 .stock-lookup-row > button {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
   height: 32px;
   padding: 0 12px;
   font-size: 13px;
   box-sizing: border-box;
-  align-self: stretch;
 }
 
 /* Tables */

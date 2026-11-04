@@ -8,6 +8,7 @@ import {
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 import { getAuthenticatedReports } from "../auth/reports.ts";
+import { isIndustryCustomerType } from "../../shared/doPricingCustomerType.ts";
 
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
@@ -45,9 +46,19 @@ type SortKey =
 
 type SortDir = "asc" | "desc";
 
-const CUSTOMER_TYPE_TABS = ["Industry", "Wholesale", "Retail"] as const;
+const CUSTOMER_TYPE_TABS = ["Industry", "N/A"] as const;
 type CustomerTypeTab = (typeof CUSTOMER_TYPE_TABS)[number];
 type ActiveTab = "all" | CustomerTypeTab;
+
+function displayCustomerTypeLabel(
+  code: string | null | undefined,
+  name: string | null | undefined,
+): string {
+  if (isIndustryCustomerType(code, name)) {
+    return "Industry";
+  }
+  return "N/A";
+}
 
 interface CustomerRow {
   id: number;
@@ -91,10 +102,7 @@ function typeBadgeClass(label: string): string {
   if (normalized === "industry") {
     return "customers-badge customers-badge-slate";
   }
-  if (normalized === "wholesale") {
-    return "customers-badge customers-badge-violet";
-  }
-  if (normalized === "retail") {
+  if (normalized === "n/a") {
     return "customers-badge customers-badge-blue";
   }
 
@@ -416,7 +424,10 @@ export function CustomersScreen({
         const typeMap = new Map(
           typeResult.rows.map((row) => [
             String(row.id),
-            String(row.name ?? row.code ?? row.id),
+            {
+              code: row.code != null ? String(row.code) : "",
+              name: String(row.name ?? row.code ?? row.id),
+            },
           ]),
         );
         const regimeMap = new Map(
@@ -434,7 +445,10 @@ export function CustomersScreen({
 
         const mapped = customerResult.rows.map((row) => {
           const customerTypeId = String(row.customerTypeId ?? "");
-          const customerTypeLabel = typeMap.get(customerTypeId) ?? customerTypeId;
+          const typeInfo = typeMap.get(customerTypeId);
+          const customerTypeLabel = typeInfo
+            ? displayCustomerTypeLabel(typeInfo.code, typeInfo.name)
+            : "N/A";
           const residency = String(row.residency ?? "");
           const commercialServiceId = String(row.commercialServiceId ?? "");
 
@@ -553,8 +567,8 @@ export function CustomersScreen({
         className: "customers-stat-icon-blue",
       },
       {
-        label: "Retail",
-        value: countByCustomerType(rows, "Retail"),
+        label: "N/A",
+        value: countByCustomerType(rows, "N/A"),
         icon: IconBuilding,
         className: "customers-stat-icon-violet",
       },

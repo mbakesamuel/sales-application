@@ -226,9 +226,10 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
   }
 
   const { sale } = payload;
-  const isBottleMode = sale.saleProductMode === "BOTTLE";
+  const useCashReceipt =
+    sale.saleProductMode === "BOTTLE" || sale.saleDisposition === "RETAIL";
 
-  if (isBottleMode) {
+  if (useCashReceipt) {
     const shellTitle = `Cash Receipt ${sale.invoiceNo}`;
     const pdfFileName = `cash-receipt-${sale.invoiceNo}.pdf`;
 

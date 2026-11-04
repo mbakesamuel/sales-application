@@ -17,7 +17,7 @@ import {
 import { getDatabase } from "../db/index.js";
 import { listActiveSalesPoints, requireActiveSalesPoint } from "../salesPoints/active.js";
 import { getOpenPostingPeriod } from "../financialYears/service.js";
-import { resolveUnitPriceExTax } from "../pricing/resolveUnitPrice.js";
+import { resolveDoLineUnitPrice } from "../pricing/doPricingCustomerType.js";
 import { allocateCarryForwardDeliveryOrderNo } from "../deliveryOrders/doNo.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
 import {
@@ -276,6 +276,7 @@ function buildLineAmounts(
 ): {
   orderUnit: string | null;
   unitPrice: string;
+  pricingCustomerTypeId: string | null;
   lineSubtotalExTax: string;
   vatRate: string;
   vatAmount: string;
@@ -296,13 +297,19 @@ function buildLineAmounts(
     ? String(normalizeTaxRateDecimal(rates.vatRate))
     : "0";
   const otherRate = profile.salesTaxRate;
-  const priceResult = resolveUnitPriceExTax(
+  const priceResult = resolveDoLineUnitPrice({
     productId,
-    taxInfo?.customerTypeId ?? null,
-    dateIssued,
-  );
+    customerTypeId: taxInfo?.customerTypeId ?? null,
+    orderQtyKg: orderQty,
+    asOfDate: dateIssued,
+    // Carry-forward preserves remaining balance; allow legacy sub-threshold lines.
+    blockRetailQuantity: false,
+  });
   const unitPrice =
     priceResult.ok ? priceResult.unitPriceExTax : "0";
+  const pricingCustomerTypeId = priceResult.ok
+    ? priceResult.pricingCustomerTypeId
+    : null;
   const unit = parseAmount(unitPrice);
   const lineSubtotal = unit * orderQty;
   const vatAmount = lineSubtotal * parseAmount(vatRate);
@@ -316,6 +323,7 @@ function buildLineAmounts(
   return {
     orderUnit: product?.uom ?? null,
     unitPrice: roundMoney2(unit),
+    pricingCustomerTypeId,
     lineSubtotalExTax: roundMoney2(lineSubtotal),
     vatRate,
     vatAmount: roundMoney2(vatAmount),
@@ -677,13 +685,15 @@ export function upsertCarryForwardCommitment(
       if (existingLine) {
         db.prepare(
           `UPDATE DeliveryOrderDetails
-           SET orderQty = ?, orderUnit = ?, unitPrice = ?, lineSubtotalExTax = ?,
+           SET orderQty = ?, orderUnit = ?, unitPrice = ?, pricingCustomerTypeId = ?,
+               lineSubtotalExTax = ?,
                vatRate = ?, vatAmount = ?, otherTaxLabel = ?, otherTaxAmount = ?, amount = ?
            WHERE id = ?`,
         ).run(
           orderQty,
           amounts.orderUnit,
           amounts.unitPrice,
+          amounts.pricingCustomerTypeId,
           amounts.lineSubtotalExTax,
           amounts.vatRate,
           amounts.vatAmount,
@@ -705,8 +715,9 @@ export function upsertCarryForwardCommitment(
         .prepare(
           `INSERT INTO DeliveryOrderDetails (
             deliveryOrderId, productId, orderQty, orderUnit, unitPrice,
+            pricingCustomerTypeId,
             lineSubtotalExTax, vatRate, vatAmount, otherTaxLabel, otherTaxAmount, amount
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           order.id,
@@ -714,6 +725,7 @@ export function upsertCarryForwardCommitment(
           orderQty,
           amounts.orderUnit,
           amounts.unitPrice,
+          amounts.pricingCustomerTypeId,
           amounts.lineSubtotalExTax,
           amounts.vatRate,
           amounts.vatAmount,

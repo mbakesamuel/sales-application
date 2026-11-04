@@ -829,20 +829,6 @@ export function TransfersTab(props: TransfersTabProps) {
       <div class="stock-section-header">
         <div>
           <h2>Stock transfers</h2>
-          {props.canDispatch ? (
-            <p class="stock-hint">
-              Pull a draft voucher by its number to cross-check the lines before
-              dispatching.
-            </p>
-          ) : receiveOnlyMode ? (
-            <p class="stock-hint">
-              Receive stock dispatched to your collection point.
-            </p>
-          ) : (
-            <p class="stock-hint">
-              Draft a transfer, then submit it to your supervisor for dispatch.
-            </p>
-          )}
         </div>
         <div class="stock-header-actions">
           {props.canDispatch ? (
@@ -862,7 +848,7 @@ export function TransfersTab(props: TransfersTabProps) {
               />
               <button
                 type="submit"
-                class="stock-btn-secondary"
+                class="stock-btn-primary"
                 disabled={lookupBusy || !lookupNo.trim()}
               >
                 {lookupBusy ? "…" : "Pull voucher"}
@@ -883,14 +869,14 @@ export function TransfersTab(props: TransfersTabProps) {
       </div>
 
       <div class="stock-filters">
-        <label class="stock-field stock-field-grow">
-          <span>Search</span>
+        <label class="stock-field">
           <input
             value={search}
             onInput={(event) =>
               setSearch((event.currentTarget as HTMLInputElement).value)
             }
-            placeholder="Transfer #, product, collection point, or status"
+            placeholder="Search Transfer #, product, collection point, or status"
+            aria-label="Search"
           />
         </label>
       </div>

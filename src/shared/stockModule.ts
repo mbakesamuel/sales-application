@@ -68,7 +68,7 @@ export const STOCK_TAB_DEFINITIONS: ReadonlyArray<{
   },
   {
     id: "receipts",
-    label: "Receipts",
+    label: "Reception",
     headerTable: "StockReceipt",
     lineTable: "StockReceiptLine",
     description: "Inbound stock receipts.",

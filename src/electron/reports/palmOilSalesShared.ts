@@ -81,6 +81,9 @@ export function resolveMonthlyPalmOilDestinationId(
   if (saleDisposition === "RATION") {
     return "cdcWorkers";
   }
+  if (saleDisposition === "RETAIL") {
+    return "retail";
+  }
 
   const text = `${customerName} ${customerTypeCode} ${customerTypeName}`.toUpperCase();
   if (text.includes("MAKOKO")) {
@@ -109,6 +112,9 @@ export function resolvePalmOilActivityCategoryId(
   if (saleDisposition === "PUBLIC_RELATION" || saleDisposition === "RATION") {
     return "others";
   }
+  if (saleDisposition === "RETAIL") {
+    return "retail";
+  }
 
   const text = `${customerTypeCode} ${customerTypeName}`.toUpperCase();
   if (text.includes("WHOLESALE")) {
@@ -133,8 +139,8 @@ export function loadPalmOilSaleLines(
     .prepare(
       `SELECT s.dateIssued, s.saleDisposition,
               COALESCE(c.name, '') AS customerName,
-              COALESCE(ct.code, '') AS customerTypeCode,
-              COALESCE(ct.name, '') AS customerTypeName,
+              COALESCE(pct.code, ct.code, '') AS customerTypeCode,
+              COALESCE(pct.name, ct.name, '') AS customerTypeName,
               sl.productId, p.productName, p.productCode,
               COALESCE(pc.isBottled, 0) AS isBottled,
               sl.qtyKg, sl.qtyUnits, sl.lineNet
@@ -144,6 +150,13 @@ export function loadPalmOilSaleLines(
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
        LEFT JOIN Customer c ON c.id = s.customerId
        LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
+       LEFT JOIN DeliveryOrder d
+         ON d.deliveryOrderNo = s.deliveryOrderNo
+        AND d.status = 'VALIDATED'
+       LEFT JOIN DeliveryOrderDetails dd
+         ON dd.deliveryOrderId = d.id
+        AND dd.productId = sl.productId
+       LEFT JOIN CustomerTypeDefinition pct ON pct.id = dd.pricingCustomerTypeId
        WHERE s.status = 'VALIDATED'
          AND s.dateIssued >= ?
          AND s.dateIssued <= ?${sp.clause}`,

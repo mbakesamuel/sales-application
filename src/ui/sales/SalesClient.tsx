@@ -387,6 +387,9 @@ export function SalesClient({
     useState<SaleProductMode>(defaultProductMode);
   const [saleDisposition, setSaleDisposition] =
     useState<SaleDisposition>("NORMAL");
+  const [dispositionChosen, setDispositionChosen] = useState(
+    Boolean(initialInvoiceNo.trim()),
+  );
   const [referenceNumber, setReferenceNumber] = useState("");
   const [deliveryOrderNo, setDeliveryOrderNo] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
@@ -422,11 +425,18 @@ export function SalesClient({
       confirmedInvoiceNo === invoiceNo.trim() &&
       isValidBookletSerial(invoiceNo));
   const isAwaitingInvoice = !saleId && !invoiceReady;
-  const isFormEditable = !isReadOnly && invoiceReady;
+  const canEditDisposition = !isReadOnly && busy === null;
+  const canEnterInvoiceNo =
+    !isReadOnly && dispositionChosen && busy === null;
+  const isFormEditable = !isReadOnly && dispositionChosen && invoiceReady;
   const isBottleMode = isBottleVariant;
   const isSpecialDisposition =
     saleDisposition === "RATION" || saleDisposition === "PUBLIC_RELATION";
-  const isInvoiceOnlyCustomer = isSpecialDisposition || !useRegisteredCustomer;
+  /** Ration / Public relation / Retail: name on invoice only (no directory customer). */
+  const isInvoiceOnlyDisposition =
+    isSpecialDisposition || saleDisposition === "RETAIL";
+  const isInvoiceOnlyCustomer =
+    isInvoiceOnlyDisposition || !useRegisteredCustomer;
   const activeProducts = isBottleMode
     ? (options?.bottledProducts ?? [])
     : isSpecialDisposition
@@ -437,10 +447,20 @@ export function SalesClient({
       return [];
     }
     const methods = options?.paymentMethods ?? [];
-    return isBottleMode
-      ? cashOnlyPaymentMethods(methods)
-      : nonCashPaymentMethods(methods);
-  }, [options?.paymentMethods, isBottleMode, isSpecialDisposition]);
+    if (isBottleMode) {
+      return cashOnlyPaymentMethods(methods);
+    }
+    // Retail may use Cash (cash receipt); other loose sales hide Cash.
+    if (saleDisposition === "RETAIL") {
+      return methods;
+    }
+    return nonCashPaymentMethods(methods);
+  }, [
+    options?.paymentMethods,
+    isBottleMode,
+    isSpecialDisposition,
+    saleDisposition,
+  ]);
   const dispositionPaymentMethodId = useMemo(() => {
     if (!options || !isSpecialDisposition) {
       return "";
@@ -604,9 +624,15 @@ export function SalesClient({
     totals.gross,
   ]);
 
-  // Loose sales: drop Cash if it was selected (Cash is hidden from the list).
+  // Loose (non-Retail) sales: drop Cash if it was selected (Cash is hidden from the list).
   useEffect(() => {
-    if (!options || !isFormEditable || isBottleMode || isSpecialDisposition) {
+    if (
+      !options ||
+      !isFormEditable ||
+      isBottleMode ||
+      isSpecialDisposition ||
+      saleDisposition === "RETAIL"
+    ) {
       return;
     }
     const allowed = new Set(
@@ -630,7 +656,13 @@ export function SalesClient({
       });
       return changed ? next : current;
     });
-  }, [options, isFormEditable, isBottleMode, isSpecialDisposition]);
+  }, [
+    options,
+    isFormEditable,
+    isBottleMode,
+    isSpecialDisposition,
+    saleDisposition,
+  ]);
 
   useEffect(() => {
     async function bootstrap() {
@@ -732,11 +764,18 @@ export function SalesClient({
       return;
     }
 
-    if (saleDisposition === "RATION" || saleDisposition === "PUBLIC_RELATION") {
+    if (
+      saleDisposition === "RATION" ||
+      saleDisposition === "PUBLIC_RELATION" ||
+      saleDisposition === "RETAIL"
+    ) {
       setUseRegisteredCustomer(false);
       setCustomerId("");
       setDeliveryOrderNo("");
       setDoLinePrefill(null);
+      if (saleDisposition === "RETAIL") {
+        setVehicleNumber("");
+      }
     }
   }, [saleDisposition, options, isFormEditable]);
 
@@ -855,7 +894,11 @@ export function SalesClient({
       return;
     }
 
-    if (saleDisposition === "RATION" || saleDisposition === "PUBLIC_RELATION") {
+    if (
+      saleDisposition === "RATION" ||
+      saleDisposition === "PUBLIC_RELATION" ||
+      saleDisposition === "RETAIL"
+    ) {
       setUseRegisteredCustomer(false);
       return;
     }
@@ -942,6 +985,7 @@ export function SalesClient({
     );
     setSaleProductMode(defaultProductMode);
     setSaleDisposition("NORMAL");
+    setDispositionChosen(false);
     setReferenceNumber("");
     setDeliveryOrderNo("");
     setVehicleNumber("");
@@ -1034,6 +1078,7 @@ export function SalesClient({
     );
     setSaleProductMode(sale.saleProductMode ?? "LOOSE");
     setSaleDisposition(sale.saleDisposition ?? "NORMAL");
+    setDispositionChosen(true);
     setReferenceNumber(sale.referenceNumber ?? "");
     setDeliveryOrderNo(sale.deliveryOrderNo ?? "");
     setDoLinePrefill(null);
@@ -1379,9 +1424,10 @@ export function SalesClient({
         userId: user.id,
         ...(autoGenerateInvoiceNo ? {} : { invoiceNo }),
         validateImmediately: validateImmediately || undefined,
-        customerId: useRegisteredCustomer
-          ? Number.parseInt(customerId, 10)
-          : null,
+        customerId:
+          !isInvoiceOnlyCustomer && useRegisteredCustomer
+            ? Number.parseInt(customerId, 10)
+            : null,
         customerNameOverride: isInvoiceOnlyCustomer
           ? invoiceCustomerName.trim() || undefined
           : undefined,
@@ -1391,7 +1437,7 @@ export function SalesClient({
         referenceNumber: referenceNumber || undefined,
         deliveryOrderNo:
           !isBottleMode &&
-          !isSpecialDisposition &&
+          !isInvoiceOnlyDisposition &&
           useRegisteredCustomer &&
           deliveryOrderNo.trim()
             ? deliveryOrderNo.trim()
@@ -1580,6 +1626,8 @@ export function SalesClient({
     return <p class="sales-muted">Loading sales screen…</p>;
   }
 
+  // Loose Retail / Ration / Public relation use invoice-only names — do not
+  // block the whole Sales Invoice screen when the customer directory is empty.
   const setupRequired =
     (isBottleVariant
       ? options.bottledProducts.length === 0
@@ -1587,20 +1635,18 @@ export function SalesClient({
     options.paymentMethods.length === 0 ||
     (isBottleVariant &&
       options.bottleOilUseRegisteredCustomers &&
-      options.customers.length === 0) ||
-    (!isBottleVariant &&
-      !options.looseSalesAllowUnregisteredCustomer &&
       options.customers.length === 0);
 
-  const vehicleRequired = !isBottleMode && !isSpecialDisposition;
+  const vehicleRequired =
+    !isBottleMode && !isSpecialDisposition && saleDisposition !== "RETAIL";
   const showDeliveryOrders =
-    !isBottleMode && !isSpecialDisposition && useRegisteredCustomer;
+    !isBottleMode &&
+    !isInvoiceOnlyDisposition &&
+    useRegisteredCustomer;
   const showPayments = true;
-  const hasCustomer = isSpecialDisposition
+  const hasCustomer = isInvoiceOnlyCustomer
     ? invoiceCustomerName.trim().length > 0
-    : useRegisteredCustomer
-      ? customerId.trim().length > 0
-      : invoiceCustomerName.trim().length > 0;
+    : customerId.trim().length > 0;
   const canSave =
     isFormEditable &&
     busy === null &&
@@ -1634,14 +1680,6 @@ export function SalesClient({
             <li>
               Add at least one customer, or turn off “Use registered customers”
               under App settings → Bottle Oil sales.
-            </li>
-          ) : null}
-          {!isBottleVariant &&
-          !options.looseSalesAllowUnregisteredCustomer &&
-          options.customers.length === 0 ? (
-            <li>
-              Add at least one customer, or turn on “Use unregistered customer”
-              under App settings → Loose sales.
             </li>
           ) : null}
         </ul>
@@ -1699,82 +1737,62 @@ export function SalesClient({
                 ? " · Bottle mode"
                 : ""}
               {saleDisposition !== "NORMAL"
-                ? ` · ${saleDisposition.replace("_", " ")}`
+                ? ` · ${saleDisposition === "RETAIL" ? "Retail" : saleDisposition.replace("_", " ")}`
                 : ""}
             </p>
           </div>
-          <div class="sales-invoice-header-end">
-            <div class="sales-invoice-header-controls">
-              {saleId ? (
-                <div class="sales-invoice-no-field">
-                  <span>Invoice #</span>
-                  <div class="sales-invoice-no">{invoiceNo}</div>
-                </div>
-              ) : (
-                <label class="sales-field sales-invoice-no-field">
-                  <span>Invoice #</span>
-                  <input
-                    type="text"
-                    inputMode={autoGenerateInvoiceNo ? "text" : "numeric"}
-                    pattern={autoGenerateInvoiceNo ? undefined : "\\d*"}
-                    value={invoiceNo}
-                    placeholder={
-                      autoGenerateInvoiceNo
-                        ? "Invoice No. (or leave blank)"
-                        : "Invoice No."
-                    }
-                    disabled={busy !== null}
-                    onInput={(event) =>
-                      setInvoiceNo(
-                        (event.currentTarget as HTMLInputElement).value,
-                      )
-                    }
-                    onBlur={() => void tryLoadInvoiceOnEnter()}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        void tryLoadInvoiceOnEnter();
-                      }
-                    }}
-                  />
-                </label>
-              )}
-              {saleId ? (
-                <div class="sales-invoice-header-actions">
-                  <button
-                    type="button"
-                    class="sales-btn-secondary"
-                    disabled={busy !== null}
-                    onClick={resetNew}
-                  >
-                    New sale
-                  </button>
-                </div>
-              ) : null}
+          {saleId ? (
+            <div class="sales-invoice-header-end">
+              <div class="sales-invoice-header-actions">
+                <button
+                  type="button"
+                  class="sales-btn-secondary"
+                  disabled={busy !== null}
+                  onClick={resetNew}
+                >
+                  New sale
+                </button>
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
-        <div
-          class={`sales-invoice-form${isAwaitingInvoice ? " sales-form-locked" : ""}`}
-        >
+        <div class="sales-invoice-form">
           <div class="sales-invoice-grid">
             <div class="sales-invoice-options sales-field-span-full">
-              <fieldset class="sales-checkbox-group" disabled={!isFormEditable}>
+              <fieldset
+                class="sales-checkbox-group"
+                disabled={!canEditDisposition}
+              >
                 <legend>Disposition</legend>
+                <label class="sales-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={saleDisposition === "NORMAL"}
+                    disabled={!canEditDisposition}
+                    onChange={(event) => {
+                      if ((event.currentTarget as HTMLInputElement).checked) {
+                        setSaleDisposition("NORMAL");
+                      }
+                      setDispositionChosen(true);
+                    }}
+                  />
+                  Normal
+                </label>
                 {!isBottleVariant || options.bottleOilAllowRation ? (
                   <label class="sales-checkbox">
                     <input
                       type="checkbox"
                       checked={saleDisposition === "RATION"}
-                      disabled={!isFormEditable}
-                      onChange={(event) =>
+                      disabled={!canEditDisposition}
+                      onChange={(event) => {
                         setSaleDisposition(
                           (event.currentTarget as HTMLInputElement).checked
                             ? "RATION"
                             : "NORMAL",
-                        )
-                      }
+                        );
+                        setDispositionChosen(true);
+                      }}
                     />
                     Ration
                   </label>
@@ -1784,109 +1802,168 @@ export function SalesClient({
                     <input
                       type="checkbox"
                       checked={saleDisposition === "PUBLIC_RELATION"}
-                      disabled={!isFormEditable}
-                      onChange={(event) =>
+                      disabled={!canEditDisposition}
+                      onChange={(event) => {
                         setSaleDisposition(
                           (event.currentTarget as HTMLInputElement).checked
                             ? "PUBLIC_RELATION"
                             : "NORMAL",
-                        )
-                      }
+                        );
+                        setDispositionChosen(true);
+                      }}
                     />
                     Public relation
                   </label>
                 ) : null}
+                {!isBottleVariant ? (
+                  <label class="sales-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={saleDisposition === "RETAIL"}
+                      disabled={!canEditDisposition}
+                      onChange={(event) => {
+                        setSaleDisposition(
+                          (event.currentTarget as HTMLInputElement).checked
+                            ? "RETAIL"
+                            : "NORMAL",
+                        );
+                        setDispositionChosen(true);
+                      }}
+                    />
+                    Retail (below 3000 kg, no DO)
+                  </label>
+                ) : null}
               </fieldset>
+              {!dispositionChosen && !isReadOnly ? (
+                <p class="sales-hint">
+                  Select disposition before entering the invoice number.
+                </p>
+              ) : null}
               {!isBottleVariant && isSpecialDisposition ? (
                 <p class="sales-hint">Limited to Loose Palm Oil.</p>
               ) : null}
-
+              {!isBottleVariant && saleDisposition === "RETAIL" ? (
+                <p class="sales-hint">
+                  Retail invoice: invoice-only customer (no directory); no
+                  delivery order; each line must be below 3000 kg. Price uses the
+                  Retail schedule.
+                </p>
+              ) : null}
             </div>
 
-            <label class="sales-field">
-              <span>Sale date</span>
-              <input
-                type="date"
-                value={transactionDate}
-                min={postingPeriod?.startDate}
-                max={postingPeriod?.endDate}
-                disabled={!isFormEditable || !postingPeriod}
-                onInput={(event) =>
-                  setTransactionDate(
-                    clampDateToPeriod(
-                      (event.currentTarget as HTMLInputElement).value,
-                      postingPeriod,
-                    ),
-                  )
-                }
-              />
-            </label>
-
-            <label class="sales-field">
-              <span>Collection point</span>
-              <select
-                value={salesPointId}
-                disabled={
-                  !isFormEditable ||
-                  options.scopedSalesPointId != null ||
-                  (isBottleVariant && options.botaSalesPointId != null)
-                }
-                onChange={(event) => {
-                  const next = (event.currentTarget as HTMLSelectElement).value;
-                  setSalesPointId(next);
-                }}
-              >
-                <option value="">Select collection point</option>
-                {options.salesPoints.map((point) => (
-                  <option key={point.id} value={String(point.id)}>
-                    {point.name}
-                  </option>
-                ))}
-              </select>
-              {bookletStatus ? (
-                <small
-                  style={{
-                    display: "block",
-                    marginTop: "4px",
-                    fontWeight: 600,
-                    color: bookletStatus.ok ? "#15803d" : "#b91c1c",
-                  }}
-                >
-                  {bookletStatus.ok ? "✓ " : "⚠ "}
-                  {bookletStatus.message}
-                </small>
-              ) : null}
-            </label>
-
-            <label class="sales-field">
-              <span>Ref.no. (optional)</span>
-              <input
-                type="text"
-                value={referenceNumber}
-                disabled={!isFormEditable}
-                onInput={(event) =>
-                  setReferenceNumber(
-                    (event.currentTarget as HTMLInputElement).value,
-                  )
-                }
-              />
-            </label>
-
-            {vehicleRequired ? (
-              <label class="sales-field">
-                <span>Veh. Consign. #</span>
+            <label class="sales-field sales-field-span-full sales-invoice-no-field">
+              <span>Invoice #</span>
+              {saleId ? (
+                <div class="sales-invoice-no">{invoiceNo}</div>
+              ) : (
                 <input
                   type="text"
-                  value={vehicleNumber}
-                  disabled={!isFormEditable}
+                  inputMode={autoGenerateInvoiceNo ? "text" : "numeric"}
+                  pattern={autoGenerateInvoiceNo ? undefined : "\\d*"}
+                  value={invoiceNo}
+                  placeholder={
+                    !dispositionChosen
+                      ? "Select disposition first"
+                      : autoGenerateInvoiceNo
+                        ? "Invoice No. (or leave blank)"
+                        : "Invoice No."
+                  }
+                  disabled={!canEnterInvoiceNo}
                   onInput={(event) =>
-                    setVehicleNumber(
+                    setInvoiceNo(
                       (event.currentTarget as HTMLInputElement).value,
+                    )
+                  }
+                  onBlur={() => void tryLoadInvoiceOnEnter()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void tryLoadInvoiceOnEnter();
+                    }
+                  }}
+                />
+              )}
+            </label>
+
+            <div
+              class={`sales-invoice-details-fields${
+                !isFormEditable ? " sales-form-locked" : ""
+              }`}
+            >
+            <div
+              class={`sales-invoice-balance-row${vehicleRequired ? " sales-invoice-balance-row--3" : " sales-invoice-balance-row--2"}`}
+            >
+              <label class="sales-field">
+                <span>Sale date</span>
+                <input
+                  type="date"
+                  value={transactionDate}
+                  min={postingPeriod?.startDate}
+                  max={postingPeriod?.endDate}
+                  disabled={!isFormEditable || !postingPeriod}
+                  onInput={(event) =>
+                    setTransactionDate(
+                      clampDateToPeriod(
+                        (event.currentTarget as HTMLInputElement).value,
+                        postingPeriod,
+                      ),
                     )
                   }
                 />
               </label>
-            ) : null}
+
+              <label class="sales-field">
+                <span>Collection point</span>
+                <select
+                  value={salesPointId}
+                  disabled={
+                    !isFormEditable ||
+                    options.scopedSalesPointId != null ||
+                    (isBottleVariant && options.botaSalesPointId != null)
+                  }
+                  onChange={(event) => {
+                    const next = (event.currentTarget as HTMLSelectElement).value;
+                    setSalesPointId(next);
+                  }}
+                >
+                  <option value="">Select collection point</option>
+                  {options.salesPoints.map((point) => (
+                    <option key={point.id} value={String(point.id)}>
+                      {point.name}
+                    </option>
+                  ))}
+                </select>
+                {bookletStatus ? (
+                  <small
+                    style={{
+                      display: "block",
+                      marginTop: "4px",
+                      fontWeight: 600,
+                      color: bookletStatus.ok ? "#15803d" : "#b91c1c",
+                    }}
+                  >
+                    {bookletStatus.ok ? "✓ " : "⚠ "}
+                    {bookletStatus.message}
+                  </small>
+                ) : null}
+              </label>
+
+              {vehicleRequired ? (
+                <label class="sales-field">
+                  <span>Veh. Consign. #</span>
+                  <input
+                    type="text"
+                    value={vehicleNumber}
+                    disabled={!isFormEditable}
+                    onInput={(event) =>
+                      setVehicleNumber(
+                        (event.currentTarget as HTMLInputElement).value,
+                      )
+                    }
+                  />
+                </label>
+              ) : null}
+            </div>
 
             <label
               class={`sales-field${showDeliveryOrders ? " sales-field-span-2" : " sales-field-span-full"}`}
@@ -1930,6 +2007,12 @@ export function SalesClient({
                   {isBottleVariant ? (
                     <span class="sales-hint">
                       Directory customer required (App settings)
+                    </span>
+                  ) : options.customers.length === 0 ? (
+                    <span class="sales-hint">
+                      No directory customers — use Retail, Ration, or Public
+                      relation, or add customers / enable unregistered customer
+                      in App settings.
                     </span>
                   ) : null}
                  {/*  <span class="sales-hint">
@@ -2021,12 +2104,13 @@ export function SalesClient({
                 ) : null}
               </label>
             ) : null}
+            </div>
           </div>
         </div>
       </section>
 
       <section
-        class={`sales-panel sales-items-panel${isAwaitingInvoice ? " sales-panel-locked" : ""}`}
+        class={`sales-panel sales-items-panel${isBottleVariant ? " sales-items-panel-tall" : ""}${!isFormEditable ? " sales-panel-locked" : ""}`}
       >
         <div class="sales-section-header">
           <div>
@@ -2078,9 +2162,11 @@ export function SalesClient({
                     <span>
                       {isReadOnly
                         ? "This invoice has no line items."
-                        : isAwaitingInvoice
-                          ? "Enter invoice no. and press Enter to add items."
-                          : "Use Add line to enter products for this sale."}
+                        : !dispositionChosen
+                          ? "Select disposition first, then enter the invoice number."
+                          : isAwaitingInvoice
+                            ? "Enter invoice no. and press Enter to add items."
+                            : "Use Add line to enter products for this sale."}
                     </span>
                   </td>
                 </tr>
@@ -2212,7 +2298,7 @@ export function SalesClient({
 
       {showPayments ? (
         <section
-          class={`sales-panel sales-payments-panel${isAwaitingInvoice ? " sales-panel-locked" : ""}`}
+          class={`sales-panel sales-payments-panel${!isFormEditable ? " sales-panel-locked" : ""}`}
         >
           <div class="sales-section-header">
             <div>

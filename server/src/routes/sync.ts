@@ -161,11 +161,12 @@ syncRoute.post("/push", async (c) => {
                 await trx`
                   INSERT INTO delivery_order_details (
                     delivery_order_id, product_id, order_qty, order_unit,
-                    unit_price, amount, line_subtotal_ex_tax, vat_rate,
+                    unit_price, pricing_customer_type_id, amount, line_subtotal_ex_tax, vat_rate,
                     vat_amount, other_tax_label, other_tax_amount
                   ) VALUES (
                     ${payload.id}, ${d.productId}, ${d.orderQty}, ${d.orderUnit || null},
-                    ${d.unitPrice || null}, ${d.amount || null}, ${d.lineSubtotalExTax || null},
+                    ${d.unitPrice || null}, ${d.pricingCustomerTypeId || null},
+                    ${d.amount || null}, ${d.lineSubtotalExTax || null},
                     ${d.vatRate || null}, ${d.vatAmount || null}, ${d.otherTaxLabel || null},
                     ${d.otherTaxAmount || null}
                   )

@@ -220,8 +220,13 @@ interface ReportsApi {
   getStockCommitment(
     authToken: string,
     hideZero?: boolean,
+    asAtIso?: string,
   ): Promise<StockCommitmentReport>;
-  getStockReport(authToken: string, hideZero?: boolean): Promise<StockReport>;
+  getStockReport(
+    authToken: string,
+    hideZero?: boolean,
+    asAtIso?: string,
+  ): Promise<StockReport>;
   getCommitmentReport(
     authToken: string,
     hideZero?: boolean,

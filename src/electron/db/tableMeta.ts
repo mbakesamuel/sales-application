@@ -124,6 +124,7 @@ function isBooleanColumn(name: string, type: string): boolean {
     name === "looseSalesAllowUnregisteredCustomer" ||
     name === "loosePalmOilRequireSalesTank" ||
     name === "salesInvoiceLockUnitPrice" ||
+    name === "deliveryOrderBlockRetailQuantity" ||
     name === "loosePalmOilAllowInterSalesPointTransfer" ||
     name === "stockIntakeOilGrouping" ||
     name === "allowsMultiProduct" ||
