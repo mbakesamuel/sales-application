@@ -1095,11 +1095,68 @@ export function DeliveryOrdersClient({
                       const productId = (
                         event.currentTarget as HTMLSelectElement
                       ).value;
+                      const lineIndex = index;
                       setLines((current) =>
                         current.map((item, itemIndex) =>
-                          itemIndex === index ? { ...item, productId } : item,
+                          itemIndex === lineIndex
+                            ? { ...item, productId, unitPrice: "" }
+                            : item,
                         ),
                       );
+                      setLinePriceErrors((current) => {
+                        if (!current[lineIndex]) {
+                          return current;
+                        }
+                        const next = { ...current };
+                        delete next[lineIndex];
+                        return next;
+                      });
+
+                      if (productId && customerId) {
+                        const parsedCustomerId = Number.parseInt(customerId, 10);
+                        const parsedProductId = Number.parseInt(productId, 10);
+                        if (
+                          Number.isFinite(parsedCustomerId) &&
+                          Number.isFinite(parsedProductId)
+                        ) {
+                          void getElectronApi()
+                            .deliveryOrders.previewUnitPrice({
+                              customerId: parsedCustomerId,
+                              productId: parsedProductId,
+                              dateIssued,
+                            })
+                            .then((result) => {
+                              if (result.ok === false) {
+                                setLinePriceErrors((current) => ({
+                                  ...current,
+                                  [lineIndex]: result.error,
+                                }));
+                                return;
+                              }
+                              setLines((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === lineIndex &&
+                                  item.productId === productId
+                                    ? {
+                                        ...item,
+                                        unitPrice: result.unitPriceExTax,
+                                      }
+                                    : item,
+                                ),
+                              );
+                            });
+                        }
+                      }
+
+                      if (productId) {
+                        setTimeout(() => {
+                          const qtyInput = document.getElementById(
+                            `do-line-qty-${lineIndex}`,
+                          ) as HTMLInputElement | null;
+                          qtyInput?.focus();
+                          qtyInput?.select();
+                        }, 0);
+                      }
                     }}
                   >
                     <option value="">Select product</option>
@@ -1118,6 +1175,7 @@ export function DeliveryOrdersClient({
                   <label class="sales-field">
                     <span>Qty</span>
                     <input
+                      id={`do-line-qty-${index}`}
                       type="text"
                       inputMode="numeric"
                       value={line.orderQty}

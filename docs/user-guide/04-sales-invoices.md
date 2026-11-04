@@ -150,6 +150,6 @@ Validation requires the `validate_vehicle_consignment_notes` action (default: AD
 
 ## Transportation cost
 
-**Sales → Transportation cost** computes transport cost for quantities lifted by a customer at a collection point in the open month (uses **Transport Rates** and the App settings **Moliwe + SCR MAYA** policy). The printable company-wide view is **Reports → Monthly → Transportation cost**.
+**Sales → Transportation cost** computes transport cost for quantities lifted in the open month (uses **Transport Rates** and the App settings **Moliwe + SCR MAYA** policy). When that policy is on (default), the screen auto-computes for Moliwe / SCR MAYA / Loose Palm Oil and hides **Process cost**; when off, use **Process cost** to choose customer, collection point, and product. Rates and costs include VAT from the current VAT schedule. The printable company-wide view is **Reports → Monthly → Transportation cost**.
 
 Next: [Delivery orders](05-delivery-orders.md). Developer detail for Pick DO: [Domain modules](../developer-guide/05-domain-modules.md).

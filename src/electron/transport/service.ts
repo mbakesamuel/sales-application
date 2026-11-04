@@ -60,8 +60,8 @@ function buildLineCost(
     invoiceNo: null,
     deliveryOrderNo: null,
     qtyKg,
-    ratePerKg: rateResult.ratePerKgNumeric,
-    lineCost: qtyKg * rateResult.ratePerKgNumeric,
+    ratePerKg: rateResult.ratePerKgWithVat,
+    lineCost: qtyKg * rateResult.ratePerKgWithVat,
     rateMissing: false,
   };
 }

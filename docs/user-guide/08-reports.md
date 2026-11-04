@@ -154,8 +154,9 @@ If a PKO sale is “missing”, open the correct week and scroll to section 3 �
 ## Transportation cost (monthly)
 
 - Open-month transportation cost by collection point / product / customer (uses **Transport Rates**).
+- Columns include **Qty lifted (kg)**, **Rate / kg (XAF)** (VAT-inclusive from the current VAT schedule), and **Transport cost (XAF)** = qty × VAT-inclusive rate.
 - Subject to **App settings → Transportation cost → Moliwe + SCR MAYA transport cost policy** when that option is on.
-- Related compute screen: **Sales → Transportation cost**.
+- Related compute screen: **Sales → Transportation cost** (auto-computes Moliwe / SCR MAYA / LPO when the policy is on).
 
 ## Stock (weekly)
 

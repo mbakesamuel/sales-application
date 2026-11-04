@@ -32,13 +32,14 @@ function ReportTable({ report }: { report: TransportCostReport }) {
           <th>Collection point</th>
           <th>Product</th>
           <th class="scr-num">Qty lifted (kg)</th>
+          <th class="scr-num">Rate / kg (XAF)</th>
           <th class="scr-num">Transport cost (XAF)</th>
         </tr>
       </thead>
       <tbody>
         {dataRows.length === 0 ? (
           <tr>
-            <td colSpan={5} class="scr-empty-cell">
+            <td colSpan={6} class="scr-empty-cell">
               No lifted quantities in the open month.
             </td>
           </tr>
@@ -49,6 +50,7 @@ function ReportTable({ report }: { report: TransportCostReport }) {
               <td>{row.salesPointName}</td>
               <td>{row.productName}</td>
               <td class="scr-num">{formatKg(row.qtyKg)}</td>
+              <td class="scr-num">{formatMoney(row.ratePerKg)}</td>
               <td class="scr-num">
                 {row.rateMissing ? "Incomplete*" : formatMoney(row.transportCost)}
               </td>
@@ -62,6 +64,9 @@ function ReportTable({ report }: { report: TransportCostReport }) {
             </td>
             <td class="scr-num">
               <strong>{formatKg(totalRow.qtyKg)}</strong>
+            </td>
+            <td class="scr-num">
+              <strong>—</strong>
             </td>
             <td class="scr-num">
               <strong>
@@ -107,11 +112,13 @@ export function TransportCostReportDocument({ report }: { report: TransportCostR
         />
       }
     >
-      {hasMissingRate ? (
-        <p class="scr-note">
-          * Some rows are missing a transport rate for one or more lift dates.
-        </p>
-      ) : null}
+      <p class="scr-note">
+        Rate / kg includes VAT from the current tax schedule. Transport cost = qty × VAT-inclusive
+        rate.
+        {hasMissingRate
+          ? " * Some rows are missing a transport rate for one or more lift dates."
+          : ""}
+      </p>
       <ReportTable report={report} />
     </ReportDocumentShell>
       </DocumentPreview>

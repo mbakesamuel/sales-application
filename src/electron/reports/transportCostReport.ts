@@ -70,6 +70,10 @@ export function getTransportCostReport(userId?: string | null): TransportCostRep
       qtyKg: number;
       transportCost: number;
       hasMissingRate: boolean;
+      /** Ex-VAT schedule rate when all resolved lift rates match; otherwise mixed. */
+      uniformBaseRate: number | null;
+      rateMixed: boolean;
+      displayRateWithVat: number | null;
     }
   >();
 
@@ -85,6 +89,9 @@ export function getTransportCostReport(userId?: string | null): TransportCostRep
       qtyKg: 0,
       transportCost: 0,
       hasMissingRate: false,
+      uniformBaseRate: null,
+      rateMixed: false,
+      displayRateWithVat: null,
     };
 
     existing.qtyKg += line.qtyKg;
@@ -94,7 +101,18 @@ export function getTransportCostReport(userId?: string | null): TransportCostRep
       line.dateIssued,
     );
     if (rateResult.ok) {
-      existing.transportCost += line.qtyKg * rateResult.ratePerKgNumeric;
+      existing.transportCost += line.qtyKg * rateResult.ratePerKgWithVat;
+      if (!existing.rateMixed) {
+        if (existing.uniformBaseRate == null) {
+          existing.uniformBaseRate = rateResult.ratePerKgNumeric;
+          existing.displayRateWithVat = rateResult.ratePerKgWithVat;
+        } else if (
+          Math.abs(existing.uniformBaseRate - rateResult.ratePerKgNumeric) > 1e-9
+        ) {
+          existing.rateMixed = true;
+          existing.displayRateWithVat = null;
+        }
+      }
     } else {
       existing.hasMissingRate = true;
     }
@@ -118,6 +136,10 @@ export function getTransportCostReport(userId?: string | null): TransportCostRep
       productId: group.productId,
       productName: group.productName,
       qtyKg: group.qtyKg,
+      ratePerKg:
+        group.hasMissingRate || group.rateMixed
+          ? null
+          : group.displayRateWithVat,
       transportCost: group.hasMissingRate ? null : group.transportCost,
       rateMissing: group.hasMissingRate,
       kind: "data" as const,
@@ -146,6 +168,7 @@ export function getTransportCostReport(userId?: string | null): TransportCostRep
       productId: 0,
       productName: "",
       qtyKg: totals.qtyKg,
+      ratePerKg: null,
       transportCost: totals.hasMissingRate ? null : totals.transportCost,
       rateMissing: totals.hasMissingRate,
       kind: "total",

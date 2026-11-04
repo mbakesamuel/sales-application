@@ -1109,6 +1109,8 @@ export interface TransportCostReportRow {
   productId: number;
   productName: string;
   qtyKg: number;
+  /** VAT-inclusive rate/kg when uniform across lift dates; null if mixed/missing/total. */
+  ratePerKg: number | null;
   transportCost: number | null;
   rateMissing: boolean;
   kind: "data" | "total";

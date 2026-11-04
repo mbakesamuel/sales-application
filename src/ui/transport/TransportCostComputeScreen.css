@@ -4,22 +4,11 @@
   overflow-y: auto;
 }
 
-.tcc-parameter-card {
-  flex-shrink: 0;
-}
-
-.tcc-filters-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) auto;
+.tcc-modal-fields {
+  display: flex;
+  flex-direction: column;
   gap: 14px;
-  align-items: flex-end;
-  padding: 16px 20px;
-}
-
-@media (max-width: 860px) {
-  .tcc-filters-grid {
-    grid-template-columns: 1fr;
-  }
+  margin-bottom: 8px;
 }
 
 .tcc-field {
@@ -54,28 +43,9 @@
   box-shadow: 0 0 0 2px var(--accent-bg);
 }
 
-.tcc-action-wrap {
-  display: flex;
-  align-items: flex-end;
-}
-
-.tcc-compute-btn {
-  height: 37px;
-  padding: 0 20px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-}
-
-.tcc-policy-notice {
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-border);
-  color: var(--accent);
-  border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 13px;
-  margin: 0;
+.tcc-select:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .customers-banner-warning {

@@ -2,15 +2,19 @@ import { useEffect, useState } from "preact/hooks";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import { canWriteRouteFromSnapshot } from "../../shared/permissionUtils.ts";
 import type {
+  TransportCostComputeInput,
   TransportCostComputeResult,
   TransportCostFormOptions,
 } from "../../shared/transportCost.types.ts";
+import { isLooseLpoProduct } from "../../shared/looseLpoProduct.ts";
 import { getAuthToken } from "../auth/db.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type { TransportCostReport } from "../../shared/reports.types.ts";
+import { FormDialog } from "../components/FormDialog.tsx";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import { TransportCostReportDocument } from "../reports/TransportCostReportScreen.tsx";
+import "../components/FormDialog.css";
 import "../customers/CustomersScreen.css";
 import "./TransportCostComputeScreen.css";
 
@@ -120,9 +124,23 @@ export function TransportCostComputeScreen({
   const [printLoading, setPrintLoading] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
 
+  const [computeOpen, setComputeOpen] = useState(false);
   const [customerId, setCustomerId] = useState("");
   const [salesPointId, setSalesPointId] = useState("");
   const [productId, setProductId] = useState("");
+
+  function openComputeModal() {
+    setActionError(null);
+    setComputeOpen(true);
+  }
+
+  function closeComputeModal() {
+    if (computing) {
+      return;
+    }
+    setComputeOpen(false);
+    setActionError(null);
+  }
 
   useEffect(() => {
     if (!printOpen) {
@@ -190,10 +208,38 @@ export function TransportCostComputeScreen({
     };
   }, []);
 
-  async function handleCompute() {
+  async function runCompute(
+    input: TransportCostComputeInput,
+    options?: { closeModal?: boolean },
+  ): Promise<boolean> {
     setActionError(null);
-    setResult(null);
 
+    const token = getAuthToken();
+    if (!token) {
+      setActionError("Login required.");
+      return false;
+    }
+
+    setComputing(true);
+    try {
+      const computeResult = await getElectronApi().transportCost.compute(token, input);
+      setResult(computeResult);
+      if (options?.closeModal) {
+        setComputeOpen(false);
+      }
+      return true;
+    } catch (computeError) {
+      setResult(null);
+      setActionError(
+        computeError instanceof Error ? computeError.message : "Failed to compute transport cost.",
+      );
+      return false;
+    } finally {
+      setComputing(false);
+    }
+  }
+
+  async function handleCompute() {
     const parsedCustomerId = Number.parseInt(customerId, 10);
     const parsedSalesPointId = Number.parseInt(salesPointId, 10);
     const parsedProductId = Number.parseInt(productId, 10);
@@ -211,28 +257,91 @@ export function TransportCostComputeScreen({
       return;
     }
 
-    const token = getAuthToken();
-    if (!token) {
-      setActionError("Login required.");
-      return;
-    }
-
-    setComputing(true);
-    try {
-      const computeResult = await getElectronApi().transportCost.compute(token, {
+    await runCompute(
+      {
         customerId: parsedCustomerId,
         salesPointId: parsedSalesPointId,
         productId: parsedProductId,
-      });
-      setResult(computeResult);
-    } catch (computeError) {
-      setActionError(
-        computeError instanceof Error ? computeError.message : "Failed to compute transport cost.",
-      );
-    } finally {
-      setComputing(false);
-    }
+      },
+      { closeModal: true },
+    );
   }
+
+  useEffect(() => {
+    if (!options?.openPeriod || !options.transportCostMoliweOnlyPolicy) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function autoCompute() {
+      const customer = options!.customers[0];
+      const salesPoint = options!.salesPoints[0];
+      const product = options!.products.find((entry) => isLooseLpoProduct(entry));
+
+      if (!customer || !salesPoint || !product) {
+        if (!cancelled) {
+          setResult(null);
+          const missing: string[] = [];
+          if (!customer) missing.push("customer SCR MAYA");
+          if (!salesPoint) missing.push("collection point Moliwe");
+          if (!product) missing.push("product Loose Palm Oil (LPO)");
+          setActionError(
+            `Cannot auto-compute transportation cost: missing ${missing.join(", ")}.`,
+          );
+        }
+        return;
+      }
+
+      if (!cancelled) {
+        setCustomerId(String(customer.id));
+        setSalesPointId(String(salesPoint.id));
+        setProductId(String(product.productId));
+      }
+
+      const token = getAuthToken();
+      if (!token) {
+        if (!cancelled) {
+          setActionError("Login required.");
+        }
+        return;
+      }
+
+      if (!cancelled) {
+        setComputing(true);
+        setActionError(null);
+      }
+
+      try {
+        const computeResult = await getElectronApi().transportCost.compute(token, {
+          customerId: customer.id,
+          salesPointId: salesPoint.id,
+          productId: product.productId,
+        });
+        if (!cancelled) {
+          setResult(computeResult);
+        }
+      } catch (computeError) {
+        if (!cancelled) {
+          setResult(null);
+          setActionError(
+            computeError instanceof Error
+              ? computeError.message
+              : "Failed to compute transport cost.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setComputing(false);
+        }
+      }
+    }
+
+    void autoCompute();
+    return () => {
+      cancelled = true;
+    };
+  }, [options]);
 
   if (loading) {
     return <p class="customers-status">Loading…</p>;
@@ -250,8 +359,6 @@ export function TransportCostComputeScreen({
     );
   }
 
-  const period = options.openPeriod;
-
   return (
     <>
       <div class="customers-screen tcc-screen">
@@ -262,39 +369,24 @@ export function TransportCostComputeScreen({
             </div>
             <div>
               <h2 class="customers-screen-brand-title">Transportation Cost</h2>
-              <p class="customers-screen-brand-subtitle">
-                Open month: {period.monthName} {period.financialYear} ({period.startDate} to{" "}
-                {result?.asAtIso ?? period.endDate})
-              </p>
             </div>
           </div>
 
           <div class="customers-screen-header-actions">
-            {result ? (
+            {!options.transportCostMoliweOnlyPolicy ? (
               <button
                 type="button"
-                class="customers-btn customers-btn-secondary"
-                onClick={() => setPrintOpen(true)}
+                class="customers-btn customers-btn-primary"
+                disabled={!canCompute || options.salesPoints.length === 0 || computing}
+                onClick={openComputeModal}
               >
-                <IconPrinter /> Print
+                <IconCalculator /> Process cost
               </button>
             ) : null}
           </div>
         </header>
 
-        {options.policyNotice ? (
-          <p
-            class={`customers-banner ${
-              options.policyNotice.includes("no active collection point")
-                ? "customers-banner-error"
-                : "tcc-policy-notice"
-            }`}
-          >
-            {options.policyNotice}
-          </p>
-        ) : null}
-
-        {actionError ? (
+        {actionError && !computeOpen ? (
           <p class="customers-banner customers-banner-error">{actionError}</p>
         ) : null}
 
@@ -306,24 +398,176 @@ export function TransportCostComputeScreen({
           </div>
         ) : null}
 
-        <div class="customers-card tcc-parameter-card">
-          <div class="customers-card-toolbar">
-            <div class="customers-card-toolbar-row">
-              <div>
-                <h3 class="customers-card-title">Compute Parameters</h3>
-                <p class="customers-card-subtitle">
-                  Select customer, collection point, and product to calculate transportation allowance
-                </p>
-              </div>
+        <div class="customers-stats">
+          <div class="customers-stat-card">
+            <div class="customers-stat-icon customers-stat-icon-blue">
+              <IconPackage />
+            </div>
+            <div>
+              <p class="customers-stat-value">
+                {formatKg(result?.totalQtyKg ?? 0)} kg
+              </p>
+              <p class="customers-stat-label">Total Lifted Volume</p>
             </div>
           </div>
 
-          <div class="tcc-filters-grid">
+          <div class="customers-stat-card">
+            <div class="customers-stat-icon customers-stat-icon-emerald">
+              <IconCoins />
+            </div>
+            <div>
+              <p class="customers-stat-value">
+                {formatMoney(result?.totalCost ?? 0)} XAF
+              </p>
+              <p class="customers-stat-label">Total Transport Cost</p>
+            </div>
+          </div>
+
+          <div class="customers-stat-card">
+            <div class="customers-stat-icon customers-stat-icon-violet">
+              <IconFileText />
+            </div>
+            <div>
+              <p class="customers-stat-value">{result?.lines.length ?? 0}</p>
+              <p class="customers-stat-label">Validated Lift Invoices</p>
+            </div>
+          </div>
+
+          <div class="customers-stat-card">
+            <div class="customers-stat-icon customers-stat-icon-amber">
+              <IconCheck />
+            </div>
+            <div>
+              <p class="customers-stat-value">
+                {!result
+                  ? "—"
+                  : result.warnings.length === 0
+                    ? "Complete"
+                    : "Missing Rates"}
+              </p>
+              <p class="customers-stat-label">Rate Schedule</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="customers-card tcc-results-card">
+          <div class="customers-card-toolbar">
+            <div class="customers-card-toolbar-row">
+              <div>
+                <h3 class="customers-card-title">
+                  {result
+                    ? `${result.customerName} · ${result.salesPointName} · ${result.productName}`
+                    : "Lift transactions"}
+                </h3>
+                <p class="customers-card-subtitle">
+                  {result
+                    ? `${result.lines.length} lift transaction${result.lines.length === 1 ? "" : "s"} found`
+                    : computing
+                      ? "Computing transportation cost…"
+                      : options.transportCostMoliweOnlyPolicy
+                        ? "Waiting for Moliwe · SCR MAYA · Loose Palm Oil computation."
+                        : "Use Process cost to load validated lifts for the open month."}
+                </p>
+              </div>
+              {result ? (
+                <div class="customers-card-controls">
+                  <button
+                    type="button"
+                    class="customers-btn customers-btn-secondary"
+                    onClick={() => setPrintOpen(true)}
+                  >
+                    <IconPrinter /> Print Report
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div class="customers-table-scroll">
+            <table class="customers-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Invoice No</th>
+                  <th>DO No</th>
+                  <th class="tcc-num">Qty (kg)</th>
+                  <th class="tcc-num">Rate / kg (XAF)</th>
+                  <th class="tcc-num">Cost (XAF)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!result ? (
+                  <tr>
+                    <td colSpan={6} class="customers-table-empty">
+                      {computing
+                        ? "Computing…"
+                        : options.transportCostMoliweOnlyPolicy
+                          ? "No computation yet."
+                          : "No computation yet. Use Process cost to calculate allowance."}
+                    </td>
+                  </tr>
+                ) : result.lines.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} class="customers-table-empty">
+                      No validated lifts found for this selection in the open month.
+                    </td>
+                  </tr>
+                ) : (
+                  result.lines.map((line, index) => (
+                    <tr key={`${line.dateIssued}-${line.invoiceNo ?? index}`}>
+                      <td>{line.dateIssued}</td>
+                      <td>
+                        {line.invoiceNo ? (
+                          <span class="customers-mono-chip">{line.invoiceNo}</span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td>
+                        {line.deliveryOrderNo ? (
+                          <span class="customers-mono-chip">{line.deliveryOrderNo}</span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td class="tcc-num">
+                        <strong>{formatKg(line.qtyKg)}</strong>
+                      </td>
+                      <td class="tcc-num">
+                        {line.rateMissing ? "—" : formatMoney(line.ratePerKg)}
+                      </td>
+                      <td class="tcc-num">
+                        {line.rateMissing ? (
+                          <span class="customers-badge customers-badge-amber">
+                            Missing Rate
+                          </span>
+                        ) : (
+                          <strong>{formatMoney(line.lineCost)}</strong>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {computeOpen && !options.transportCostMoliweOnlyPolicy ? (
+        <FormDialog
+          ariaLabel="Compute Transportation Cost"
+          title="Compute Transportation Cost"
+          subtitle="Select customer, collection point, and product to calculate transportation allowance"
+          onClose={closeComputeModal}
+        >
+          <div class="tcc-modal-fields">
             <label class="tcc-field">
               <span class="tcc-field-label">Customer *</span>
               <select
                 class="tcc-select"
                 value={customerId}
+                disabled={computing}
                 onInput={(event) =>
                   setCustomerId((event.currentTarget as HTMLSelectElement).value)
                 }
@@ -342,6 +586,7 @@ export function TransportCostComputeScreen({
               <select
                 class="tcc-select"
                 value={salesPointId}
+                disabled={computing}
                 onInput={(event) =>
                   setSalesPointId((event.currentTarget as HTMLSelectElement).value)
                 }
@@ -360,6 +605,7 @@ export function TransportCostComputeScreen({
               <select
                 class="tcc-select"
                 value={productId}
+                disabled={computing}
                 onInput={(event) =>
                   setProductId((event.currentTarget as HTMLSelectElement).value)
                 }
@@ -373,156 +619,30 @@ export function TransportCostComputeScreen({
                 ))}
               </select>
             </label>
-
-            <div class="tcc-action-wrap">
-              <button
-                type="button"
-                class="customers-btn customers-btn-primary tcc-compute-btn"
-                disabled={
-                  !canCompute ||
-                  computing ||
-                  options.salesPoints.length === 0
-                }
-                onClick={() => void handleCompute()}
-              >
-                <IconCalculator />
-                {computing ? "Computing…" : "Compute Cost"}
-              </button>
-            </div>
           </div>
-        </div>
 
-        {result ? (
-          <>
-            <div class="customers-stats">
-              <div class="customers-stat-card">
-                <div class="customers-stat-icon customers-stat-icon-blue">
-                  <IconPackage />
-                </div>
-                <div>
-                  <p class="customers-stat-value">{formatKg(result.totalQtyKg)} kg</p>
-                  <p class="customers-stat-label">Total Lifted Volume</p>
-                </div>
-              </div>
+          {actionError ? <p class="form-dialog-error">{actionError}</p> : null}
 
-              <div class="customers-stat-card">
-                <div class="customers-stat-icon customers-stat-icon-emerald">
-                  <IconCoins />
-                </div>
-                <div>
-                  <p class="customers-stat-value">{formatMoney(result.totalCost)} XAF</p>
-                  <p class="customers-stat-label">Total Transport Cost</p>
-                </div>
-              </div>
-
-              <div class="customers-stat-card">
-                <div class="customers-stat-icon customers-stat-icon-violet">
-                  <IconFileText />
-                </div>
-                <div>
-                  <p class="customers-stat-value">{result.lines.length}</p>
-                  <p class="customers-stat-label">Validated Lift Invoices</p>
-                </div>
-              </div>
-
-              <div class="customers-stat-card">
-                <div class="customers-stat-icon customers-stat-icon-amber">
-                  <IconCheck />
-                </div>
-                <div>
-                  <p class="customers-stat-value">
-                    {result.warnings.length === 0 ? "Complete" : "Missing Rates"}
-                  </p>
-                  <p class="customers-stat-label">Rate Schedule</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="customers-card tcc-results-card">
-              <div class="customers-card-toolbar">
-                <div class="customers-card-toolbar-row">
-                  <div>
-                    <h3 class="customers-card-title">
-                      {result.customerName} · {result.salesPointName} · {result.productName}
-                    </h3>
-                    <p class="customers-card-subtitle">
-                      {result.lines.length} lift transaction{result.lines.length === 1 ? "" : "s"} found
-                    </p>
-                  </div>
-                  <div class="customers-card-controls">
-                    <button
-                      type="button"
-                      class="customers-btn customers-btn-secondary"
-                      onClick={() => setPrintOpen(true)}
-                    >
-                      <IconPrinter /> Print Report
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="customers-table-scroll">
-                <table class="customers-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Invoice No</th>
-                      <th>DO No</th>
-                      <th class="tcc-num">Qty (kg)</th>
-                      <th class="tcc-num">Rate / kg (XAF)</th>
-                      <th class="tcc-num">Cost (XAF)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.lines.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} class="customers-table-empty">
-                          No validated lifts found for this selection in the open month.
-                        </td>
-                      </tr>
-                    ) : (
-                      result.lines.map((line, index) => (
-                        <tr key={`${line.dateIssued}-${line.invoiceNo ?? index}`}>
-                          <td>{line.dateIssued}</td>
-                          <td>
-                            {line.invoiceNo ? (
-                              <span class="customers-mono-chip">{line.invoiceNo}</span>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                          <td>
-                            {line.deliveryOrderNo ? (
-                              <span class="customers-mono-chip">{line.deliveryOrderNo}</span>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                          <td class="tcc-num">
-                            <strong>{formatKg(line.qtyKg)}</strong>
-                          </td>
-                          <td class="tcc-num">
-                            {line.rateMissing ? "—" : formatMoney(line.ratePerKg)}
-                          </td>
-                          <td class="tcc-num">
-                            {line.rateMissing ? (
-                              <span class="customers-badge customers-badge-amber">
-                                Missing Rate
-                              </span>
-                            ) : (
-                              <strong>{formatMoney(line.lineCost)}</strong>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </>
-        ) : null}
-      </div>
+          <div class="form-dialog-actions">
+            <button
+              type="button"
+              class="form-dialog-btn-secondary"
+              disabled={computing}
+              onClick={closeComputeModal}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="form-dialog-btn-primary"
+              disabled={!canCompute || computing || options.salesPoints.length === 0}
+              onClick={() => void handleCompute()}
+            >
+              {computing ? "Computing…" : "Compute Cost"}
+            </button>
+          </div>
+        </FormDialog>
+      ) : null}
 
       {printOpen ? (
         <ReportOverlayShell

@@ -41,7 +41,7 @@ Screen title: **General Application Settings**. Option cards each have their own
 
 ### Transportation cost
 
-- **Moliwe + SCR MAYA transport cost policy** — On by default. Compute and the monthly transportation cost report include only Moliwe invoices raised to customer SCR MAYA. Uncheck to include all collection points and customers.
+- **Moliwe + SCR MAYA transport cost policy** — On by default. **Sales → Transportation cost** auto-computes for collection point Moliwe, customer SCR MAYA, and product Loose Palm Oil (LPO), and hides **Process cost**. The monthly transportation cost report is limited to those Moliwe / SCR MAYA lifts. Uncheck to include all collection points and customers and use **Process cost** to choose parameters manually.
 
 ### Session security
 
@@ -168,6 +168,6 @@ Rates are resolved as-of the invoice or DO date when calculating taxes.
 
 ## Transport Rates
 
-Maintain transport cost **per kg** by **collection point** and **product**. Used by **Sales → Transportation cost** compute and the monthly transportation cost report (policy filter under **App settings → Transportation cost**).
+Maintain transport cost **per kg** (ex-VAT) by **collection point** and **product**. Used by **Sales → Transportation cost** compute and the monthly transportation cost report; both apply the current VAT rate when showing rate and cost (policy filter under **App settings → Transportation cost**).
 
 Next: [Customers and products](03-customers-products.md).

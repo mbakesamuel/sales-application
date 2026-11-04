@@ -1,7 +1,15 @@
 import { getDatabase } from "../db/index.js";
+import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
 
 export type ResolveTransportRateResult =
-  | { ok: true; ratePerKg: string; ratePerKgNumeric: number }
+  | {
+      ok: true;
+      ratePerKg: string;
+      ratePerKgNumeric: number;
+      /** Schedule rate with VAT applied (rate × (1 + vatRate)). */
+      ratePerKgWithVat: number;
+      vatRate: number;
+    }
   | { ok: false; error: string };
 
 function normalizeAsOfDay(asOfDate: string): string {
@@ -10,6 +18,18 @@ function normalizeAsOfDay(asOfDate: string): string {
     return trimmed;
   }
   return trimmed.slice(0, 10);
+}
+
+/** Apply current VAT to an ex-VAT transport schedule rate. */
+export function applyVatToTransportRate(
+  ratePerKgExVat: number,
+  asOfDate?: string | null,
+): { ratePerKgWithVat: number; vatRate: number } {
+  const vatRate = loadTaxRatesAsOf(asOfDate).vatRate;
+  return {
+    vatRate,
+    ratePerKgWithVat: ratePerKgExVat * (1 + vatRate),
+  };
 }
 
 export function resolveTransportRatePerKg(
@@ -39,9 +59,16 @@ export function resolveTransportRatePerKg(
     return { ok: false, error: "Transport rate is invalid." };
   }
 
+  const { ratePerKgWithVat, vatRate } = applyVatToTransportRate(
+    ratePerKgNumeric,
+    day,
+  );
+
   return {
     ok: true,
     ratePerKg: row.ratePerKg,
     ratePerKgNumeric,
+    ratePerKgWithVat,
+    vatRate,
   };
 }

@@ -186,11 +186,11 @@ Sidebar section: **Sales**. Reference: [Sales invoices](../user-guide/04-sales-i
 **Before you start:** Transport Rates maintained under General Parameters; open month; App settings Moliwe + SCR MAYA policy understood
 
 1. Open **Sales → Transportation cost**.
-2. Select customer, collection point, and other filters the screen requires for the open month.
-3. Run **Compute** (or equivalent) to calculate cost from lifted quantities and rate schedules.
-4. Review results; print/export if offered.
+2. If **Moliwe + SCR MAYA** policy is **on** (default): the screen auto-computes for Moliwe, SCR MAYA, and Loose Palm Oil (LPO). **Process cost** is hidden.
+3. If the policy is **off**: use **Process cost**, select customer, collection point, and product, then compute.
+4. Review results (rates and costs are VAT-inclusive); print/export if offered.
 5. For the company-wide printable report, use **Reports → Monthly → Transportation cost**.
 
-**Check:** Computed amounts match expected rates × kg for the selection; policy filter matches App settings.
+**Check:** Computed amounts match expected (rate × (1 + VAT)) × kg for the selection; policy filter matches App settings.
 
-**If it fails:** Missing transport rates; no lifts in period; policy excluding non-Moliwe / non-SCR MAYA invoices when that option is on.
+**If it fails:** Missing Moliwe / SCR MAYA / LPO master data when policy is on; missing transport rates; no lifts in period; policy excluding non-Moliwe / non-SCR MAYA invoices when that option is on.
