@@ -418,6 +418,7 @@ export async function postTransferCommand(input: {
         throw new Error("Add at least one line before posting.");
       }
 
+      const occurredAt = existing.dispatched_at ?? new Date();
       for (const line of existing.stock_transfer_lines) {
         if (line.to_storage_location_id == null) {
           throw new Error("Each line needs a destination storage location.");
@@ -428,7 +429,7 @@ export async function postTransferCommand(input: {
           storageLocationId: line.from_storage_location_id,
           qty: line.qty,
           kind: "TRANSFER_OUT",
-          occurredAt: existing.dispatched_at,
+          occurredAt,
           userId: input.userId,
           sourceKind: "TRANSFER",
           sourceId: existing.id,
@@ -440,7 +441,7 @@ export async function postTransferCommand(input: {
           storageLocationId: line.to_storage_location_id,
           qty: line.qty,
           kind: "TRANSFER_IN",
-          occurredAt: existing.dispatched_at,
+          occurredAt,
           userId: input.userId,
           sourceKind: "TRANSFER",
           sourceId: existing.id,
@@ -506,7 +507,7 @@ export async function receiveTransferCommand(
         input.lines.map((l) => [l.lineId, l.toStorageLocationId]),
       );
       const now = new Date();
-      const occurredAt = existing.dispatched_at;
+      const occurredAt = existing.dispatched_at ?? now;
 
       // If still DRAFT, dispatch (TRANSFER_OUT) first.
       if (existing.status === "DRAFT") {

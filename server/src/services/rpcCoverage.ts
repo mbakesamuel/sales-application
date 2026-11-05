@@ -256,19 +256,23 @@ export const coverageHandlers: Record<string, Handler> = {
       args[1] && typeof args[1] === "object"
         ? (args[1] as never)
         : (firstObject(args) as never);
-    return booklets.createBooklet(input, ctx.userId);
+    return booklets.createBooklet(ctx.userId, input);
   },
   "booklets.validateBooklet": async (args, ctx) => {
     const id =
       typeof args[1] === "string" ? args[1] : String(args[0] ?? "");
-    return booklets.validateBooklet(id, ctx.userId);
+    return booklets.validateBooklet(ctx.userId, id);
   },
   "booklets.rejectBooklet": async (args, ctx) => {
     const id =
       typeof args[1] === "string" ? args[1] : String(args[0] ?? "");
     const reason =
-      typeof args[2] === "string" ? args[2] : String(args[1] ?? "");
-    return booklets.rejectBooklet(id, reason, ctx.userId);
+      typeof args[2] === "string"
+        ? args[2]
+        : typeof args[1] === "string" && typeof args[0] === "string"
+          ? args[1]
+          : undefined;
+    return booklets.rejectBooklet(ctx.userId, id, reason);
   },
   "booklets.validateManyBooklets": async (args, ctx) => {
     const ids = Array.isArray(args[1])
@@ -276,14 +280,18 @@ export const coverageHandlers: Record<string, Handler> = {
       : Array.isArray(args[0])
         ? (args[0] as string[])
         : [];
-    return booklets.validateManyBooklets(ids, ctx.userId);
+    return booklets.validateManyBooklets(ctx.userId, ids);
   },
-  "booklets.cancelBooklet": async (args) => {
+  "booklets.cancelBooklet": async (args, ctx) => {
     const id =
       typeof args[1] === "string" ? args[1] : String(args[0] ?? "");
     const reason =
-      typeof args[2] === "string" ? args[2] : String(args[1] ?? "");
-    return booklets.cancelBooklet(id, reason);
+      typeof args[2] === "string"
+        ? args[2]
+        : typeof args[1] === "string" && typeof args[0] === "string"
+          ? args[1]
+          : undefined;
+    return booklets.cancelBooklet(ctx.userId, id, reason);
   },
   "booklets.validateSerial": async (args) =>
     booklets.validateSerial(firstObject(args) as never),

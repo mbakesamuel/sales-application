@@ -1901,6 +1901,7 @@ async function dispatchTransferTx(
   }
 
   const now = new Date();
+  const occurredAt = existing.dispatched_at ?? now;
   for (const line of byId(existing.stock_transfer_lines)) {
     if (line.from_storage_location_id == null) {
       throw new Error("Each line needs a source storage location.");
@@ -1911,7 +1912,7 @@ async function dispatchTransferTx(
       storageLocationId: line.from_storage_location_id,
       qty: line.qty,
       kind: "TRANSFER_OUT",
-      occurredAt: existing.dispatched_at,
+      occurredAt,
       userId: actor.id,
       sourceKind: "TRANSFER",
       sourceId: existing.id,
