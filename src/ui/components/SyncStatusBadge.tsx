@@ -1,16 +1,19 @@
 import { useEffect, useState } from "preact/hooks";
 import { Cloud, CloudOff, RefreshCw, AlertTriangle } from "lucide-react";
 import { getAuthenticatedSync } from "../auth/sync.ts";
+import { isHttpApiMode } from "../api/httpAppApi.ts";
 import type { SyncProgressState } from "../../shared/sync.types.ts";
 import "./SyncStatusBadge.css";
 
 export function SyncStatusBadge() {
+  const httpMode = isHttpApiMode();
   const [syncState, setSyncState] = useState<SyncProgressState | null>(null);
   const [busy, setBusy] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (httpMode) return;
     let cancelled = false;
 
     async function loadStatus() {
@@ -34,7 +37,18 @@ export function SyncStatusBadge() {
       clearInterval(interval);
       unsubscribe();
     };
-  }, []);
+  }, [httpMode]);
+
+  if (httpMode) {
+    return (
+      <div class="sync-badge-container">
+        <span class="sync-badge sync-badge--online" title="Thin client — shared Postgres API">
+          <Cloud size={14} class="sync-badge-icon" />
+          <span class="sync-badge-text">API</span>
+        </span>
+      </div>
+    );
+  }
 
   async function handleSyncNow(e: MouseEvent) {
     e.stopPropagation();
@@ -78,7 +92,12 @@ export function SyncStatusBadge() {
   } else if (isOnline) {
     badgeClass = "sync-badge--online";
     Icon = Cloud;
-    statusText = pendingCount > 0 ? `${pendingCount} pending` : "Synced";
+    statusText =
+      pendingCount > 0 ? `${pendingCount} pending` : "Online";
+  } else {
+    statusText = syncState.syncServerUrl?.trim()
+      ? "Server offline"
+      : "Offline";
   }
 
   return (
@@ -105,7 +124,13 @@ export function SyncStatusBadge() {
             <div class="sync-popover-body">
               <div class="sync-popover-row">
                 <span class="sync-popover-label">Connection:</span>
-                <span class="sync-popover-val">{isOnline ? "Online (Connected)" : "Offline (Local only)"}</span>
+                <span class="sync-popover-val">
+                  {isOnline
+                    ? "Online (Connected)"
+                    : syncState.syncServerUrl?.trim()
+                      ? "Offline — mutations disabled"
+                      : "Offline (no server configured)"}
+                </span>
               </div>
 
               <div class="sync-popover-row">

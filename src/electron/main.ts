@@ -134,43 +134,59 @@ function createWindow(): BrowserWindow {
   return mainWindow;
 }
 
+/** Thin client: renderer uses VITE_API_BASE_URL HTTP API; no local SQLite. */
+const THIN_CLIENT =
+  process.env.SALES_THIN_CLIENT === "1" ||
+  Boolean(process.env.SALES_API_BASE_URL?.trim());
+
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
-  try {
-    initDatabase();
-    backfillFinancialMonths();
-  } catch (error) {
-    console.error("Database initialization failed:", error);
-    const message = error instanceof Error ? error.message : String(error);
-    dialog.showErrorBox(
-      "Database initialization failed",
-      `${message}\n\nThe application cannot start. If this persists after reinstalling, delete the folder:\n${app.getPath("userData")}`,
+
+  if (THIN_CLIENT) {
+    console.log(
+      "SALES_THIN_CLIENT: skipping SQLite — UI must use VITE_API_BASE_URL HTTP API.",
     );
-    app.exit(1);
-    return;
+    registerDialogHandlers();
+    registerPrintHandlers();
+    registerWindowsHandlers();
+    createWindow();
+  } else {
+    try {
+      initDatabase();
+      backfillFinancialMonths();
+    } catch (error) {
+      console.error("Database initialization failed:", error);
+      const message = error instanceof Error ? error.message : String(error);
+      dialog.showErrorBox(
+        "Database initialization failed",
+        `${message}\n\nThe application cannot start. If this persists after reinstalling, delete the folder:\n${app.getPath("userData")}`,
+      );
+      app.exit(1);
+      return;
+    }
+    registerDatabaseHandlers();
+    registerAuthHandlers();
+    registerSalesHandlers();
+    registerDeliveryOrdersHandlers();
+    registerVehicleConsignmentNotesHandlers();
+    registerCarryForwardHandlers();
+    registerCarryForwardStockHandlers();
+    registerStockHandlers();
+    registerReportsHandlers();
+    registerDashboardHandlers();
+    registerFinancialYearsHandlers();
+    registerPermissionsHandlers();
+    registerDialogHandlers();
+    registerPrintHandlers();
+    registerBackupHandlers();
+    startBackupScheduler();
+    registerTransportCostHandlers();
+    registerWindowsHandlers();
+    registerBookletsHandlers();
+    registerSyncHandlers();
+    getSyncService().init();
+    createWindow();
   }
-  registerDatabaseHandlers();
-  registerAuthHandlers();
-  registerSalesHandlers();
-  registerDeliveryOrdersHandlers();
-  registerVehicleConsignmentNotesHandlers();
-  registerCarryForwardHandlers();
-  registerCarryForwardStockHandlers();
-  registerStockHandlers();
-  registerReportsHandlers();
-  registerDashboardHandlers();
-  registerFinancialYearsHandlers();
-  registerPermissionsHandlers();
-  registerDialogHandlers();
-  registerPrintHandlers();
-  registerBackupHandlers();
-  startBackupScheduler();
-  registerTransportCostHandlers();
-  registerWindowsHandlers();
-  registerBookletsHandlers();
-  registerSyncHandlers();
-  getSyncService().init();
-  createWindow();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -181,11 +197,15 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
-    closeDatabase();
+    if (!THIN_CLIENT) {
+      closeDatabase();
+    }
     app.quit();
   }
 });
 
 app.on("before-quit", () => {
-  closeDatabase();
+  if (!THIN_CLIENT) {
+    closeDatabase();
+  }
 });

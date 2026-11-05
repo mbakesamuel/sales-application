@@ -86,6 +86,7 @@ import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import { DashboardScreen } from "../dashboard/DashboardScreen.tsx";
 import { SyncStatusBadge } from "../components/SyncStatusBadge.tsx";
+import { ServerOfflineBanner } from "../components/ServerOfflineBanner.tsx";
 import "./HomeScreen.css";
 
 const SIDEBAR_COLLAPSED_KEY = "home-sidebar-collapsed";
@@ -869,6 +870,7 @@ export function HomeScreen({
   return (
     <ReportOverlayContext.Provider value={reportOverlayContextValue}>
     <div class={`home-layout${sidebarCollapsed ? " is-sidebar-collapsed" : ""}`}>
+      <ServerOfflineBanner />
       <header class="home-topbar no-print">
         <div class="home-topbar-brand">
           <img

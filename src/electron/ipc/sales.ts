@@ -109,7 +109,7 @@ export function registerSalesHandlers(): void {
 
   ipcMain.handle(
     "sales:createSale",
-    (_event, input: CreateSaleInput): SaveSaleResult => {
+    async (_event, input: CreateSaleInput): Promise<SaveSaleResult> => {
       if (!input || typeof input.userId !== "string") {
         return { ok: false, error: "Login required." };
       }

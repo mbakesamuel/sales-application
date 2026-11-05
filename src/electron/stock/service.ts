@@ -58,6 +58,20 @@ import {
   serializeStockTransferForSync,
   serializeStockAdjustmentForSync,
 } from "../sync/syncOutbox.js";
+import { isCommandApiEnabled } from "../api/client.js";
+import {
+  requireCommandApiOnline,
+  requireCommandApiOnlineCached,
+} from "../api/onlineOnly.js";
+import {
+  createStockAdjustmentRemote,
+  createStockReceiptRemote,
+  createStockTransferRemote,
+  postStockAdjustmentRemote,
+  postStockReceiptRemote,
+  postStockTransferRemote,
+  receiveStockTransferRemote,
+} from "../api/stockRemote.js";
 import {
   assertMovementLocationRules,
   assertProductsAllowStorageLocation,
@@ -1896,8 +1910,16 @@ function finalizeTransferReceiveFromStoredLines(
   ).run(receivedAt, userId, receiveDate, transferId);
 }
 
-export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
+export async function saveReceipt(
+  input: SaveReceiptInput,
+): Promise<StockMutationResult> {
   try {
+    const online = input.id
+      ? requireCommandApiOnlineCached()
+      : await requireCommandApiOnline();
+    if (!online.ok) {
+      return online;
+    }
     const actor = getActor(input.userId);
     const uiProductFilter = normalizeStockProductFilter(input.productFilter);
     const postImmediately = Boolean(input.postImmediately);
@@ -2022,8 +2044,52 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
         return updated;
       }
 
-      const id = randomUUID();
-      const receiptNo = resolveReceiptNoForCreate(db, receivedAt, input.receiptNo);
+      throw new Error("INTERNAL_CREATE_OUTSIDE_TX");
+    });
+
+    if (input.id) {
+      const result = tx();
+      return {
+        ok: true,
+        id: result.id,
+        documentNo: result.receiptNo,
+        posted: false,
+      };
+    }
+
+    let id: string = randomUUID();
+    let receiptNo = "";
+    let posted = postImmediately;
+
+    if (isCommandApiEnabled()) {
+      const remote = await createStockReceiptRemote({
+        ...input,
+        id: null,
+        receiptNo: input.receiptNo?.trim() || null,
+        lines,
+      });
+      if (!remote.ok) {
+        return remote;
+      }
+      id = remote.id;
+      receiptNo = remote.documentNo;
+      posted = Boolean(remote.posted);
+    } else {
+      receiptNo = resolveReceiptNoForCreate(db, receivedAt, input.receiptNo);
+    }
+
+    const createTx = db.transaction(() => {
+      for (const line of lines) {
+        if (line.storageLocationId != null) {
+          assertStorageLocationForSalesPoint(
+            db,
+            input.salesPointId,
+            line.storageLocationId,
+            "receipt",
+          );
+        }
+      }
+
       db.prepare(
         `INSERT INTO StockReceipt (
           id, receiptNo, salesPointId, receivedAt, supplierLabel, status, notes, createdByUserId
@@ -2052,7 +2118,7 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
         );
       }
 
-      if (postImmediately) {
+      if (posted) {
         finalizeReceiptPost(db, input.userId, id, uiProductFilter);
       }
 
@@ -2064,24 +2130,34 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
       return { id, receiptNo };
     });
 
-    const result = tx();
+    const result = createTx();
     return {
       ok: true,
       id: result.id,
       documentNo: result.receiptNo,
-      posted: postImmediately,
+      posted,
     };
   } catch (error) {
     return { ok: false, error: describeError(error, "Could not save receipt.") };
   }
 }
 
-export function postReceipt(
+export async function postReceipt(
   userId: string,
   receiptId: string,
   productFilterInput?: StockProductFilter | null,
-): StockGenericResult {
+): Promise<StockGenericResult> {
   try {
+    const online = await requireCommandApiOnline();
+    if (!online.ok) {
+      return online;
+    }
+    if (isCommandApiEnabled()) {
+      const remote = await postStockReceiptRemote(receiptId, userId);
+      if (!remote.ok) {
+        return remote;
+      }
+    }
     const actor = getActor(userId);
     const productFilter = normalizeStockProductFilter(productFilterInput);
     assertRouteWrite(actor.role, STOCK_MODULE_ROUTE_ID);
@@ -2120,8 +2196,16 @@ export function cancelReceipt(
   return cancelStockDocument(userId, "RECEIPT", receiptId, productFilter);
 }
 
-export function saveTransfer(input: SaveTransferInput): StockMutationResult {
+export async function saveTransfer(
+  input: SaveTransferInput,
+): Promise<StockMutationResult> {
   try {
+    const online = input.id
+      ? requireCommandApiOnlineCached()
+      : await requireCommandApiOnline();
+    if (!online.ok) {
+      return online;
+    }
     const actor = getActor(input.userId);
     const uiProductFilter = normalizeStockProductFilter(input.productFilter);
     const postImmediately = Boolean(input.postImmediately);
@@ -2207,6 +2291,25 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
         db,
         lines.map((line) => line.productId),
       );
+    }
+
+    let remoteId: string | null = null;
+    let remoteNo: string | null = null;
+    let posted = postImmediately;
+
+    if (!input.id && isCommandApiEnabled()) {
+      const remote = await createStockTransferRemote({
+        ...input,
+        id: null,
+        transferNo: input.transferNo?.trim() || null,
+        lines,
+      });
+      if (!remote.ok) {
+        return remote;
+      }
+      remoteId = remote.id;
+      remoteNo = remote.documentNo;
+      posted = Boolean(remote.posted);
     }
 
     const tx = db.transaction(() => {
@@ -2311,8 +2414,9 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
         return updated;
       }
 
-      const id = randomUUID();
-      const transferNo = resolveTransferNoForCreate(db, dispatchedAt, input.transferNo);
+      const id = remoteId ?? randomUUID();
+      const transferNo =
+        remoteNo ?? resolveTransferNoForCreate(db, dispatchedAt, input.transferNo);
       db.prepare(
         `INSERT INTO StockTransfer (
           id, transferNo, fromSalesPointId, toSalesPointId, dispatchedAt, status, notes,
@@ -2356,7 +2460,7 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
         }
       }
 
-      if (postImmediately) {
+      if (posted) {
         if (isIntra) {
           finalizeInternalTransferPost(db, input.userId, id, uiProductFilter);
         } else {
@@ -2378,19 +2482,29 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
       ok: true,
       id: result.id,
       documentNo: result.transferNo,
-      posted: postImmediately,
+      posted,
     };
   } catch (error) {
     return { ok: false, error: describeError(error, "Could not save transfer.") };
   }
 }
 
-export function postInternalTransfer(
+export async function postInternalTransfer(
   userId: string,
   transferId: string,
   productFilterInput?: StockProductFilter | null,
-): StockGenericResult {
+): Promise<StockGenericResult> {
   try {
+    const online = await requireCommandApiOnline();
+    if (!online.ok) {
+      return online;
+    }
+    if (isCommandApiEnabled()) {
+      const remote = await postStockTransferRemote(transferId, userId);
+      if (!remote.ok) {
+        return remote;
+      }
+    }
     const actor = getActor(userId);
     const productFilter = normalizeStockProductFilter(productFilterInput);
     assertStockModuleWrite(actor.role, productFilter, "stock-transfers");
@@ -2457,8 +2571,20 @@ export function dispatchTransfer(
   }
 }
 
-export function receiveTransfer(input: ReceiveTransferInput): StockGenericResult {
+export async function receiveTransfer(
+  input: ReceiveTransferInput,
+): Promise<StockGenericResult> {
   try {
+    const online = await requireCommandApiOnline();
+    if (!online.ok) {
+      return online;
+    }
+    if (isCommandApiEnabled()) {
+      const remote = await receiveStockTransferRemote(input);
+      if (!remote.ok) {
+        return remote;
+      }
+    }
     const actor = getActor(input.userId);
     const uiProductFilter = normalizeStockProductFilter(input.productFilter);
     if (uiProductFilter !== "bottled") {
@@ -2580,8 +2706,16 @@ export function cancelTransfer(
   return cancelStockDocument(userId, "TRANSFER", transferId, productFilter);
 }
 
-export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult {
+export async function saveAdjustment(
+  input: SaveAdjustmentInput,
+): Promise<StockMutationResult> {
   try {
+    const online = input.id
+      ? requireCommandApiOnlineCached()
+      : await requireCommandApiOnline();
+    if (!online.ok) {
+      return online;
+    }
     const actor = getActor(input.userId);
     const uiProductFilter = normalizeStockProductFilter(input.productFilter);
     assertStockModuleWrite(actor.role, uiProductFilter, "stock-adjustments");
@@ -2634,6 +2768,22 @@ export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult 
         lines.map((line) => line.productId),
       ),
     );
+
+    let remoteId: string | null = null;
+    let remoteNo: string | null = null;
+
+    if (!input.id && isCommandApiEnabled()) {
+      const remote = await createStockAdjustmentRemote({
+        ...input,
+        id: null,
+        lines,
+      });
+      if (!remote.ok) {
+        return remote;
+      }
+      remoteId = remote.id;
+      remoteNo = remote.documentNo;
+    }
 
     const tx = db.transaction(() => {
       for (const line of lines) {
@@ -2694,8 +2844,8 @@ export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult 
         return updated;
       }
 
-      const id = randomUUID();
-      const adjustmentNo = allocateAdjustmentNo(db, occurredAt);
+      const id = remoteId ?? randomUUID();
+      const adjustmentNo = remoteNo ?? allocateAdjustmentNo(db, occurredAt);
       db.prepare(
         `INSERT INTO StockAdjustment (
           id, adjustmentNo, salesPointId, occurredAt, reason, status, createdByUserId
@@ -2734,12 +2884,22 @@ export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult 
   }
 }
 
-export function postAdjustment(
+export async function postAdjustment(
   userId: string,
   adjustmentId: string,
   productFilterInput?: StockProductFilter | null,
-): StockGenericResult {
+): Promise<StockGenericResult> {
   try {
+    const online = await requireCommandApiOnline();
+    if (!online.ok) {
+      return online;
+    }
+    if (isCommandApiEnabled()) {
+      const remote = await postStockAdjustmentRemote(adjustmentId, userId);
+      if (!remote.ok) {
+        return remote;
+      }
+    }
     const actor = getActor(userId);
     const productFilter = normalizeStockProductFilter(productFilterInput);
     assertStockModuleWrite(actor.role, productFilter, "stock-adjustments");

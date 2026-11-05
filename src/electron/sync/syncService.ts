@@ -502,6 +502,10 @@ export class SyncService extends EventEmitter {
 
     applyTx();
   }
+
+  public getNetworkMonitor(): NetworkMonitor {
+    return this.networkMonitor;
+  }
 }
 
 let syncServiceInstance: SyncService | null = null;

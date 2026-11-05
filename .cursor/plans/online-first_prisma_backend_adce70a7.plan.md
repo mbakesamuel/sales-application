@@ -1,31 +1,37 @@
 ---
 name: Online-first Prisma backend
-overview: Evolve the existing Hono/Postgres sync server with Prisma into an online-first command API, and route Electron writes through a main-process gateway that calls the API when online and falls back to SQLite + SyncOutbox when offline—enabling multi-user at one sales point without a greenfield rewrite.
+overview: Evolve the existing Hono/Postgres sync server with Prisma into a server-authoritative command API. Electron (and later browser) clients are online-only—all reads and writes go through the API with no SQLite/outbox offline fallback—so multi-user at one sales point shares one source of truth.
 todos:
   - id: prisma-setup
     content: Add Prisma to server/, introspect postgres_schema, prisma client singleton + health
-    status: pending
+    status: completed
   - id: do-uuid
-    content: Switch DeliveryOrder PKs to text/UUID (schema + local create + sync upsert)
-    status: pending
+    content: Switch DeliveryOrder PKs to text/UUID (schema + create paths + sync upserts if kept temporarily)
+    status: completed
   - id: command-apis
-    content: "Add /api/v1 command routes: sequences, sales, DOs, stock, ops pull (Prisma + device auth)"
-    status: pending
-  - id: ops-pull
-    content: Extend sync/ops pull so sales-point operational data replicates to peer terminals
-    status: pending
-  - id: write-gateway
-    content: Electron API client + online-first gateway in sales/DO/stock services with SQLite+outbox fallback
-    status: pending
-  - id: reconnect-flow
-    content: "On reconnect: push outbox then pull ops; mirror online API responses into local SQLite"
-    status: pending
+    content: "Add /api/v1 command routes: sequences, sales, DOs, stock, ops list/detail (Prisma + device/session auth)"
+    status: completed
+  - id: electron-api-client
+    content: Electron main-process API client (base URL + device/session token); domain services call API only
+    status: completed
+  - id: retire-local-write-path
+    content: Remove SQLite write+SyncOutbox fallback from sales/DO/stock; fail closed when API unreachable
+    status: completed
+  - id: ui-connectivity
+    content: Surface offline/unreachable state in UI; disable mutations until reconnect; optional read-only retry
+    status: completed
 isProject: false
 ---
 
-# Online-first backend with offline fallback
+# Online-only server-authoritative backend
 
-## Current state (reuse)
+## Decision
+
+The product is **online-only**: no local SQLite write path, no SyncOutbox offline queue, and no “sell while offline then sync later” fallback. If the API is unreachable, mutations fail and the UI shows that clearly.
+
+Local SQLite may remain temporarily as a **legacy bootstrap/dev artifact** during migration, but it is not a runtime fallback for business writes.
+
+## Current state (today)
 
 ```mermaid
 flowchart LR
@@ -38,106 +44,98 @@ flowchart LR
   Hono --> PG[(Postgres)]
 ```
 
-Today writes always hit SQLite first; sync only **pushes** ops and **pulls** masters. Two terminals at the same sales point cannot share live stock, invoice/DO numbers, or DO remaining balances. DeliveryOrder integer PKs collide across devices.
+Writes hit SQLite first; sync pushes ops and pulls masters. Two terminals at the same sales point cannot share live stock, invoice/DO numbers, or DO remaining balances.
 
 ## Target architecture
 
 ```mermaid
 flowchart LR
   UI[Preact UI] --> IPC[IPC]
-  IPC --> GW[Write gateway]
-  GW -->|online| API[Hono command API]
-  GW -->|offline| Local[SQLite + Outbox]
+  IPC --> Svc[Domain services]
+  Svc -->|always| API[Hono command API]
   API --> Prisma[Prisma]
   Prisma --> PG[(Postgres)]
-  Local --> Sync[SyncService]
-  Sync -->|flush outbox + pull ops| API
-  API --> Mirror[Mirror response into SQLite]
+  Svc -.->|unreachable| Err[Fail closed + UI banner]
 ```
 
-- **Online:** main-process gateway calls command APIs; on success, apply the server response into local SQLite (cache for UI/offline).
-- **Offline / API failure:** existing path — write SQLite, enqueue outbox; reconnect flushes via existing push, then pulls **operational deltas** scoped by `salesPointId`.
-- **Prisma** lands on existing [`server/`](server/); keep `/api/sync/*` working during migration (hybrid: Prisma for new routes, raw `postgres` for sync until ported).
+- **All business writes and authoritative reads** go to Postgres via Hono + Prisma.
+- **Renderer never talks HTTP** — only the Electron main process (same as today).
+- **No offline outbox.** Reconnect simply restores API access; there is nothing to flush from a local queue.
+- Optional later: browser UI can call the same API (aligned with [hono_backend_split](hono_backend_split_7bee0f84.plan.md)); this plan focuses on Electron → command API first.
 
 ## Phase 1 — Prisma on existing server
 
-- Add `prisma`, `@prisma/client` to [`server/package.json`](server/package.json); create `server/prisma/schema.prisma` mapped from [`server/schema/postgres_schema.sql`](server/schema/postgres_schema.sql) (same tables/columns; use `@@map` / `@map` for snake_case).
-- Keep applying schema via current SQL migrate **or** switch new changes to Prisma migrate — pick **introspect existing DB + Prisma client only first** so you do not dual-migrate. Continue using `postgres_schema.sql` + `db:migrate` as source of truth initially; regenerate Prisma client after schema edits.
+- Add `prisma`, `@prisma/client` to [`server/package.json`](server/package.json); create `server/prisma/schema.prisma` from [`server/schema/postgres_schema.sql`](server/schema/postgres_schema.sql) (`@@map` / `@map` for snake_case).
+- **Introspect existing DB + Prisma client first**; keep `postgres_schema.sql` + `db:migrate` as schema source of truth initially; regenerate client after schema edits.
 - Add `server/src/db/prisma.ts` singleton; wire health check to `prisma.$queryRaw`.
-- Do **not** rewrite all of [`sync.ts`](server/src/routes/sync.ts) in phase 1.
+- Do **not** rewrite all of [`sync.ts`](server/src/routes/sync.ts) in phase 1 (sync may remain for master data / cutover only).
 
 ## Phase 2 — Server command APIs (multi-user coordination)
 
-Add Hono routes under `/api/v1/` with existing device Bearer auth ([`server/src/middleware/auth.ts`](server/src/middleware/auth.ts)), scoped by device `sales_point_id`.
+Add Hono routes under `/api/v1/` with device/session Bearer auth ([`server/src/middleware/auth.ts`](server/src/middleware/auth.ts)), scoped by `sales_point_id` where applicable.
 
 **Must be server-authoritative (shared at a collection point):**
 
-| Concern                          | Why                                          | Approach                                                                                                                       |
-| -------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Invoice / DO / stock doc numbers | Local `MAX+1` collides                       | `POST /api/v1/sequences/allocate` (or allocate inside create sale/DO) with row lock / Postgres sequence per sales point + kind |
-| Booklet serials                  | Validation-only locally                      | Check uniqueness + optional consume/mark used in same TX as create                                                             |
-| Stock                            | Local balances diverge                       | Create/validate sale and stock docs adjust `stock_movements` / balances on server in one TX                                    |
-| DeliveryOrder IDs                | Integer `lastInsertRowid` overwrites on push | New DOs use text/UUID PKs like Sale (`createTextPrimaryKey` style); migrate path for existing rows                             |
-| Cross-terminal reads             | Ops never pulled today                       | `GET` list/detail by sales point + incremental `GET /api/v1/ops/pull?since=` for sales, DOs, stock docs, movements             |
+| Concern | Why | Approach |
+| --- | --- | --- |
+| Invoice / DO / stock doc numbers | Local `MAX+1` collides | Allocate inside create (or `POST /api/v1/sequences/allocate`) with row lock / Postgres sequence per sales point + kind |
+| Booklet serials | Validation-only locally | Uniqueness + consume/mark used in same TX as create |
+| Stock | Local balances diverge | Create/validate sale and stock docs adjust movements/balances on server in one TX |
+| DeliveryOrder IDs | Integer PK collisions | Text/UUID PKs like Sale; migrate existing rows |
+| Cross-terminal reads | Ops never shared | List/detail (+ optional `since` pull) for sales, DOs, stock docs, movements by sales point |
 
-Implement first command handlers with Prisma (start with the highest traffic path):
+Implement first with Prisma (highest traffic first):
 
-1. `POST /api/v1/sales` — create/validate sale (allocate number, stock check/deduct, return full aggregate)
+1. `POST /api/v1/sales` — create/validate sale
 2. `POST /api/v1/delivery-orders` — create/update DO
-3. Stock receipt/transfer/adjustment create endpoints
-4. `GET /api/v1/ops/pull` — operational delta for the device’s sales point
+3. Stock receipt/transfer/adjustment endpoints
+4. `GET` list/detail (and optional incremental ops) for the device’s sales point
 
-Keep [`POST /api/sync/push`](server/src/routes/sync.ts) for offline outbox flush (same upsert semantics). Extend pull (sync or v1) so **operational** rows for that sales point flow back to other terminals.
+## Phase 3 — Electron online-only gateway
 
-## Phase 3 — Electron write gateway (online-first + fallback)
-
-Insert a thin gateway used by domain services ([`sales/service.ts`](src/electron/sales/service.ts), [`deliveryOrders/service.ts`](src/electron/deliveryOrders/service.ts), [`stock/service.ts`](src/electron/stock/service.ts)) — UI/IPC unchanged.
+Domain services ([`sales/service.ts`](src/electron/sales/service.ts), [`deliveryOrders/service.ts`](src/electron/deliveryOrders/service.ts), [`stock/service.ts`](src/electron/stock/service.ts)) call the API only. UI/IPC shape stays the same.
 
 ```ts
-// Pseudocode pattern
+// Pseudocode — no SQLite fallback
 async function createSale(input) {
-  if (networkMonitor.getOnlineStatus()) {
-    try {
-      const remote = await apiClient.createSale(input);
-      await applySaleAggregateLocally(remote); // mirror cache
-      return remote;
-    } catch (e) {
-      if (!isConnectivityOr5xx(e)) throw e; // validation errors surface
-    }
+  if (!networkMonitor.getOnlineStatus()) {
+    throw new Error("Server unreachable. Check the network and try again.");
   }
-  // offline / unreachable: existing local write + enqueueOutboxItem
-  return createSaleLocally(input);
+  return apiClient.createSale(input);
 }
 ```
 
-- Add `src/electron/api/client.ts` (fetch to sync server base URL + device token from `SyncState`).
-- Reuse [`NetworkMonitor`](src/electron/sync/networkMonitor.ts) for the online check.
-- On reconnect: existing `SyncService.syncNow` push, then **new** ops pull applied into SQLite (same upsert helpers as master pull).
-- Fix local DO create to use text/UUID IDs so offline creates remain merge-safe.
+- Add `src/electron/api/client.ts` (fetch to server base URL + auth token).
+- Reuse [`NetworkMonitor`](src/electron/sync/networkMonitor.ts) to fail fast when offline.
+- On API validation errors (4xx): surface to UI as today.
+- On connectivity / 5xx: fail closed; do **not** write local SQLite or enqueue outbox.
+- Retire write-side SyncOutbox usage for sales/DO/stock as those paths move online-only.
+- Fix DO create to use text/UUID IDs on the server (and stop allocating local integer IDs).
 
 ## Phase 4 — Multi-user UX at one sales point
 
-- After ops pull (and periodically while online), refresh lists so Terminal B sees Terminal A’s sales/DOs/stock.
-- Prefer short online poll or pull-on-focus for shared screens (DO remaining, stock balances, booklet used pages) rather than rewriting the UI to call HTTP directly.
-- Auth stays local session for now; users continue to sync via master pull. Device API key remains the server principal.
+- While online, refresh lists so Terminal B sees Terminal A’s sales/DOs/stock (pull-on-focus / short poll).
+- Show a clear banner when the server is unreachable; disable Save / Validate / Post actions.
+- Auth: keep local login UX for now if needed, but **authorize mutations with server session/device token**; do not trust client-supplied `userId` for permission.
 
-## Explicit non-goals (keep scope sane)
+## Explicit non-goals
 
-- No second Hono app; no Prisma on the Electron/SQLite side.
-- Renderer still never talks HTTP — only main process.
-- No full rewrite of sync to CRDTs; last-write-wins + server allocation for contested resources.
-- Admin/master CRUD can stay local+bootstrap/pull until a later pass.
+- No offline SQLite + outbox fallback for business ops.
+- No Prisma on the Electron/SQLite side.
+- Renderer still never talks HTTP directly.
+- No CRDT sync model; server allocation + transactions for contested resources.
+- Admin/master CRUD can move to API in a later pass if still local during cutover.
 
 ## Risk order (fix first)
 
-1. DeliveryOrder PK strategy (UUID/text) before multi-device DO create
+1. DeliveryOrder PK strategy (UUID/text)
 2. Server number allocation + unique constraints
 3. Server stock TX on sale validate
-4. Gateway + offline fallback
-5. Operational pull between terminals
+4. Electron API client + remove local write fallback
+5. Connectivity UX (fail closed, no silent local save)
 
 ## Success criteria
 
-- Two devices, same `salesPointId`, both online: create sales without duplicate invoice numbers; stock cannot oversell; each sees the other’s recent ops after pull.
-- Either device offline: can still sell into local SQLite; on reconnect, outbox pushes and peers receive ops via pull.
-- Existing single-device offline-first behavior remains the fallback path.
+- Two devices, same `salesPointId`, both online: create sales without duplicate invoice numbers; stock cannot oversell; each sees the other’s ops via API reads.
+- If the server is unreachable: user cannot complete a sale/DO/stock post; UI explains why; no divergent local ledger is created.
+- No dependency on SyncOutbox flush to reconcile contested resources after reconnect.

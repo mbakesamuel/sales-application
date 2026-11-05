@@ -1,0 +1,802 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model commercial_services {
+  id                           String                         @id
+  code                         String                         @unique
+  name                         String
+  invoice_prefix               String                         @unique
+  phone                        String?
+  address                      String?
+  is_active                    Boolean                        @default(true)
+  sort_order                   Int                            @default(0)
+  site_kind                    String                         @default("SALES_POINT")
+  enabled_modules              Json                           @default("[]")
+  created_at                   DateTime                       @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime                       @default(now()) @db.Timestamptz(6)
+  commercial_invoice_sequences commercial_invoice_sequences[]
+  customers                    customers[]
+  factories                    factories[]
+  products                     products[]
+  tax_regimes                  tax_regimes[]
+  users                        users[]
+}
+
+model company_settings {
+  id                                              String   @id @default("default")
+  company_name                                    String
+  department                                      String?
+  vat_rate                                        String
+  fiscal_year_start_month                         Int      @default(1)
+  logo_url                                        String?
+  ui_theme_preset                                 String   @default("agro")
+  hide_zero_report_rows                           Boolean  @default(true)
+  stock_commitment_report_comments                String?
+  report_comments_json                            Json     @default("{}")
+  created_at                                      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                                      DateTime @default(now()) @db.Timestamptz(6)
+  auto_generate_stock_receipt_no                  Boolean  @default(true)
+  auto_generate_stock_transfer_no                 Boolean  @default(true)
+  bottle_oil_use_registered_customers             Boolean  @default(false)
+  bottle_oil_allow_ration                         Boolean  @default(false)
+  stock_transfer_receive_uses_document_date       Boolean  @default(false)
+  loose_sales_allow_public_relation               Boolean  @default(false)
+  loose_sales_allow_unregistered_customer         Boolean  @default(false)
+  loose_palm_oil_require_sales_tank               Boolean  @default(true)
+  loose_palm_oil_allow_inter_sales_point_transfer Boolean  @default(false)
+  stock_intake_oil_grouping                       Boolean  @default(false)
+  sales_invoice_lock_unit_price                   Boolean  @default(true)
+  transport_cost_moliwe_only_policy               Boolean  @default(false)
+  session_idle_timeout_minutes                    Int      @default(0)
+  auto_generate_sales_invoice_no                  Boolean  @default(false)
+  auto_generate_delivery_order_no                 Boolean  @default(false)
+  enforce_sales_invoice_booklet_validation        Boolean  @default(false)
+  enforce_delivery_order_booklet_validation       Boolean  @default(false)
+}
+
+model customer_type_definitions {
+  id                           String                         @id
+  code                         String                         @unique
+  name                         String
+  sort_order                   Int                            @default(0)
+  is_active                    Boolean                        @default(true)
+  is_system                    Boolean                        @default(false)
+  created_at                   DateTime                       @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime                       @default(now()) @db.Timestamptz(6)
+  exempt_from_sales_tax        Boolean                        @default(false)
+  customers                    customers[]
+  product_unit_price_schedules product_unit_price_schedules[]
+}
+
+model customers {
+  id                        Int                        @id @default(autoincrement())
+  name                      String
+  phone                     String?
+  email                     String?
+  address                   String?
+  tax_regime_id             String?
+  taxpayer_id               String?
+  residency                 String                     @default("LOCAL")
+  has_taxpayer_id           Boolean                    @default(false)
+  is_pos_placeholder        Boolean                    @default(false)
+  commercial_service_id     String?
+  customer_type_id          String?
+  created_at                DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                   @default(now()) @db.Timestamptz(6)
+  commercial_services       commercial_services?       @relation(fields: [commercial_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customer_type_definitions customer_type_definitions? @relation(fields: [customer_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tax_regimes               tax_regimes?               @relation(fields: [tax_regime_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+}
+
+model delivery_order_details {
+  id                       BigInt          @id @default(autoincrement())
+  delivery_order_id        String
+  product_id               Int
+  order_qty                Int
+  order_unit               String?
+  unit_price               String?
+  amount                   String?
+  line_subtotal_ex_tax     String?
+  vat_rate                 String?
+  vat_amount               String?
+  other_tax_label          String?
+  other_tax_amount         String?
+  pricing_customer_type_id String?
+  delivery_orders          delivery_orders @relation(fields: [delivery_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model delivery_order_payment_details {
+  id                 BigInt          @id @default(autoincrement())
+  delivery_order_id  String
+  payment_date       String
+  cheque_no          String?
+  bank               String?
+  cash_receipt_no    String?
+  receipt_date       String?
+  payment_method_id  String
+  traite_no          String?
+  traite_issued_on   String?
+  traite_maturity_on String?
+  delivery_orders    delivery_orders @relation(fields: [delivery_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model delivery_orders {
+  id                                                                                        String                           @id
+  delivery_order_no                                                                         String                           @unique
+  date_issued                                                                               String
+  customer_id                                                                               Int?
+  order_ref                                                                                 String?
+  sales_point_id                                                                            Int
+  financial_year                                                                            Int?
+  financial_month                                                                           Int?
+  created_by_user_id                                                                        String?
+  status                                                                                    String                           @default("PENDING")
+  validated_at                                                                              DateTime?                        @db.Timestamptz(6)
+  validated_by_user_id                                                                      String?
+  posting_calendar_year                                                                     Int?
+  commercial_service_id                                                                     String?
+  issuer_phone_snapshot                                                                     String?
+  issuer_address_snapshot                                                                   String?
+  commercial_service_name_snapshot                                                          String?
+  reviewed_at                                                                               DateTime?                        @db.Timestamptz(6)
+  reviewed_by_user_id                                                                       String?
+  cancelled_at                                                                              DateTime?                        @db.Timestamptz(6)
+  cancelled_by_user_id                                                                      String?
+  cancel_reason                                                                             String?
+  source_kind                                                                               String                           @default("NORMAL")
+  origin_device_id                                                                          String?
+  synced_at                                                                                 DateTime                         @default(now()) @db.Timestamptz(6)
+  transferred_from_delivery_order_id                                                        String?
+  source_document_no                                                                        String?
+  delivery_order_details                                                                    delivery_order_details[]
+  delivery_order_payment_details                                                            delivery_order_payment_details[]
+  delivery_order_transfers_delivery_order_transfers_from_delivery_order_idTodelivery_orders delivery_order_transfers[]       @relation("delivery_order_transfers_from_delivery_order_idTodelivery_orders")
+  delivery_order_transfers_delivery_order_transfers_to_delivery_order_idTodelivery_orders   delivery_order_transfers?        @relation("delivery_order_transfers_to_delivery_order_idTodelivery_orders")
+  sales_points                                                                              sales_points                     @relation(fields: [sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  delivery_orders                                                                           delivery_orders?                 @relation("delivery_ordersTodelivery_orders", fields: [transferred_from_delivery_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "delivery_orders_transferred_from_fkey")
+  other_delivery_orders                                                                     delivery_orders[]                @relation("delivery_ordersTodelivery_orders")
+
+  @@index([transferred_from_delivery_order_id], map: "delivery_orders_transferred_from_idx")
+}
+
+model devices {
+  id             String    @id
+  name           String
+  sales_point_id Int?
+  api_key        String    @unique
+  is_active      Boolean   @default(true)
+  last_seen_at   DateTime? @db.Timestamptz(6)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+model document_booklets {
+  id                   String       @id
+  document_kind        String
+  booklet_code         String?
+  start_serial         String
+  end_serial           String
+  sales_point_id       Int
+  status               String       @default("PENDING")
+  issued_at            DateTime     @default(now()) @db.Timestamptz(6)
+  issued_by_user_id    String?
+  validated_at         DateTime?    @db.Timestamptz(6)
+  validated_by_user_id String?
+  notes                String?
+  created_at           DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime     @default(now()) @db.Timestamptz(6)
+  sales_points         sales_points @relation(fields: [sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model locations {
+  id                Int                 @id @default(autoincrement())
+  location_name     String              @unique
+  is_active         Boolean             @default(true)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  storage_locations storage_locations[]
+}
+
+model payment_method_definitions {
+  id         String   @id
+  code       String   @unique
+  name       String
+  kind       String
+  sort_order Int      @default(0)
+  is_active  Boolean  @default(true)
+  is_system  Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model payments {
+  id                 String   @id
+  sale_id            String
+  amount             String
+  cheque_no          String?
+  paid_at            DateTime @default(now()) @db.Timestamptz(6)
+  bank               String?
+  traite_no          String?
+  traite_issued_on   String?
+  traite_maturity_on String?
+  payment_method_id  String
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  sales              sales    @relation(fields: [sale_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model product_cats {
+  product_cat_id                            Int                                         @id @default(autoincrement())
+  product_cat                               String
+  product_code                              String
+  is_main                                   Boolean                                     @default(false)
+  is_bottled                                Boolean                                     @default(false)
+  created_at                                DateTime                                    @default(now()) @db.Timestamptz(6)
+  updated_at                                DateTime                                    @default(now()) @db.Timestamptz(6)
+  product_sales_budget_month_phase_profiles product_sales_budget_month_phase_profiles[]
+  product_sales_budgets                     product_sales_budgets[]
+  products                                  products[]
+}
+
+model product_unit_price_schedules {
+  id                        String                     @id
+  product_id                Int
+  unit_price_ex_tax         String
+  effective_from            String
+  customer_type_id          String?
+  created_at                DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                   @default(now()) @db.Timestamptz(6)
+  customer_type_definitions customer_type_definitions? @relation(fields: [customer_type_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  products                  products                   @relation(fields: [product_id], references: [product_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model products {
+  product_id                    Int                             @id @default(autoincrement())
+  product_name                  String
+  product_code                  String?
+  product_cat_id                Int
+  commercial_service_id         String?
+  uom                           String                          @default("Kg")
+  created_at                    DateTime                        @default(now()) @db.Timestamptz(6)
+  updated_at                    DateTime                        @default(now()) @db.Timestamptz(6)
+  stock_intake_group            String?
+  stock_pool_product_id         Int?
+  exclude_from_sales            Boolean                         @default(false)
+  omits_storage_location        Boolean                         @default(false)
+  exclude_from_delivery_orders  Boolean                         @default(false)
+  delivery_order_transfer_lines delivery_order_transfer_lines[]
+  product_unit_price_schedules  product_unit_price_schedules[]
+  commercial_services           commercial_services?            @relation(fields: [commercial_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product_cats                  product_cats                    @relation(fields: [product_cat_id], references: [product_cat_id], onDelete: NoAction, onUpdate: NoAction)
+  products                      products?                       @relation("productsToproducts", fields: [stock_pool_product_id], references: [product_id], onDelete: NoAction, onUpdate: NoAction)
+  other_products                products[]                      @relation("productsToproducts")
+  transport_rate_schedules      transport_rate_schedules[]
+}
+
+model role_action_permissions {
+  role       String
+  action_key String
+  allowed    Boolean @default(false)
+  roles      roles   @relation(fields: [role], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([role, action_key])
+}
+
+model role_route_permissions {
+  role     String
+  route_id String
+  access   String @default("NONE")
+  roles    roles  @relation(fields: [role], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([role, route_id])
+}
+
+model roles {
+  id                      String                    @id
+  label                   String
+  is_system               Boolean                   @default(false)
+  sort_order              Int                       @default(0)
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  role_action_permissions role_action_permissions[]
+  role_route_permissions  role_route_permissions[]
+  users                   users[]
+}
+
+model sale_applied_taxes {
+  id             String   @id
+  sale_id        String
+  tax_type_id    String?
+  code_snapshot  String
+  label_snapshot String
+  rate_snapshot  String
+  amount         String
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  sales          sales    @relation(fields: [sale_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model sale_lines {
+  id                  String  @id
+  sale_id             String
+  product_id          Int
+  qty_kg              String
+  unit_price_per_kg   String
+  line_net            String
+  line_vat            String
+  line_gross          String
+  qty_units           String?
+  unit_price_per_unit String?
+  storage_location_id Int?
+  sales               sales   @relation(fields: [sale_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model sales {
+  id                               String                     @id
+  invoice_no                       String                     @unique
+  sold_at                          DateTime                   @default(now()) @db.Timestamptz(6)
+  customer_id                      Int?
+  created_by_user_id               String
+  customer_name_snapshot           String
+  tax_regime_id                    String?
+  vat_rate_snapshot                String
+  net_amount                       String
+  vat_amount                       String
+  gross_amount                     String
+  financial_year                   Int?
+  financial_month                  Int?
+  reference_number                 String?
+  sales_point_id                   Int?
+  status                           String                     @default("PENDING")
+  validated_at                     DateTime?                  @db.Timestamptz(6)
+  validated_by_user_id             String?
+  vehicle_number                   String
+  date_issued                      String
+  delivery_order_no                String?
+  posting_calendar_year            Int?
+  commercial_service_id            String?
+  issuer_phone_snapshot            String?
+  issuer_address_snapshot          String?
+  commercial_service_name_snapshot String?
+  sale_product_mode                String?
+  sale_disposition                 String?                    @default("NORMAL")
+  origin_device_id                 String?
+  synced_at                        DateTime                   @default(now()) @db.Timestamptz(6)
+  created_at                       DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime                   @default(now()) @db.Timestamptz(6)
+  cancelled_at                     DateTime?                  @db.Timestamptz(6)
+  cancelled_by_user_id             String?
+  cancel_reason                    String?
+  consignment_details              consignment_details[]
+  payments                         payments[]
+  sale_applied_taxes               sale_applied_taxes[]
+  sale_lines                       sale_lines[]
+  sales_points                     sales_points?              @relation(fields: [sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicle_consignment_notes        vehicle_consignment_notes?
+}
+
+model sales_points {
+  id                                                                                  Int                        @id @default(autoincrement())
+  name                                                                                String
+  is_active                                                                           Boolean                    @default(true)
+  attached_to_mill                                                                    Boolean                    @default(false)
+  created_at                                                                          DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                                                          DateTime                   @default(now()) @db.Timestamptz(6)
+  delivery_order_transfers_delivery_order_transfers_from_sales_point_idTosales_points delivery_order_transfers[] @relation("delivery_order_transfers_from_sales_point_idTosales_points")
+  delivery_order_transfers_delivery_order_transfers_to_sales_point_idTosales_points   delivery_order_transfers[] @relation("delivery_order_transfers_to_sales_point_idTosales_points")
+  delivery_orders                                                                     delivery_orders[]
+  document_booklets                                                                   document_booklets[]
+  document_sequences                                                                  document_sequences[]
+  sales                                                                               sales[]
+  stock_adjustments                                                                   stock_adjustments[]
+  stock_movements                                                                     stock_movements[]
+  stock_receipts                                                                      stock_receipts[]
+  stock_transfers_stock_transfers_from_sales_point_idTosales_points                   stock_transfers[]          @relation("stock_transfers_from_sales_point_idTosales_points")
+  stock_transfers_stock_transfers_to_sales_point_idTosales_points                     stock_transfers[]          @relation("stock_transfers_to_sales_point_idTosales_points")
+  storage_locations                                                                   storage_locations[]
+  transport_rate_schedules                                                            transport_rate_schedules[]
+  users                                                                               users[]
+}
+
+model stock_adjustment_lines {
+  id                  String            @id
+  adjustment_id       String
+  product_id          Int
+  delta_qty           String
+  storage_location_id Int?
+  from_condition      String?
+  to_condition        String?
+  stock_adjustments   stock_adjustments @relation(fields: [adjustment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model stock_adjustments {
+  id                     String                   @id
+  adjustment_no          String                   @unique
+  sales_point_id         Int
+  occurred_at            DateTime                 @db.Timestamptz(6)
+  reason                 String
+  status                 String                   @default("DRAFT")
+  created_by_user_id     String
+  posted_by_user_id      String?
+  posted_at              DateTime?                @db.Timestamptz(6)
+  source_kind            String                   @default("NORMAL")
+  origin_device_id       String?
+  synced_at              DateTime                 @default(now()) @db.Timestamptz(6)
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  stock_adjustment_lines stock_adjustment_lines[]
+  sales_points           sales_points             @relation(fields: [sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model stock_movements {
+  id                  String       @id
+  sales_point_id      Int
+  product_id          Int
+  kind                String
+  qty                 String
+  occurred_at         DateTime     @db.Timestamptz(6)
+  user_id             String
+  source_kind         String
+  source_id           String
+  notes               String?
+  storage_location_id Int?
+  condition           String       @default("SELLABLE")
+  origin_device_id    String?
+  synced_at           DateTime     @default(now()) @db.Timestamptz(6)
+  created_at          DateTime     @default(now()) @db.Timestamptz(6)
+  sales_points        sales_points @relation(fields: [sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([sales_point_id, product_id, storage_location_id, condition], map: "stock_movements_balance_idx")
+}
+
+model stock_receipt_lines {
+  id                  String         @id
+  receipt_id          String
+  product_id          Int
+  qty                 String
+  storage_location_id Int?
+  stock_receipts      stock_receipts @relation(fields: [receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model stock_receipts {
+  id                  String                @id
+  receipt_no          String                @unique
+  sales_point_id      Int
+  received_at         DateTime              @db.Timestamptz(6)
+  supplier_label      String
+  status              String                @default("DRAFT")
+  notes               String?
+  created_by_user_id  String
+  posted_by_user_id   String?
+  posted_at           DateTime?             @db.Timestamptz(6)
+  origin_device_id    String?
+  synced_at           DateTime              @default(now()) @db.Timestamptz(6)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  stock_receipt_lines stock_receipt_lines[]
+  sales_points        sales_points          @relation(fields: [sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model stock_transfer_lines {
+  id                       String          @id
+  transfer_id              String
+  product_id               Int
+  qty                      String
+  from_storage_location_id Int?
+  to_storage_location_id   Int?
+  stock_transfers          stock_transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model stock_transfers {
+  id                                                             String                 @id
+  transfer_no                                                    String                 @unique
+  from_sales_point_id                                            Int
+  to_sales_point_id                                              Int
+  dispatched_at                                                  DateTime?              @db.Timestamptz(6)
+  notes                                                          String?
+  status                                                         String                 @default("DRAFT")
+  created_by_user_id                                             String
+  posted_by_user_id                                              String?
+  posted_at                                                      DateTime?              @db.Timestamptz(6)
+  received_at                                                    DateTime?              @db.Timestamptz(6)
+  received_by_user_id                                            String?
+  consigned_by                                                   String?
+  cons_design                                                    String?
+  cons_date                                                      String?
+  receive_by                                                     String?
+  receive_by_design                                              String?
+  receive_date                                                   String?
+  origin_device_id                                               String?
+  synced_at                                                      DateTime               @default(now()) @db.Timestamptz(6)
+  created_at                                                     DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at                                                     DateTime               @default(now()) @db.Timestamptz(6)
+  stock_transfer_lines                                           stock_transfer_lines[]
+  sales_points_stock_transfers_from_sales_point_idTosales_points sales_points           @relation("stock_transfers_from_sales_point_idTosales_points", fields: [from_sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sales_points_stock_transfers_to_sales_point_idTosales_points   sales_points           @relation("stock_transfers_to_sales_point_idTosales_points", fields: [to_sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model storage_locations {
+  id                   Int          @id @default(autoincrement())
+  sales_point_id       Int
+  location_id          Int
+  is_default           Boolean      @default(false)
+  is_active            Boolean      @default(true)
+  is_sales_tank        Boolean      @default(false)
+  created_at           DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime     @default(now()) @db.Timestamptz(6)
+  allows_multi_product Boolean      @default(false)
+  locations            locations    @relation(fields: [location_id], references: [id], onUpdate: NoAction)
+  sales_points         sales_points @relation(fields: [sales_point_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([sales_point_id, location_id])
+}
+
+model tax_rate_schedules {
+  id             String   @id
+  rate_kind      String
+  rate           String
+  effective_from String
+  is_active      Boolean  @default(true)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([rate_kind, effective_from])
+}
+
+model tax_regimes {
+  id                    String               @id
+  name                  String
+  kind                  String               @default("SIMPLIFIED")
+  commercial_service_id String?
+  is_active             Boolean              @default(true)
+  created_at            DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime             @default(now()) @db.Timestamptz(6)
+  customers             customers[]
+  commercial_services   commercial_services? @relation(fields: [commercial_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([commercial_service_id, name])
+}
+
+model users {
+  id                                                                              String                      @id
+  name                                                                            String
+  role                                                                            String
+  is_active                                                                       Boolean                     @default(true)
+  username                                                                        String                      @unique
+  password_plain                                                                  String?
+  sales_point_id                                                                  Int?
+  password_hash                                                                   String?
+  must_change_password                                                            Boolean                     @default(false)
+  commercial_service_id                                                           String?
+  created_at                                                                      DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                                                                      DateTime                    @default(now()) @db.Timestamptz(6)
+  auth_sessions                                                                   auth_sessions[]
+  delivery_order_transfers                                                        delivery_order_transfers[]
+  commercial_services                                                             commercial_services?        @relation(fields: [commercial_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roles                                                                           roles                       @relation(fields: [role], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sales_points                                                                    sales_points?               @relation(fields: [sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicle_consignment_notes_vehicle_consignment_notes_created_by_user_idTousers   vehicle_consignment_notes[] @relation("vehicle_consignment_notes_created_by_user_idTousers")
+  vehicle_consignment_notes_vehicle_consignment_notes_validated_by_user_idTousers vehicle_consignment_notes[] @relation("vehicle_consignment_notes_validated_by_user_idTousers")
+}
+
+model document_sequences {
+  sales_point_id Int
+  document_kind  String
+  financial_year Int
+  last_value     Int          @default(0)
+  updated_at     DateTime     @default(now()) @db.Timestamptz(6)
+  sales_points   sales_points @relation(fields: [sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([sales_point_id, document_kind, financial_year])
+}
+
+model financial_year_periods {
+  id             String             @id
+  financial_year Int                @unique
+  status         String             @default("OPEN")
+  opened_at      DateTime           @default(now()) @db.Timestamptz(6)
+  closed_at      DateTime?          @db.Timestamptz(6)
+  start_date     DateTime           @db.Date
+  end_date       DateTime           @db.Date
+  months         financial_months[]
+
+  @@index([status])
+}
+
+model financial_months {
+  id                       String                 @id
+  financial_year_period_id String
+  financial_year           Int
+  calendar_month           Int
+  name                     String
+  status                   String                 @default("CLOSED")
+  opened_at                DateTime?              @db.Timestamptz(6)
+  closed_at                DateTime?              @db.Timestamptz(6)
+  period                   financial_year_periods @relation(fields: [financial_year_period_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([financial_year_period_id, calendar_month])
+  @@index([financial_year_period_id, status], map: "financial_months_period_status_idx")
+  @@index([financial_year, calendar_month], map: "financial_months_year_month_idx")
+}
+
+model auth_sessions {
+  id         String   @id
+  user_id    String
+  token_hash String   @unique
+  expires_at DateTime @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([expires_at])
+  @@index([user_id])
+}
+
+model commercial_invoice_sequences {
+  commercial_service_id String
+  calendar_year         Int
+  next_number           Int                 @default(1)
+  updated_at            DateTime            @default(now()) @db.Timestamptz(6)
+  commercial_services   commercial_services @relation(fields: [commercial_service_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([commercial_service_id, calendar_year])
+}
+
+model consignment_details {
+  id                          String                     @id
+  sale_id                     String
+  consigner_name              String
+  consigner_designation       String
+  date_of_consignment         DateTime                   @db.Date
+  receiver_name               String
+  receiver_nic_no             String?
+  receiver_nic_place_of_issue String?
+  received_date               DateTime?                  @db.Date
+  created_at                  DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime                   @default(now()) @db.Timestamptz(6)
+  sales                       sales                      @relation(fields: [sale_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vehicle_consignment_notes   vehicle_consignment_notes?
+
+  @@index([sale_id], map: "consignment_details_sale_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model delivery_order_transfer_lines {
+  id                       BigInt                   @id @default(autoincrement())
+  transfer_id              String
+  product_id               Int
+  qty_kg                   Int
+  products                 products                 @relation(fields: [product_id], references: [product_id], onDelete: NoAction, onUpdate: NoAction)
+  delivery_order_transfers delivery_order_transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([transfer_id], map: "delivery_order_transfer_lines_transfer_idx")
+}
+
+model delivery_order_transfers {
+  id                                                                               String                          @id
+  from_delivery_order_id                                                           String
+  to_delivery_order_id                                                             String                          @unique
+  from_sales_point_id                                                              Int
+  to_sales_point_id                                                                Int
+  transferred_at                                                                   DateTime                        @db.Timestamptz(6)
+  transferred_by_user_id                                                           String
+  notes                                                                            String?
+  origin_device_id                                                                 String?
+  synced_at                                                                        DateTime                        @default(now()) @db.Timestamptz(6)
+  delivery_order_transfer_lines                                                    delivery_order_transfer_lines[]
+  delivery_orders_delivery_order_transfers_from_delivery_order_idTodelivery_orders delivery_orders                 @relation("delivery_order_transfers_from_delivery_order_idTodelivery_orders", fields: [from_delivery_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sales_points_delivery_order_transfers_from_sales_point_idTosales_points          sales_points                    @relation("delivery_order_transfers_from_sales_point_idTosales_points", fields: [from_sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  delivery_orders_delivery_order_transfers_to_delivery_order_idTodelivery_orders   delivery_orders                 @relation("delivery_order_transfers_to_delivery_order_idTodelivery_orders", fields: [to_delivery_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sales_points_delivery_order_transfers_to_sales_point_idTosales_points            sales_points                    @relation("delivery_order_transfers_to_sales_point_idTosales_points", fields: [to_sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                                                                            users                           @relation(fields: [transferred_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([from_delivery_order_id], map: "delivery_order_transfers_from_idx")
+}
+
+model factories {
+  id                    String              @id
+  name                  String
+  commercial_service_id String
+  is_active             Boolean             @default(true)
+  created_at            DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime            @default(now()) @db.Timestamptz(6)
+  commercial_services   commercial_services @relation(fields: [commercial_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([commercial_service_id, name])
+  @@index([commercial_service_id, is_active], map: "factories_service_active_idx")
+}
+
+model product_sales_budget_month_phase_profiles {
+  id             String       @id
+  financial_year Int
+  product_cat_id Int
+  pct_m01        String
+  pct_m02        String
+  pct_m03        String
+  pct_m04        String
+  pct_m05        String
+  pct_m06        String
+  pct_m07        String
+  pct_m08        String
+  pct_m09        String
+  pct_m10        String
+  pct_m11        String
+  pct_m12        String
+  created_at     DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime     @default(now()) @db.Timestamptz(6)
+  product_cats   product_cats @relation(fields: [product_cat_id], references: [product_cat_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([financial_year, product_cat_id], map: "product_sales_budget_month_ph_financial_year_product_cat_id_key")
+  @@index([financial_year], map: "product_sales_budget_month_phase_profiles_year_idx")
+}
+
+model product_sales_budgets {
+  id                       String       @id
+  financial_year           Int
+  product_cat_id           Int
+  annual_qty_kg            String
+  budget_unit_price_per_kg String
+  created_at               DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime     @default(now()) @db.Timestamptz(6)
+  product_cats             product_cats @relation(fields: [product_cat_id], references: [product_cat_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([financial_year, product_cat_id])
+  @@index([financial_year], map: "product_sales_budgets_year_idx")
+}
+
+model report_signatories {
+  id             String   @id
+  name           String
+  title          String
+  effective_from DateTime @unique @db.Date
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model transport_rate_schedules {
+  id             String       @id
+  sales_point_id Int
+  product_id     Int
+  rate_per_kg    String
+  effective_from DateTime     @db.Date
+  created_at     DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime     @default(now()) @db.Timestamptz(6)
+  products       products     @relation(fields: [product_id], references: [product_id], onDelete: NoAction, onUpdate: NoAction)
+  sales_points   sales_points @relation(fields: [sales_point_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([sales_point_id, product_id, effective_from])
+  @@index([sales_point_id, product_id, effective_from], map: "transport_rate_schedules_point_product_from_idx")
+}
+
+model vehicle_consignment_note_sequences {
+  id          String   @id @default("default")
+  next_number Int      @default(1)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model vehicle_consignment_notes {
+  id                                                          String              @id
+  consignment_note_no                                         String              @unique
+  sale_id                                                     String              @unique
+  destination                                                 String
+  date_of_lifting                                             DateTime            @db.Date
+  vehicle_number                                              String
+  consignment_details_id                                      String              @unique
+  status                                                      String              @default("PENDING")
+  validated_at                                                DateTime?           @db.Timestamptz(6)
+  validated_by_user_id                                        String?
+  created_by_user_id                                          String
+  origin_device_id                                            String?
+  synced_at                                                   DateTime            @default(now()) @db.Timestamptz(6)
+  created_at                                                  DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at                                                  DateTime            @default(now()) @db.Timestamptz(6)
+  consignment_details                                         consignment_details @relation(fields: [consignment_details_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_vehicle_consignment_notes_created_by_user_idTousers   users               @relation("vehicle_consignment_notes_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sales                                                       sales               @relation(fields: [sale_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_vehicle_consignment_notes_validated_by_user_idTousers users?              @relation("vehicle_consignment_notes_validated_by_user_idTousers", fields: [validated_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([status])
+}

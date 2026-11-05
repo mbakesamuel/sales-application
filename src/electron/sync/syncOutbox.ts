@@ -6,6 +6,15 @@ import type {
   SyncStateConfig,
 } from "../../shared/sync.types.js";
 
+/** Contested ops owned by the command API — never queue when a server URL is set. */
+const COMMAND_API_OWNED_ENTITIES = new Set([
+  "Sale",
+  "DeliveryOrder",
+  "StockReceipt",
+  "StockTransfer",
+  "StockAdjustment",
+]);
+
 export function enqueueOutboxItem(
   db: Database.Database,
   entityType: SyncEntityType | string,
@@ -13,6 +22,18 @@ export function enqueueOutboxItem(
   action: SyncOutboxAction,
   payload: Record<string, unknown>,
 ): number {
+  // Online-only: sales / DO / stock writes go through the command API — do not queue.
+  if (COMMAND_API_OWNED_ENTITIES.has(String(entityType))) {
+    try {
+      const state = getSyncState(db);
+      if (state.syncServerUrl?.trim()) {
+        return 0;
+      }
+    } catch {
+      // If sync state is unavailable, fall through to enqueue.
+    }
+  }
+
   const payloadJson = JSON.stringify(payload);
   const result = db
     .prepare(

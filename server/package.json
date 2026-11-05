@@ -7,8 +7,11 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "start": "node dist/index.js",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:pull": "prisma db pull",
     "pm2:start": "npm run build && pm2 start ecosystem.config.cjs",
     "pm2:stop": "pm2 stop sales-sync-server",
     "pm2:restart": "pm2 restart sales-sync-server",
@@ -22,9 +25,11 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
+    "@prisma/client": "5.22.0",
     "dotenv": "^16.4.7",
     "hono": "^4.6.14",
-    "postgres": "^3.4.5"
+    "postgres": "^3.4.5",
+    "prisma": "5.22.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

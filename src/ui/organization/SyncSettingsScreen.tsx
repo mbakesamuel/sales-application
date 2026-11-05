@@ -7,6 +7,7 @@ import type {
 } from "../../shared/sync.types.ts";
 import { formatDisplayDateTime } from "../../shared/formatDisplayDate.ts";
 import { getAuthenticatedSync } from "../auth/sync.ts";
+import { isHttpApiMode } from "../api/httpAppApi.ts";
 import "../company-settings/CompanySettingsScreen.css";
 import "./DataBackupScreen.css";
 import "./SyncSettingsScreen.css";
@@ -16,6 +17,19 @@ interface SyncSettingsScreenProps {
 }
 
 export function SyncSettingsScreen({ readOnly = false }: SyncSettingsScreenProps) {
+  if (isHttpApiMode()) {
+    return (
+      <div class="company-settings-screen">
+        <h2>Data sync (legacy)</h2>
+        <p class="customers-banner customers-banner-warning">
+          Thin-client mode is on (<code>VITE_API_BASE_URL</code>). The app talks
+          directly to the Hono + Postgres API — device SyncOutbox settings are
+          not used. Sign in against the shared server; contested ops live in
+          Postgres.
+        </p>
+      </div>
+    );
+  }
   const [, setConfig] = useState<SyncStateConfig | null>(null);
   const [status, setStatus] = useState<SyncProgressState | null>(null);
   const [pendingItems, setPendingItems] = useState<SyncOutboxItem[]>([]);

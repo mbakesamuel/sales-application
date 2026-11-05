@@ -70,6 +70,19 @@ async function runMigration() {
       ALTER TABLE sales ADD COLUMN IF NOT EXISTS cancel_reason TEXT;
     `);
 
+    const migrationsDir = path.join(__dirname, "../../schema/migrations");
+    if (fs.existsSync(migrationsDir)) {
+      const files = fs
+        .readdirSync(migrationsDir)
+        .filter((name) => name.endsWith(".sql"))
+        .sort();
+      for (const file of files) {
+        const migrationPath = path.join(migrationsDir, file);
+        console.log(`Applying incremental migration: ${file}`);
+        await targetSql.unsafe(fs.readFileSync(migrationPath, "utf8"));
+      }
+    }
+
     console.log("Migration executed successfully!");
   } catch (error) {
     console.error("Migration failed:", error);

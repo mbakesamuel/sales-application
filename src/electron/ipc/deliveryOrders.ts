@@ -113,7 +113,10 @@ export function registerDeliveryOrdersHandlers(): void {
 
   ipcMain.handle(
     "deliveryOrders:save",
-    (_event, input: SaveDeliveryOrderInput): SaveDeliveryOrderResult => {
+    async (
+      _event,
+      input: SaveDeliveryOrderInput,
+    ): Promise<SaveDeliveryOrderResult> => {
       if (!input?.userId) {
         return { ok: false, error: "Login required." };
       }

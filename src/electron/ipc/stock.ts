@@ -102,7 +102,7 @@ export function registerStockHandlers(): void {
 
   ipcMain.handle(
     "stock:saveReceipt",
-    (_event, input: SaveReceiptInput): StockMutationResult => {
+    async (_event, input: SaveReceiptInput): Promise<StockMutationResult> => {
       if (!input?.userId) {
         return { ok: false, error: "Login required." };
       }
@@ -112,10 +112,10 @@ export function registerStockHandlers(): void {
 
   ipcMain.handle(
     "stock:postReceipt",
-    (
+    async (
       _event,
       payload: DocActionPayload & { receiptId: string },
-    ): StockGenericResult => {
+    ): Promise<StockGenericResult> => {
       if (!payload?.userId || !payload?.receiptId) {
         return { ok: false, error: "Invalid receipt." };
       }
@@ -184,7 +184,7 @@ export function registerStockHandlers(): void {
 
   ipcMain.handle(
     "stock:saveTransfer",
-    (_event, input: SaveTransferInput): StockMutationResult => {
+    async (_event, input: SaveTransferInput): Promise<StockMutationResult> => {
       if (!input?.userId) {
         return { ok: false, error: "Login required." };
       }
@@ -207,10 +207,10 @@ export function registerStockHandlers(): void {
 
   ipcMain.handle(
     "stock:postInternalTransfer",
-    (
+    async (
       _event,
       payload: DocActionPayload & { transferId: string },
-    ): StockGenericResult => {
+    ): Promise<StockGenericResult> => {
       if (!payload?.userId || !payload?.transferId) {
         return { ok: false, error: "Invalid transfer." };
       }
@@ -224,7 +224,7 @@ export function registerStockHandlers(): void {
 
   ipcMain.handle(
     "stock:receiveTransfer",
-    (_event, input: ReceiveTransferInput): StockGenericResult => {
+    async (_event, input: ReceiveTransferInput): Promise<StockGenericResult> => {
       if (!input?.userId || !input?.transferId) {
         return { ok: false, error: "Invalid transfer." };
       }
@@ -267,7 +267,7 @@ export function registerStockHandlers(): void {
 
   ipcMain.handle(
     "stock:saveAdjustment",
-    (_event, input: SaveAdjustmentInput): StockMutationResult => {
+    async (_event, input: SaveAdjustmentInput): Promise<StockMutationResult> => {
       if (!input?.userId) {
         return { ok: false, error: "Login required." };
       }
@@ -277,10 +277,10 @@ export function registerStockHandlers(): void {
 
   ipcMain.handle(
     "stock:postAdjustment",
-    (
+    async (
       _event,
       payload: DocActionPayload & { adjustmentId: string },
-    ): StockGenericResult => {
+    ): Promise<StockGenericResult> => {
       if (!payload?.userId || !payload?.adjustmentId) {
         return { ok: false, error: "Invalid adjustment." };
       }
@@ -348,10 +348,10 @@ export function registerStockHandlers(): void {
 
   ipcMain.handle(
     "stock:validateMany",
-    (
+    async (
       _event,
       payload: { userId: string; items: StockValidationItem[] },
-    ): StockValidateManyResult => {
+    ): Promise<StockValidateManyResult> => {
       if (!payload?.userId) {
         return { ok: false, error: "Login required." };
       }

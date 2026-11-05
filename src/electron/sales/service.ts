@@ -58,6 +58,12 @@ import {
 } from "../pricing/resolveUnitPrice.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
 import { enqueueOutboxItem, serializeSaleForSync } from "../sync/syncOutbox.js";
+import { isCommandApiEnabled } from "../api/client.js";
+import { createSaleRemote } from "../api/salesRemote.js";
+import {
+  requireCommandApiOnline,
+  requireCommandApiOnlineCached,
+} from "../api/onlineOnly.js";
 import { getSellableBalanceAsOf } from "../stock/asOfBalance.js";
 import { assertSaleLinesStockAsOf, deductStockForValidatedSale, reverseStockForValidatedSale, productOmitsStorageLocationById, resolveSaleLineStorageLocation } from "../stock/sales.js";
 import {
@@ -1051,7 +1057,7 @@ export function listSales(filters: SalesListFilters = {}): SalesListResult {
   };
 }
 
-export function createSale(input: CreateSaleInput): SaveSaleResult {
+export async function createSale(input: CreateSaleInput): Promise<SaveSaleResult> {
   const db = getDatabase();
 
   if (!input.userId) {
@@ -1424,8 +1430,13 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     return { ok: false, error: dispositionPaymentError };
   }
 
+  const useCommandApi = isCommandApiEnabled();
+
   let invoiceNo: string;
-  if (loadAutoGenerateSalesInvoiceNo()) {
+  if (useCommandApi && loadAutoGenerateSalesInvoiceNo()) {
+    // Server allocates the shared invoice number.
+    invoiceNo = "";
+  } else if (loadAutoGenerateSalesInvoiceNo()) {
     invoiceNo = allocateInvoiceNo(db);
     const duplicateInvoice = db
       .prepare(`SELECT 1 AS found FROM Sale WHERE invoiceNo = ?`)
@@ -1467,7 +1478,7 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     }
   }
 
-  const saleId = newSaleId();
+  let saleId = newSaleId();
   const soldAt = input.dateIssued || nowIso().slice(0, 10);
 
   let postingPeriod;
@@ -1509,6 +1520,61 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
   }
 
   const timestamp = nowIso();
+
+  if (useCommandApi) {
+    const online = await requireCommandApiOnline();
+    if (!online.ok) {
+      return online;
+    }
+    if (input.salesPointId == null || !Number.isFinite(input.salesPointId)) {
+      return { ok: false, error: "Collection point is required." };
+    }
+
+    const remote = await createSaleRemote({
+      ...input,
+      salesPointId: input.salesPointId,
+      invoiceNo: invoiceNo || undefined,
+      financialYear: postingPeriod.financialYear,
+      financialMonth: postingPeriod.calendarMonth,
+      postingCalendarYear: postingPeriod.financialYear,
+      customerNameSnapshot,
+      netAmount: roundMoney(invoiceNet),
+      vatAmount: roundMoney(invoiceVat),
+      grossAmount: roundMoney(invoiceGross),
+      vatRateSnapshot: formatTaxRateSnapshot(vatRate),
+      taxRegimeId,
+      lines: computedLines.map((line) => ({
+        productId: line.productId,
+        qtyKg: String(line.qtyKg),
+        unitPricePerKg: String(line.unitPricePerKg),
+        lineNet: String(line.lineNet),
+        lineVat: String(line.lineVat),
+        lineGross: String(line.lineGross),
+        qtyUnits: line.qtyUnits != null ? String(line.qtyUnits) : null,
+        unitPricePerUnit:
+          line.unitPricePerUnit != null ? String(line.unitPricePerUnit) : null,
+        storageLocationId: line.storageLocationId ?? null,
+      })),
+      payments: input.payments.map((payment) => ({
+        paymentMethodId:
+          paymentMethodIdForDisposition(saleDisposition) ??
+          payment.paymentMethodId,
+        amount: String(roundMoney(parseAmount(payment.amount))),
+        chequeNo: payment.chequeNo?.trim() || null,
+        bank: payment.bank?.trim() || null,
+        traiteNo: payment.traiteNo?.trim() || null,
+        traiteIssuedOn: payment.traiteIssuedOn || null,
+        traiteMaturityOn: payment.traiteMaturityOn || null,
+      })),
+    });
+
+    if (!remote.ok) {
+      return remote;
+    }
+
+    saleId = remote.saleId;
+    invoiceNo = remote.invoiceNo;
+  }
 
   const insertSale = db.prepare(
     `INSERT INTO Sale (
@@ -1728,6 +1794,11 @@ function finalizeValidatedSale(
 }
 
 export function validateSale(saleId: string, userId: string): SaleMutationResult {
+  const online = requireCommandApiOnlineCached();
+  if (!online.ok) {
+    return online;
+  }
+
   const db = getDatabase();
   const user = db
     .prepare(`SELECT role FROM User WHERE id = ?`)
@@ -1817,6 +1888,11 @@ export function cancelValidatedSale(
   userId: string,
   reason: string,
 ): SaleMutationResult {
+  const online = requireCommandApiOnlineCached();
+  if (!online.ok) {
+    return online;
+  }
+
   const trimmedReason = reason.trim();
   if (!trimmedReason) {
     return { ok: false, error: "Cancellation reason is required." };
@@ -1918,6 +1994,11 @@ export function cancelValidatedSale(
 }
 
 export function deleteSale(saleId: string, userId: string): SaleMutationResult {
+  const online = requireCommandApiOnlineCached();
+  if (!online.ok) {
+    return online;
+  }
+
   const db = getDatabase();
   const user = db
     .prepare(`SELECT role FROM User WHERE id = ?`)

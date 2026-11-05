@@ -16,6 +16,7 @@ import {
   isValidBookletSerial,
   validateBookletSerial,
 } from "../../shared/bookletSerial.ts";
+import { useServerConnectivity } from "../hooks/useServerConnectivity.ts";
 import "../sales/sales.css";
 import "./deliveryOrders.css";
 
@@ -137,6 +138,7 @@ export function DeliveryOrdersClient({
   initialLookupNo = "",
   onClose,
 }: DeliveryOrdersClientProps) {
+  const { mutationsBlocked } = useServerConnectivity();
   const [options, setOptions] = useState<DeliveryOrdersFormOptions | null>(
     null,
   );
@@ -799,6 +801,7 @@ export function DeliveryOrdersClient({
 
   const canSave =
     busy === null &&
+    !mutationsBlocked &&
     isFormEditable &&
     customerId.trim() &&
     salesPointId.trim() &&
@@ -832,6 +835,12 @@ export function DeliveryOrdersClient({
       {banner ? (
         <div class={`sales-banner sales-banner-${banner.type}`}>
           {banner.text}
+        </div>
+      ) : null}
+
+      {mutationsBlocked ? (
+        <div class="sales-banner sales-banner-error">
+          Server unreachable — saving is disabled until the connection is restored.
         </div>
       ) : null}
 

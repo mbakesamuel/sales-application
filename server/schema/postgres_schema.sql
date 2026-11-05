@@ -313,8 +313,17 @@ CREATE TABLE IF NOT EXISTS payments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS document_sequences (
+  sales_point_id INTEGER NOT NULL REFERENCES sales_points(id),
+  document_kind TEXT NOT NULL,
+  financial_year INTEGER NOT NULL,
+  last_value INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (sales_point_id, document_kind, financial_year)
+);
+
 CREATE TABLE IF NOT EXISTS delivery_orders (
-  id BIGINT PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   delivery_order_no TEXT NOT NULL UNIQUE,
   date_issued TEXT NOT NULL,
   customer_id INTEGER,
@@ -343,7 +352,7 @@ CREATE TABLE IF NOT EXISTS delivery_orders (
 
 CREATE TABLE IF NOT EXISTS delivery_order_details (
   id BIGSERIAL PRIMARY KEY,
-  delivery_order_id BIGINT NOT NULL REFERENCES delivery_orders(id) ON DELETE CASCADE,
+  delivery_order_id TEXT NOT NULL REFERENCES delivery_orders(id) ON DELETE CASCADE,
   product_id INTEGER NOT NULL,
   order_qty INTEGER NOT NULL,
   order_unit TEXT,
@@ -359,7 +368,7 @@ CREATE TABLE IF NOT EXISTS delivery_order_details (
 
 CREATE TABLE IF NOT EXISTS delivery_order_payment_details (
   id BIGSERIAL PRIMARY KEY,
-  delivery_order_id BIGINT NOT NULL REFERENCES delivery_orders(id) ON DELETE CASCADE,
+  delivery_order_id TEXT NOT NULL REFERENCES delivery_orders(id) ON DELETE CASCADE,
   payment_date TEXT NOT NULL,
   cheque_no TEXT,
   bank TEXT,

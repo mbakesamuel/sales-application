@@ -230,10 +230,10 @@ function resolveProductFilterForDoc(
   return documentProductFilter(db, fk.table, fk.column, id);
 }
 
-export function validateStockDocuments(
+export async function validateStockDocuments(
   userId: string,
   items: StockValidationItem[],
-): StockValidateManyResult {
+): Promise<StockValidateManyResult> {
   const actor = getActor(userId);
   assertRouteWrite(actor.role, "stock-validation");
   assertAction(actor.role, "validate_stock_documents");
@@ -259,9 +259,9 @@ export function validateStockDocuments(
     let result: { ok: true } | { ok: false; error: string };
 
     if (item.kind === "RECEIPT") {
-      result = postReceipt(userId, item.id, productFilter);
+      result = await postReceipt(userId, item.id, productFilter);
     } else if (item.kind === "ADJUSTMENT") {
-      result = postAdjustment(userId, item.id, productFilter);
+      result = await postAdjustment(userId, item.id, productFilter);
     } else {
       const transfer = getDatabase()
         .prepare(
@@ -280,7 +280,7 @@ export function validateStockDocuments(
           transfer.toSalesPointId,
         )
       ) {
-        result = postInternalTransfer(userId, item.id, productFilter);
+        result = await postInternalTransfer(userId, item.id, productFilter);
       } else {
         result = dispatchTransfer(userId, item.id, productFilter);
       }

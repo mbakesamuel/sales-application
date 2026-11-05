@@ -22,6 +22,7 @@ import {
 import { paymentMethodIdForDisposition } from "../../shared/dispositionPaymentMethods.ts";
 import { SalePrintView } from "./SalePrintView.tsx";
 import { SalesLineModal, type SalesLineDraft } from "./SalesLineModal.tsx";
+import { useServerConnectivity } from "../hooks/useServerConnectivity.ts";
 import type {
   AvailableDeliveryOrderRow,
   DeliveryOrderLookupResult,
@@ -350,6 +351,7 @@ export function SalesClient({
     permissions,
     "delete_validated_sales",
   );
+  const { mutationsBlocked } = useServerConnectivity();
   const [options, setOptions] = useState<SalesFormOptions | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [banner, setBanner] = useState<{
@@ -1650,6 +1652,7 @@ export function SalesClient({
   const canSave =
     isFormEditable &&
     busy === null &&
+    !mutationsBlocked &&
     hasCustomer &&
     (autoGenerateInvoiceNo || isValidBookletSerial(invoiceNo)) &&
     (!vehicleRequired || vehicleNumber.trim()) &&
@@ -1699,6 +1702,12 @@ export function SalesClient({
       {banner ? (
         <div class={`sales-banner sales-banner-${banner.type}`}>
           {banner.text}
+        </div>
+      ) : null}
+
+      {mutationsBlocked ? (
+        <div class="sales-banner sales-banner-error">
+          Server unreachable — saving is disabled until the connection is restored.
         </div>
       ) : null}
 
