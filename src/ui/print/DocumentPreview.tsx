@@ -1,6 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { hasNativePdfExport } from "../api/httpAppApi.ts";
+import { canExportPdf } from "../api/httpAppApi.ts";
 import { getElectronApi } from "../auth/client.ts";
 import {
   useReportCommentsRevision,
@@ -25,35 +25,6 @@ function stableToken(value: unknown): string {
   } catch {
     return String(value);
   }
-}
-
-function HtmlDocumentViewer({
-  html,
-  loading,
-  error,
-}: {
-  html: string | null;
-  loading?: boolean;
-  error?: string | null;
-}) {
-  return (
-    <div class="pdf-viewer html-doc-viewer">
-      <div class="pdf-viewer-stage html-doc-viewer-stage">
-        {loading ? <p class="pdf-viewer-status">Preparing document preview…</p> : null}
-        {error ? <p class="pdf-viewer-status pdf-viewer-error">{error}</p> : null}
-        {!loading && !error && !html ? (
-          <p class="pdf-viewer-status">No document preview.</p>
-        ) : null}
-        {!loading && !error && html ? (
-          <iframe
-            class="html-doc-viewer-frame"
-            title="Document preview"
-            srcdoc={html}
-          />
-        ) : null}
-      </div>
-    </div>
-  );
 }
 
 function DocumentPreviewBody({
@@ -86,9 +57,8 @@ function DocumentPreviewBody({
     : (registeredEmpty?.message ?? emptyMessage);
   const effectiveHint = isEmpty ? emptyHint : (registeredEmpty?.hint ?? emptyHint);
 
-  const nativePdf = hasNativePdfExport();
+  const pdfExport = canExportPdf();
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState(!effectiveEmpty);
   const [error, setError] = useState<string | null>(null);
   const [printing, setPrinting] = useState(false);
@@ -100,17 +70,21 @@ function DocumentPreviewBody({
   const captureRef = useRef<HTMLDivElement>(null);
   const registerPrint = useReportPrintRegister();
   const printRef = useRef<() => void>(() => {});
-  const ready = nativePdf
-    ? Boolean(pdfBytes && pdfBytes.byteLength > 0)
-    : Boolean(previewHtml);
+  const ready = Boolean(pdfBytes && pdfBytes.byteLength > 0);
 
   useEffect(() => {
     if (effectiveEmpty) {
       setLoading(false);
       setError(null);
       setPdfBytes(null);
-      setPreviewHtml(null);
       setStatus(null);
+      return;
+    }
+
+    if (!pdfExport) {
+      setLoading(false);
+      setPdfBytes(null);
+      setError("PDF export is not available in this client.");
       return;
     }
 
@@ -118,7 +92,6 @@ function DocumentPreviewBody({
     setLoading(true);
     setError(null);
     setPdfBytes(null);
-    setPreviewHtml(null);
     setStatus(null);
 
     const started = Date.now();
@@ -134,20 +107,14 @@ function DocumentPreviewBody({
       void (async () => {
         try {
           if (cancelled) return;
-          const documentHtml = buildPrintDocumentHtml(body, {
+          const pdfDocumentHtml = buildPrintDocumentHtml(body, {
             title,
             page,
             bodyClass,
-            forPdf: nativePdf,
+            forPdf: true,
           });
           if (cancelled) return;
-
-          if (!nativePdf) {
-            setPreviewHtml(documentHtml);
-            return;
-          }
-
-          const bytes = await getElectronApi().print.htmlToPdf(documentHtml, {
+          const bytes = await getElectronApi().print.htmlToPdf(pdfDocumentHtml, {
             landscape,
             attributionFooter,
           });
@@ -171,7 +138,6 @@ function DocumentPreviewBody({
         } catch (err) {
           if (!cancelled) {
             setPdfBytes(null);
-            setPreviewHtml(null);
             setError(err instanceof Error ? err.message : "Could not open the document");
           }
         } finally {
@@ -208,26 +174,20 @@ function DocumentPreviewBody({
     landscape,
     effectiveEmpty,
     attributionFooter,
-    nativePdf,
+    pdfExport,
   ]);
 
   async function handlePrint() {
-    if (effectiveEmpty || !ready) {
+    if (effectiveEmpty || !pdfBytes || pdfBytes.byteLength === 0) {
       setStatus("Nothing to print.");
       return;
     }
     setPrinting(true);
     setStatus("Opening print dialog…");
     try {
-      if (nativePdf && pdfBytes) {
-        const copy = new Uint8Array(pdfBytes.byteLength);
-        copy.set(pdfBytes);
-        await getElectronApi().print.printPdf(copy);
-      } else if (previewHtml) {
-        await getElectronApi().print.printHtml(previewHtml);
-      } else {
-        throw new Error("Nothing to print.");
-      }
+      const copy = new Uint8Array(pdfBytes.byteLength);
+      copy.set(pdfBytes);
+      await getElectronApi().print.printPdf(copy);
       setStatus(null);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "Print failed");
@@ -237,30 +197,23 @@ function DocumentPreviewBody({
   }
 
   async function handleSave() {
-    if (effectiveEmpty || !ready) {
+    if (effectiveEmpty || !pdfBytes || pdfBytes.byteLength === 0) {
       setStatus("Nothing to save.");
       return;
     }
     setSaving(true);
+    setStatus("Saving PDF…");
     try {
-      if (nativePdf && pdfBytes) {
-        setStatus("Saving PDF…");
-        const copy = new Uint8Array(pdfBytes.byteLength);
-        copy.set(pdfBytes);
-        const result = await getElectronApi().print.savePdf({
-          defaultName: fileName,
-          data: copy,
-        });
-        if ("path" in result) {
-          setStatus(`Saved PDF to ${result.path}`);
-        } else {
-          setStatus(null);
-        }
-      } else if (previewHtml) {
-        setStatus('Choose “Save as PDF” as the destination in the print dialog.');
-        await getElectronApi().print.printHtml(previewHtml);
+      const copy = new Uint8Array(pdfBytes.byteLength);
+      copy.set(pdfBytes);
+      const result = await getElectronApi().print.savePdf({
+        defaultName: fileName,
+        data: copy,
+      });
+      if ("path" in result) {
+        setStatus(`Saved PDF to ${result.path}`);
       } else {
-        throw new Error("Nothing to save.");
+        setStatus(null);
       }
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "Could not save the PDF");
@@ -322,16 +275,12 @@ function DocumentPreviewBody({
             disabled={busy || !ready}
             onClick={() => void handleSave()}
           >
-            {saving ? "Saving…" : nativePdf ? "Save PDF" : "Save as PDF…"}
+            {saving ? "Saving…" : "Save PDF"}
           </button>
           {status ? <span class="doc-preview-status">{status}</span> : null}
         </div>
       )}
-      {nativePdf ? (
-        <PdfViewer data={pdfBytes} loading={loading} error={error} />
-      ) : (
-        <HtmlDocumentViewer html={previewHtml} loading={loading} error={error} />
-      )}
+      <PdfViewer data={pdfBytes} loading={loading} error={error} />
       <div ref={captureRef} class="doc-preview-capture" aria-hidden="true">
         {children}
       </div>

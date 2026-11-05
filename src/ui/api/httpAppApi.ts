@@ -75,14 +75,52 @@ async function httpJson<T>(
   return body as T;
 }
 
+async function fetchPdfBytes(
+  baseUrl: string,
+  token: string | null,
+  html: string,
+  options?: { landscape?: boolean; attributionFooter?: boolean },
+): Promise<Uint8Array> {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  const response = await fetch(`${baseUrl}/api/print/html-to-pdf`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      html,
+      landscape: options?.landscape === true,
+      attributionFooter: options?.attributionFooter !== false,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    let message = `HTTP ${response.status}`;
+    try {
+      const body = JSON.parse(text) as { error?: unknown };
+      if (typeof body.error === "string" && body.error.trim()) {
+        message = body.error;
+      }
+    } catch {
+      if (text.trim()) message = text.trim().slice(0, 200);
+    }
+    throw new Error(message);
+  }
+
+  const buffer = await response.arrayBuffer();
+  return new Uint8Array(buffer);
+}
+
 /**
  * Prefer Electron preload for print / report windows when present (thin
- * Electron + HTTP API). Fall back to browser stubs only in a real browser tab.
+ * Electron + HTTP API). Fall back to server PDF + browser helpers in a tab.
  */
-function createShellAdapters(): Pick<
-  ElectronAppApi,
-  "dialog" | "print" | "windows" | "reportWindow"
-> {
+function createShellAdapters(
+  baseUrl: string,
+  getToken: SessionTokenGetter,
+): Pick<ElectronAppApi, "dialog" | "print" | "windows" | "reportWindow"> {
   const electron = window.api;
   if (
     electron?.print?.htmlToPdf &&
@@ -105,24 +143,21 @@ function createShellAdapters(): Pick<
       },
     },
     print: {
-      // Browser has no Chromium printToPDF; DocumentPreview uses HTML preview
-      // and printHtml / print dialog ("Save as PDF") instead.
-      htmlToPdf: async () => {
-        throw new Error("BROWSER_HTML_PREVIEW");
+      htmlToPdf: async (html, options) => {
+        return fetchPdfBytes(baseUrl, getToken(), html, options);
       },
       printHtml: async (html: string) => {
         await printHtmlInBrowser(html);
         return { ok: true };
       },
-      printPdf: async () => {
-        throw new Error(
-          "Use Print and choose “Save as PDF” in the browser print dialog.",
-        );
+      printPdf: async (data: Uint8Array) => {
+        await printPdfInBrowser(data);
+        return { ok: true };
       },
-      savePdf: async () => {
-        throw new Error(
-          "Use Print and choose “Save as PDF” in the browser print dialog.",
-        );
+      savePdf: async (input: { defaultName: string; data: Uint8Array }) => {
+        const name = sanitizePdfFileName(input.defaultName);
+        downloadPdfInBrowser(name, input.data);
+        return { ok: true as const, path: name };
       },
     },
     windows: {
@@ -143,6 +178,75 @@ function createShellAdapters(): Pick<
       onBootstrap: () => () => {},
     },
   };
+}
+
+function sanitizePdfFileName(value: string): string {
+  const base = value.replace(/[/\\?%*:|"<>]/g, "_").trim() || "report.pdf";
+  return base.toLowerCase().endsWith(".pdf") ? base : `${base}.pdf`;
+}
+
+function downloadPdfInBrowser(fileName: string, data: Uint8Array): void {
+  const copy = new Uint8Array(data.byteLength);
+  copy.set(data);
+  const blob = new Blob([copy], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
+function printPdfInBrowser(data: Uint8Array): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const copy = new Uint8Array(data.byteLength);
+    copy.set(data);
+    const blob = new Blob([copy], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.position = "fixed";
+    frame.style.right = "0";
+    frame.style.bottom = "0";
+    frame.style.width = "0";
+    frame.style.height = "0";
+    frame.style.border = "0";
+
+    let settled = false;
+    const finish = (err?: unknown) => {
+      if (settled) return;
+      settled = true;
+      frame.remove();
+      URL.revokeObjectURL(url);
+      if (err != null) {
+        reject(err instanceof Error ? err : new Error("Print failed."));
+        return;
+      }
+      resolve();
+    };
+
+    frame.onload = () => {
+      try {
+        const win = frame.contentWindow;
+        if (!win) {
+          finish(new Error("Could not open print preview."));
+          return;
+        }
+        win.addEventListener("afterprint", () => finish(), { once: true });
+        window.setTimeout(() => finish(), 2000);
+        win.focus();
+        win.print();
+      } catch (err) {
+        finish(err);
+      }
+    };
+
+    frame.src = url;
+    document.body.appendChild(frame);
+  });
 }
 
 function printHtmlInBrowser(html: string): Promise<void> {
@@ -179,7 +283,6 @@ function printHtmlInBrowser(html: string): Promise<void> {
           return;
         }
         win.addEventListener("afterprint", () => finish(), { once: true });
-        // Safari / some Chromium builds may not fire afterprint reliably.
         window.setTimeout(() => finish(), 2000);
         win.focus();
         win.print();
@@ -193,9 +296,18 @@ function printHtmlInBrowser(html: string): Promise<void> {
   });
 }
 
-/** True when Electron preload PDF generation is available. */
+/**
+ * True when PDF bytes can be produced — Electron preload or HTTP thin-client
+ * (server Chromium).
+ */
+export function canExportPdf(explicitBaseUrl?: string | null): boolean {
+  if (window.api?.print?.htmlToPdf) return true;
+  return isHttpApiMode(explicitBaseUrl);
+}
+
+/** @deprecated Prefer canExportPdf — kept for existing call sites. */
 export function hasNativePdfExport(): boolean {
-  return Boolean(window.api?.print?.htmlToPdf);
+  return canExportPdf();
 }
 
 function createNamespaceProxy(
@@ -240,16 +352,16 @@ export function createHttpAppApi(options?: {
   // (thin Electron + HTTP API), instead of permanently caching browser stubs.
   const api = {
     get dialog() {
-      return createShellAdapters().dialog;
+      return createShellAdapters(baseUrl, getToken).dialog;
     },
     get print() {
-      return createShellAdapters().print;
+      return createShellAdapters(baseUrl, getToken).print;
     },
     get windows() {
-      return createShellAdapters().windows;
+      return createShellAdapters(baseUrl, getToken).windows;
     },
     get reportWindow() {
-      return createShellAdapters().reportWindow;
+      return createShellAdapters(baseUrl, getToken).reportWindow;
     },
     auth: {
       login: async (data: { username: string; password: string }) => {
