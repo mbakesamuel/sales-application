@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "../db/prisma.js";
+import { getOpenPostingPeriod } from "./financialYearsService.js";
 import { allocateDocumentSequence } from "./sequences.js";
 
 export type CreateSaleCommandInput = {
@@ -14,8 +15,8 @@ export type CreateSaleCommandInput = {
   deliveryOrderNo?: string;
   saleProductMode?: string;
   saleDisposition?: string;
-  financialYear: number;
-  financialMonth: number;
+  financialYear?: number;
+  financialMonth?: number;
   postingCalendarYear?: number;
   netAmount: string;
   vatAmount: string;
@@ -73,6 +74,22 @@ export async function createSaleCommand(
     return { ok: false, error: "Customer name is required." };
   }
 
+  const yearOk = Number.isFinite(input.financialYear);
+  const monthOk = Number.isFinite(input.financialMonth);
+  let financialYear = yearOk ? Number(input.financialYear) : NaN;
+  let financialMonth = monthOk ? Number(input.financialMonth) : NaN;
+  if (!yearOk || !monthOk) {
+    const period = await getOpenPostingPeriod();
+    if (!period) {
+      return {
+        ok: false,
+        error: "No open posting period. Open a financial month first.",
+      };
+    }
+    if (!yearOk) financialYear = period.financialYear;
+    if (!monthOk) financialMonth = period.calendarMonth;
+  }
+
   try {
     const saleId = randomUUID();
     let invoiceNo = input.invoiceNo?.trim() || "";
@@ -89,7 +106,7 @@ export async function createSaleCommand(
       const allocated = await allocateDocumentSequence({
         salesPointId: input.salesPointId,
         documentKind: "SALES_INVOICE",
-        financialYear: input.financialYear,
+        financialYear,
       });
       invoiceNo = allocated.documentNo;
     }
@@ -111,8 +128,8 @@ export async function createSaleCommand(
           net_amount: input.netAmount,
           vat_amount: input.vatAmount,
           gross_amount: input.grossAmount,
-          financial_year: input.financialYear,
-          financial_month: input.financialMonth,
+          financial_year: financialYear,
+          financial_month: financialMonth,
           reference_number: input.referenceNumber?.trim() || null,
           sales_point_id: input.salesPointId,
           status,
@@ -122,7 +139,7 @@ export async function createSaleCommand(
           date_issued: input.dateIssued.trim().slice(0, 10),
           delivery_order_no: input.deliveryOrderNo?.trim() || null,
           posting_calendar_year:
-            input.postingCalendarYear ?? input.financialYear,
+            input.postingCalendarYear ?? financialYear,
           sale_product_mode: input.saleProductMode ?? "LOOSE",
           sale_disposition: input.saleDisposition ?? "NORMAL",
           origin_device_id: input.originDeviceId ?? null,

@@ -108,7 +108,7 @@ export function DeliveryOrderTransferScreen({
 
     try {
       const data = await getElectronApi().deliveryOrders.trackByNo(no);
-      if (!data) {
+      if (!data?.order?.deliveryOrderNo || !Array.isArray(data.products)) {
         setPayload(null);
         setError("Delivery order not found.");
         return;

@@ -215,14 +215,11 @@ function paymentDraftsFromDeliveryOrder(
   }));
 }
 
-function statusClass(status: LoadedSaleView["status"]): string {
-  if (status === "VALIDATED") {
-    return "sales-status sales-status-validated";
-  }
-  if (status === "REJECTED") {
-    return "sales-status sales-status-rejected";
-  }
-  return "sales-status sales-status-pending";
+function statusPillClass(status: LoadedSaleView["status"] | null): string {
+  if (status === "VALIDATED") return "sales-status-pill is-validated";
+  if (status === "REJECTED") return "sales-status-pill is-rejected";
+  if (status === "PENDING") return "sales-status-pill is-pending";
+  return "sales-status-pill";
 }
 
 function defaultStorageLocationId(
@@ -1729,143 +1726,18 @@ export function SalesClient({
         </div>
       ) : null}
 
-      <section class="sales-panel">
-        <div class="sales-invoice-header">
-          <div>
-            <h2>Invoice details</h2>
-            <p class="sales-muted">
-              Status{" "}
-              {saleStatus ? (
-                <span class={statusClass(saleStatus)}>{saleStatus}</span>
-              ) : (
-                "—"
-              )}
-              {validatedByName ? ` · validated by ${validatedByName}` : ""}
-              {cancelledByName ? ` · cancelled by ${cancelledByName}` : ""}
-              {isBottleVariant || saleProductMode === "BOTTLE"
-                ? " · Bottle mode"
-                : ""}
-              {saleDisposition !== "NORMAL"
-                ? ` · ${saleDisposition === "RETAIL" ? "Retail" : saleDisposition.replace("_", " ")}`
-                : ""}
+      <section class="sales-panel sales-doc-panel">
+        <div class="sales-doc-header">
+          <div class="sales-doc-identity">
+            <p class="sales-doc-kicker">
+              {isBottleVariant ? "Bottle Oil invoice" : "Sales invoice"}
             </p>
-          </div>
-          {saleId ? (
-            <div class="sales-invoice-header-end">
-              <div class="sales-invoice-header-actions">
-                <button
-                  type="button"
-                  class="sales-btn-secondary"
-                  disabled={busy !== null}
-                  onClick={resetNew}
-                >
-                  New sale
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <div class="sales-invoice-form">
-          <div class="sales-invoice-grid">
-            <div class="sales-invoice-options sales-field-span-full">
-              <fieldset
-                class="sales-checkbox-group"
-                disabled={!canEditDisposition}
-              >
-                <legend>Disposition</legend>
-                <label class="sales-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={saleDisposition === "NORMAL"}
-                    disabled={!canEditDisposition}
-                    onChange={(event) => {
-                      if ((event.currentTarget as HTMLInputElement).checked) {
-                        setSaleDisposition("NORMAL");
-                      }
-                      setDispositionChosen(true);
-                    }}
-                  />
-                  Normal
-                </label>
-                {!isBottleVariant || options.bottleOilAllowRation ? (
-                  <label class="sales-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={saleDisposition === "RATION"}
-                      disabled={!canEditDisposition}
-                      onChange={(event) => {
-                        setSaleDisposition(
-                          (event.currentTarget as HTMLInputElement).checked
-                            ? "RATION"
-                            : "NORMAL",
-                        );
-                        setDispositionChosen(true);
-                      }}
-                    />
-                    Ration
-                  </label>
-                ) : null}
-                {isBottleVariant || options.looseSalesAllowPublicRelation ? (
-                  <label class="sales-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={saleDisposition === "PUBLIC_RELATION"}
-                      disabled={!canEditDisposition}
-                      onChange={(event) => {
-                        setSaleDisposition(
-                          (event.currentTarget as HTMLInputElement).checked
-                            ? "PUBLIC_RELATION"
-                            : "NORMAL",
-                        );
-                        setDispositionChosen(true);
-                      }}
-                    />
-                    Public relation
-                  </label>
-                ) : null}
-                {!isBottleVariant ? (
-                  <label class="sales-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={saleDisposition === "RETAIL"}
-                      disabled={!canEditDisposition}
-                      onChange={(event) => {
-                        setSaleDisposition(
-                          (event.currentTarget as HTMLInputElement).checked
-                            ? "RETAIL"
-                            : "NORMAL",
-                        );
-                        setDispositionChosen(true);
-                      }}
-                    />
-                    Retail (below 3000 kg, no DO)
-                  </label>
-                ) : null}
-              </fieldset>
-              {!dispositionChosen && !isReadOnly ? (
-                <p class="sales-hint">
-                  Select disposition before entering the invoice number.
-                </p>
-              ) : null}
-              {!isBottleVariant && isSpecialDisposition ? (
-                <p class="sales-hint">Limited to Loose Palm Oil.</p>
-              ) : null}
-              {!isBottleVariant && saleDisposition === "RETAIL" ? (
-                <p class="sales-hint">
-                  Retail invoice: invoice-only customer (no directory); no
-                  delivery order; each line must be below 3000 kg. Price uses the
-                  Retail schedule.
-                </p>
-              ) : null}
-            </div>
-
-            <label class="sales-field sales-field-span-full sales-invoice-no-field">
-              <span>Invoice #</span>
+            <div class="sales-doc-identity-row">
               {saleId ? (
-                <div class="sales-invoice-no">{invoiceNo}</div>
+                <div class="sales-doc-invoice-value">{invoiceNo || "—"}</div>
               ) : (
                 <input
+                  class="sales-doc-invoice-input"
                   type="text"
                   inputMode={autoGenerateInvoiceNo ? "text" : "numeric"}
                   pattern={autoGenerateInvoiceNo ? undefined : "\\d*"}
@@ -1892,229 +1764,309 @@ export function SalesClient({
                   }}
                 />
               )}
-            </label>
+              {saleStatus ? (
+                <span class={statusPillClass(saleStatus)}>{saleStatus}</span>
+              ) : (
+                <span class="sales-status-pill">New</span>
+              )}
+            </div>
+            {validatedByName || cancelledByName ? (
+              <p class="sales-hint">
+                {validatedByName ? `Validated by ${validatedByName}` : ""}
+                {validatedByName && cancelledByName ? " · " : ""}
+                {cancelledByName ? `Cancelled by ${cancelledByName}` : ""}
+              </p>
+            ) : null}
+          </div>
+          {saleId ? (
+            <button
+              type="button"
+              class="sales-btn-secondary"
+              disabled={busy !== null}
+              onClick={resetNew}
+            >
+              New sale
+            </button>
+          ) : null}
+        </div>
 
-            <div
-              class={`sales-invoice-details-fields${
-                !isFormEditable ? " sales-form-locked" : ""
-              }`}
+        <fieldset
+          class="sales-disposition-chips"
+          disabled={!canEditDisposition}
+        >
+          <legend>Disposition</legend>
+          <label class="sales-chip">
+            <input
+              type="radio"
+              name="sale-disposition"
+              checked={saleDisposition === "NORMAL"}
+              disabled={!canEditDisposition}
+              onChange={() => {
+                setSaleDisposition("NORMAL");
+                setDispositionChosen(true);
+              }}
+            />
+            <span>Normal</span>
+          </label>
+          {!isBottleVariant || options.bottleOilAllowRation ? (
+            <label class="sales-chip">
+              <input
+                type="radio"
+                name="sale-disposition"
+                checked={saleDisposition === "RATION"}
+                disabled={!canEditDisposition}
+                onChange={() => {
+                  setSaleDisposition("RATION");
+                  setDispositionChosen(true);
+                }}
+              />
+              <span>Ration</span>
+            </label>
+          ) : null}
+          {isBottleVariant || options.looseSalesAllowPublicRelation ? (
+            <label class="sales-chip">
+              <input
+                type="radio"
+                name="sale-disposition"
+                checked={saleDisposition === "PUBLIC_RELATION"}
+                disabled={!canEditDisposition}
+                onChange={() => {
+                  setSaleDisposition("PUBLIC_RELATION");
+                  setDispositionChosen(true);
+                }}
+              />
+              <span>Public relation</span>
+            </label>
+          ) : null}
+          {!isBottleVariant ? (
+            <label class="sales-chip">
+              <input
+                type="radio"
+                name="sale-disposition"
+                checked={saleDisposition === "RETAIL"}
+                disabled={!canEditDisposition}
+                onChange={() => {
+                  setSaleDisposition("RETAIL");
+                  setDispositionChosen(true);
+                }}
+              />
+              <span>Retail</span>
+            </label>
+          ) : null}
+        </fieldset>
+        {!dispositionChosen && !isReadOnly ? (
+          <p class="sales-hint">
+            Select disposition before entering the invoice number.
+          </p>
+        ) : null}
+        {!isBottleVariant && isSpecialDisposition ? (
+          <p class="sales-hint">Limited to Loose Palm Oil.</p>
+        ) : null}
+        {!isBottleVariant && saleDisposition === "RETAIL" ? (
+          <p class="sales-hint">
+            Invoice-only customer · no delivery order · each line below 3000 kg ·
+            Retail price schedule.
+          </p>
+        ) : null}
+
+        <div
+          class={`sales-meta-grid${
+            !isFormEditable ? " sales-form-locked" : ""
+          }`}
+        >
+          <label class="sales-field">
+            <span>Sale date</span>
+            <input
+              type="date"
+              value={transactionDate}
+              min={postingPeriod?.startDate}
+              max={postingPeriod?.endDate}
+              disabled={!isFormEditable || !postingPeriod}
+              onInput={(event) =>
+                setTransactionDate(
+                  clampDateToPeriod(
+                    (event.currentTarget as HTMLInputElement).value,
+                    postingPeriod,
+                  ),
+                )
+              }
+            />
+          </label>
+
+          <label class="sales-field">
+            <span>Collection point</span>
+            <select
+              value={salesPointId}
+              disabled={
+                !isFormEditable ||
+                options.scopedSalesPointId != null ||
+                (isBottleVariant && options.botaSalesPointId != null)
+              }
+              onChange={(event) => {
+                const next = (event.currentTarget as HTMLSelectElement).value;
+                setSalesPointId(next);
+              }}
             >
-            <div
-              class={`sales-invoice-balance-row${vehicleRequired ? " sales-invoice-balance-row--3" : " sales-invoice-balance-row--2"}`}
-            >
-              <label class="sales-field">
-                <span>Sale date</span>
+              <option value="">Select collection point</option>
+              {options.salesPoints.map((point) => (
+                <option key={point.id} value={String(point.id)}>
+                  {point.name}
+                </option>
+              ))}
+            </select>
+            {bookletStatus ? (
+              <span
+                class={
+                  bookletStatus.ok ? "sales-hint sales-hint-ok" : "sales-hint sales-hint-error"
+                }
+              >
+                {bookletStatus.ok ? "✓ " : "⚠ "}
+                {bookletStatus.message}
+              </span>
+            ) : null}
+          </label>
+
+          <label class="sales-field">
+            <span>Customer</span>
+            {isInvoiceOnlyCustomer ? (
+              <>
                 <input
-                  type="date"
-                  value={transactionDate}
-                  min={postingPeriod?.startDate}
-                  max={postingPeriod?.endDate}
-                  disabled={!isFormEditable || !postingPeriod}
+                  type="text"
+                  value={invoiceCustomerName}
+                  disabled={!isFormEditable}
+                  placeholder="Customer name on invoice"
                   onInput={(event) =>
-                    setTransactionDate(
-                      clampDateToPeriod(
-                        (event.currentTarget as HTMLInputElement).value,
-                        postingPeriod,
-                      ),
+                    setInvoiceCustomerName(
+                      (event.currentTarget as HTMLInputElement).value,
                     )
                   }
                 />
-              </label>
-
-              <label class="sales-field">
-                <span>Collection point</span>
+                <span class="sales-hint">Invoice-only customer · VAT exempt</span>
+              </>
+            ) : (
+              <>
                 <select
-                  value={salesPointId}
-                  disabled={
-                    !isFormEditable ||
-                    options.scopedSalesPointId != null ||
-                    (isBottleVariant && options.botaSalesPointId != null)
+                  value={customerId}
+                  disabled={!isFormEditable}
+                  onChange={(event) =>
+                    setCustomerId(
+                      (event.currentTarget as HTMLSelectElement).value,
+                    )
                   }
-                  onChange={(event) => {
-                    const next = (event.currentTarget as HTMLSelectElement).value;
-                    setSalesPointId(next);
-                  }}
                 >
-                  <option value="">Select collection point</option>
-                  {options.salesPoints.map((point) => (
-                    <option key={point.id} value={String(point.id)}>
-                      {point.name}
+                  <option value="">Select customer</option>
+                  {options.customers.map((item) => (
+                    <option key={item.id} value={String(item.id)}>
+                      {item.name}
                     </option>
                   ))}
                 </select>
-                {bookletStatus ? (
-                  <small
-                    style={{
-                      display: "block",
-                      marginTop: "4px",
-                      fontWeight: 600,
-                      color: bookletStatus.ok ? "#15803d" : "#b91c1c",
-                    }}
-                  >
-                    {bookletStatus.ok ? "✓ " : "⚠ "}
-                    {bookletStatus.message}
-                  </small>
-                ) : null}
-              </label>
-
-              {vehicleRequired ? (
-                <label class="sales-field">
-                  <span>Veh. Consign. #</span>
-                  <input
-                    type="text"
-                    value={vehicleNumber}
-                    disabled={!isFormEditable}
-                    onInput={(event) =>
-                      setVehicleNumber(
-                        (event.currentTarget as HTMLInputElement).value,
-                      )
-                    }
-                  />
-                </label>
-              ) : null}
-            </div>
-
-            <label
-              class={`sales-field${showDeliveryOrders ? " sales-field-span-2" : " sales-field-span-full"}`}
-            >
-              <span>Customer</span>
-              {isInvoiceOnlyCustomer ? (
-                <>
-                  <input
-                    type="text"
-                    value={invoiceCustomerName}
-                    disabled={!isFormEditable}
-                    placeholder="Customer name on invoice"
-                    onInput={(event) =>
-                      setInvoiceCustomerName(
-                        (event.currentTarget as HTMLInputElement).value,
-                      )
-                    }
-                  />
+                {isBottleVariant ? (
                   <span class="sales-hint">
-                    Invoice-only customer · VAT exempt
+                    Directory customer required (App settings)
                   </span>
-                </>
-              ) : (
-                <>
-                  <select
-                    value={customerId}
-                    disabled={!isFormEditable}
-                    onChange={(event) =>
-                      setCustomerId(
-                        (event.currentTarget as HTMLSelectElement).value,
-                      )
-                    }
-                  >
-                    <option value="">Select customer</option>
-                    {options.customers.map((item) => (
-                      <option key={item.id} value={String(item.id)}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                  {isBottleVariant ? (
-                    <span class="sales-hint">
-                      Directory customer required (App settings)
-                    </span>
-                  ) : options.customers.length === 0 ? (
-                    <span class="sales-hint">
-                      No directory customers — use Retail, Ration, or Public
-                      relation, or add customers / enable unregistered customer
-                      in App settings.
-                    </span>
-                  ) : null}
-                 {/*  <span class="sales-hint">
-                    Regime: {customer?.taxRegimeName ?? "—"}
-                    {!skipTax && taxProfile?.vatApplies
-                      ? " · VAT applies"
-                      : " · VAT exempt"}
-                    {!skipTax && taxProfile
-                      ? ` · Sales tax ${(taxProfile.salesTaxRate * 100).toFixed(0)}%`
-                      : ""}
-                  </span> */}
-                </>
-              )}
-            </label>
+                ) : options.customers.length === 0 ? (
+                  <span class="sales-hint">
+                    No directory customers — use Retail, Ration, or Public
+                    relation, or add customers in App settings.
+                  </span>
+                ) : null}
+              </>
+            )}
+          </label>
 
-            {showDeliveryOrders ? (
-              <label class="sales-field sales-field-span-2 sales-field-do">
-                <span>Delivery order no. (optional)</span>
-                <div class="sales-do-row">
-                  <input
-                    type="text"
-                    value={deliveryOrderNo}
-                    disabled={!isFormEditable}
-                    placeholder="DO-2026-000001"
-                    onInput={(event) => {
-                      setDeliveryOrderNo(
-                        (event.currentTarget as HTMLInputElement).value,
-                      );
-                      setDoLinePrefill(null);
-                    }}
-                  />
-                  {isFormEditable ? (
-                    <>
+          {vehicleRequired ? (
+            <label class="sales-field">
+              <span>Veh. Consign. #</span>
+              <input
+                type="text"
+                value={vehicleNumber}
+                disabled={!isFormEditable}
+                onInput={(event) =>
+                  setVehicleNumber(
+                    (event.currentTarget as HTMLInputElement).value,
+                  )
+                }
+              />
+            </label>
+          ) : null}
+
+          {showDeliveryOrders ? (
+            <label class="sales-field sales-field-do">
+              <span>Delivery order (optional)</span>
+              <div class="sales-do-row">
+                <input
+                  type="text"
+                  value={deliveryOrderNo}
+                  disabled={!isFormEditable}
+                  placeholder="DO-2026-000001"
+                  onInput={(event) => {
+                    setDeliveryOrderNo(
+                      (event.currentTarget as HTMLInputElement).value,
+                    );
+                    setDoLinePrefill(null);
+                  }}
+                />
+                {isFormEditable ? (
+                  <>
+                    <button
+                      type="button"
+                      class="sales-btn-secondary sales-do-btn"
+                      disabled={
+                        busy !== null ||
+                        !isFormEditable ||
+                        !deliveryOrderNo.trim()
+                      }
+                      onClick={() => void lookupDo()}
+                    >
+                      {busy === "do-lookup" ? "…" : "Lookup"}
+                    </button>
+                    {availableDos.length > 0 ? (
                       <button
                         type="button"
                         class="sales-btn-secondary sales-do-btn"
-                        disabled={
-                          busy !== null ||
-                          !isFormEditable ||
-                          !deliveryOrderNo.trim()
-                        }
-                        onClick={() => void lookupDo()}
+                        disabled={busy !== null || !isFormEditable}
+                        onClick={() => setDoPickerOpen((open) => !open)}
                       >
-                        {busy === "do-lookup" ? "…" : "Lookup"}
+                        Pick DO {doPickerOpen ? "▴" : "▾"}
                       </button>
-                      {availableDos.length > 0 ? (
-                        <button
-                          type="button"
-                          class="sales-btn-secondary sales-do-btn"
-                          disabled={busy !== null || !isFormEditable}
-                          onClick={() => setDoPickerOpen((open) => !open)}
-                        >
-                          Pick DO {doPickerOpen ? "▴" : "▾"}
-                        </button>
-                      ) : null}
-                    </>
-                  ) : null}
-                </div>
-                {doPickerOpen && availableDos.length > 0 ? (
-                  <ul class="sales-do-picker">
-                    {availableDos.map((row) => (
-                      <li key={`${row.deliveryOrderNo}:${row.productId}`}>
-                        <button
-                          type="button"
-                          disabled={busy !== null || !isFormEditable}
-                          onClick={() =>
-                            void selectDeliveryOrder(
-                              row.deliveryOrderNo,
-                              row.productId,
-                            )
-                          }
-                        >
-                          <strong>
-                            {row.isCarryForward ? "CF · " : ""}
-                            {row.deliveryOrderNo}
-                            {row.isCarryForward && row.sourceDocumentNo
-                              ? ` · orig ${row.sourceDocumentNo}`
-                              : ""}
-                          </strong>
-                          <span>
-                            {row.productName} · {formatDisplayDate(row.dateIssued)} ·{" "}
-                            {row.balanceKg} kg left
-                            {row.isCarryForward ? " · carry-forward" : ""}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                    ) : null}
+                  </>
                 ) : null}
-              </label>
-            ) : null}
-            </div>
-          </div>
+              </div>
+              {doPickerOpen && availableDos.length > 0 ? (
+                <ul class="sales-do-picker">
+                  {availableDos.map((row) => (
+                    <li key={`${row.deliveryOrderNo}:${row.productId}`}>
+                      <button
+                        type="button"
+                        disabled={busy !== null || !isFormEditable}
+                        onClick={() =>
+                          void selectDeliveryOrder(
+                            row.deliveryOrderNo,
+                            row.productId,
+                          )
+                        }
+                      >
+                        <strong>
+                          {row.isCarryForward ? "CF · " : ""}
+                          {row.deliveryOrderNo}
+                          {row.isCarryForward && row.sourceDocumentNo
+                            ? ` · orig ${row.sourceDocumentNo}`
+                            : ""}
+                        </strong>
+                        <span>
+                          {row.productName} · {formatDisplayDate(row.dateIssued)} ·{" "}
+                          {row.balanceKg} kg left
+                          {row.isCarryForward ? " · carry-forward" : ""}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </label>
+          ) : null}
         </div>
       </section>
 
@@ -2124,8 +2076,7 @@ export function SalesClient({
         <div class="sales-section-header">
           <div>
             <h3>
-              Items · {lines.length} line{lines.length === 1 ? "" : "s"} ·{" "}
-              {formatAmount(itemsSubtotal)} XAF subtotal
+              Lines · {lines.length}
             </h3>
           </div>
           {isFormEditable ? (
@@ -2312,9 +2263,7 @@ export function SalesClient({
           <div class="sales-section-header">
             <div>
               <h3>
-                Payments · {payments.length} payment
-                {payments.length === 1 ? "" : "s"} · {formatAmount(totals.paid)}{" "}
-                XAF paid
+                Payments · {payments.length}
               </h3>
             </div>
             {isFormEditable && !isBottleMode && !isSpecialDisposition ? (
@@ -2585,99 +2534,130 @@ export function SalesClient({
         </section>
       ) : null}
 
-      <div class="sales-actions">
-        {isFormEditable && canDirectValidate ? (
-          <>
+      <div class="sales-footer">
+        <div class="sales-footer-totals">
+          <div class="sales-footer-total">
+            <span>{isBottleMode ? "Amount" : "Net"}</span>
+            <strong>{formatAmount(totals.net)} XAF</strong>
+          </div>
+          {!isBottleMode && !isSpecialDisposition ? (
+            <>
+              <div class="sales-footer-total">
+                <span>VAT</span>
+                <strong>{formatAmount(totals.vat)} XAF</strong>
+              </div>
+              <div class="sales-footer-total">
+                <span>Sales tax</span>
+                <strong>{formatAmount(totals.salesTax)} XAF</strong>
+              </div>
+            </>
+          ) : null}
+          <div class="sales-footer-total is-emphasis">
+            <span>Total</span>
+            <strong>{formatAmount(totals.gross)} XAF</strong>
+          </div>
+          {showPayments ? (
+            <div class="sales-footer-total">
+              <span>Paid</span>
+              <strong>{formatAmount(totals.paid)} XAF</strong>
+            </div>
+          ) : null}
+        </div>
+
+        <div class="sales-actions">
+          {isFormEditable && canDirectValidate ? (
+            <>
+              <button
+                type="button"
+                class="sales-btn-primary"
+                disabled={!canSave || busy !== null}
+                onClick={() => void saveSale(true)}
+              >
+                {busy === "validate" ? "Validating…" : "Validate invoice"}
+              </button>
+              <button
+                type="button"
+                class="sales-btn-secondary"
+                disabled={!canSave || busy !== null}
+                onClick={() => void saveSale(false)}
+              >
+                {busy === "save" ? "Saving…" : "Save as pending"}
+              </button>
+            </>
+          ) : isFormEditable ? (
             <button
               type="button"
               class="sales-btn-primary"
-              disabled={!canSave || busy !== null}
-              onClick={() => void saveSale(true)}
+              disabled={!canSave}
+              onClick={() => void saveSale(false)}
             >
-              {busy === "validate" ? "Validating…" : "Validate invoice"}
+              {busy === "save" ? "Saving…" : "Save sale (create invoice)"}
             </button>
+          ) : null}
+
+          {saleId ? (
             <button
               type="button"
               class="sales-btn-secondary"
-              disabled={!canSave || busy !== null}
-              onClick={() => void saveSale(false)}
+              disabled={busy !== null}
+              onClick={() => setPrintOpen(true)}
             >
-              {busy === "save" ? "Saving…" : "Save as pending"}
+              Print invoice
             </button>
-          </>
-        ) : isFormEditable ? (
-          <button
-            type="button"
-            class="sales-btn-primary"
-            disabled={!canSave}
-            onClick={() => void saveSale(false)}
-          >
-            {busy === "save" ? "Saving…" : "Save sale (create invoice)"}
-          </button>
-        ) : null}
+          ) : null}
 
-        {saleId ? (
+          {saleId && saleStatus === "PENDING" && canValidate ? (
+            <button
+              type="button"
+              class="sales-btn-secondary"
+              disabled={busy !== null}
+              onClick={() => void validateLoadedSale()}
+            >
+              {busy === "validate" ? "Validating…" : "Validate invoice"}
+            </button>
+          ) : null}
+
+          {saleId && saleStatus === "VALIDATED" && canCancelValidated ? (
+            <button
+              type="button"
+              class="sales-btn-danger"
+              disabled={busy !== null}
+              onClick={() => {
+                setCancelReasonInput("");
+                setCancelError(null);
+                setCancelModalOpen(true);
+              }}
+            >
+              Cancel invoice
+            </button>
+          ) : null}
+
+          {saleId &&
+          (saleStatus === "PENDING" ||
+            (canDeleteValidated &&
+              (saleStatus === "VALIDATED" || saleStatus === "REJECTED"))) ? (
+            <button
+              type="button"
+              class="sales-btn-danger"
+              disabled={busy !== null}
+              onClick={() => void deleteLoadedSale()}
+            >
+              {busy === "delete"
+                ? "Deleting…"
+                : saleStatus === "PENDING"
+                  ? "Delete invoice"
+                  : "Permanently delete"}
+            </button>
+          ) : null}
+
           <button
             type="button"
             class="sales-btn-secondary"
-            disabled={busy !== null}
-            onClick={() => setPrintOpen(true)}
+            onClick={onClose}
           >
-            Print invoice
+            Close
           </button>
-        ) : null}
-
-        {saleId && saleStatus === "PENDING" && canValidate ? (
-          <button
-            type="button"
-            class="sales-btn-secondary"
-            disabled={busy !== null}
-            onClick={() => void validateLoadedSale()}
-          >
-            {busy === "validate" ? "Validating…" : "Validate invoice"}
-          </button>
-        ) : null}
-
-        {saleId && saleStatus === "VALIDATED" && canCancelValidated ? (
-          <button
-            type="button"
-            class="sales-btn-danger"
-            disabled={busy !== null}
-            onClick={() => {
-              setCancelReasonInput("");
-              setCancelError(null);
-              setCancelModalOpen(true);
-            }}
-          >
-            Cancel invoice
-          </button>
-        ) : null}
-
-        {saleId &&
-        (saleStatus === "PENDING" ||
-          (canDeleteValidated &&
-            (saleStatus === "VALIDATED" || saleStatus === "REJECTED"))) ? (
-          <button
-            type="button"
-            class="sales-btn-danger"
-            disabled={busy !== null}
-            onClick={() => void deleteLoadedSale()}
-          >
-            {busy === "delete"
-              ? "Deleting…"
-              : saleStatus === "PENDING"
-                ? "Delete invoice"
-                : "Permanently delete"}
-          </button>
-        ) : null}
-
-        <button
-          type="button"
-          class="sales-btn-secondary"
-          onClick={onClose}
-        >
-          Close
-        </button>
+        </div>
       </div>
 
       {lineModal ? (

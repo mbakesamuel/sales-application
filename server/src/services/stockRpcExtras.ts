@@ -336,6 +336,25 @@ export interface StockValidationItem {
   id: string;
 }
 
+export interface StockValidationQueueRow {
+  kind: StockValidationDocKind;
+  id: string;
+  documentNo: string;
+  productFilter: StockProductFilter;
+  transferMode: "INTER_SALES_POINT" | "INTRA_SALES_POINT" | null;
+  fromSalesPointName: string;
+  toSalesPointName: string | null;
+  documentDateIso: string;
+  createdByName: string;
+  lineCount: number;
+  totalQty: string;
+}
+
+export interface StockValidationQueuePage {
+  totalPending: number;
+  rows: StockValidationQueueRow[];
+}
+
 export type StockValidateManyResult =
   | {
       ok: true;
@@ -1952,6 +1971,177 @@ export async function dispatchTransfer(
 // ---------------------------------------------------------------------------
 // Validation (bulk post) & receive queue
 // ---------------------------------------------------------------------------
+
+const VALIDATION_QUEUE_LIMIT = 200;
+
+function documentProductFilter(
+  cat: Catalog,
+  productIds: number[],
+): StockProductFilter {
+  const anyBottled = productIds.some(
+    (id) => cat.products.get(id)?.isBottled === true,
+  );
+  return anyBottled ? "bottled" : "bulk";
+}
+
+function canSeeProductFilter(
+  actor: RpcActor,
+  filter: StockProductFilter,
+): boolean {
+  if (filter === "bottled") {
+    return canAccessRoute(actor, BOTTLED_STOCK_ROUTE_ID);
+  }
+  return canAccessRoute(actor, STOCK_MODULE_ROUTE_ID);
+}
+
+export async function listValidationQueue(
+  userId: string,
+): Promise<StockValidationQueuePage> {
+  const actor = await loadRpcActor(userId);
+  if (
+    !canAccessRoute(actor, "stock-validation") &&
+    !canAccessRoute(actor, STOCK_MODULE_ROUTE_ID) &&
+    !canAccessRoute(actor, BOTTLED_STOCK_ROUTE_ID)
+  ) {
+    throw new Error("You do not have permission to view the stock validation queue.");
+  }
+
+  const scoped = actor.salesPointId;
+  const [cat, receipts, transfers, adjustments] = await Promise.all([
+    loadCatalog(),
+    prisma.stock_receipts.findMany({
+      where: {
+        status: "DRAFT",
+        ...(scoped != null ? { sales_point_id: scoped } : {}),
+      },
+      include: {
+        stock_receipt_lines: { select: { product_id: true, qty: true } },
+      },
+      orderBy: [{ received_at: "asc" }, { receipt_no: "asc" }],
+      take: VALIDATION_QUEUE_LIMIT,
+    }),
+    prisma.stock_transfers.findMany({
+      where: {
+        status: "DRAFT",
+        ...(scoped != null ? { from_sales_point_id: scoped } : {}),
+      },
+      include: {
+        stock_transfer_lines: { select: { product_id: true, qty: true } },
+      },
+      orderBy: [{ dispatched_at: "asc" }, { transfer_no: "asc" }],
+      take: VALIDATION_QUEUE_LIMIT,
+    }),
+    prisma.stock_adjustments.findMany({
+      where: {
+        status: "DRAFT",
+        source_kind: { in: ["NORMAL", "CARRY_FORWARD"] },
+        ...(scoped != null ? { sales_point_id: scoped } : {}),
+      },
+      include: {
+        stock_adjustment_lines: {
+          select: { product_id: true, delta_qty: true },
+        },
+      },
+      orderBy: [{ occurred_at: "asc" }, { adjustment_no: "asc" }],
+      take: VALIDATION_QUEUE_LIMIT,
+    }),
+  ]);
+
+  const userNames = await loadUserNames([
+    ...receipts.map((r) => r.created_by_user_id),
+    ...transfers.map((t) => t.created_by_user_id),
+    ...adjustments.map((a) => a.created_by_user_id),
+  ]);
+
+  const combined: StockValidationQueueRow[] = [];
+
+  for (const receipt of receipts) {
+    const productIds = receipt.stock_receipt_lines.map((l) => l.product_id);
+    const productFilter = documentProductFilter(cat, productIds);
+    if (!canSeeProductFilter(actor, productFilter)) continue;
+    const totalQty = receipt.stock_receipt_lines.reduce(
+      (sum, line) => sum + parseQty(line.qty),
+      0,
+    );
+    combined.push({
+      kind: "RECEIPT",
+      id: receipt.id,
+      documentNo: receipt.receipt_no,
+      productFilter,
+      transferMode: null,
+      fromSalesPointName: salesPointName(cat, receipt.sales_point_id),
+      toSalesPointName: null,
+      documentDateIso: receipt.received_at.toISOString().slice(0, 10),
+      createdByName: userNames.get(receipt.created_by_user_id) ?? "—",
+      lineCount: receipt.stock_receipt_lines.length,
+      totalQty: formatQty(totalQty),
+    });
+  }
+
+  for (const transfer of transfers) {
+    const productIds = transfer.stock_transfer_lines.map((l) => l.product_id);
+    const productFilter = documentProductFilter(cat, productIds);
+    if (!canSeeProductFilter(actor, productFilter)) continue;
+    const totalQty = transfer.stock_transfer_lines.reduce(
+      (sum, line) => sum + parseQty(line.qty),
+      0,
+    );
+    const intra =
+      transfer.from_sales_point_id === transfer.to_sales_point_id;
+    combined.push({
+      kind: "TRANSFER",
+      id: transfer.id,
+      documentNo: transfer.transfer_no,
+      productFilter,
+      transferMode: intra ? "INTRA_SALES_POINT" : "INTER_SALES_POINT",
+      fromSalesPointName: salesPointName(cat, transfer.from_sales_point_id),
+      toSalesPointName: salesPointName(cat, transfer.to_sales_point_id),
+      documentDateIso: (transfer.dispatched_at ?? transfer.created_at)
+        .toISOString()
+        .slice(0, 10),
+      createdByName: userNames.get(transfer.created_by_user_id) ?? "—",
+      lineCount: transfer.stock_transfer_lines.length,
+      totalQty: formatQty(totalQty),
+    });
+  }
+
+  for (const adjustment of adjustments) {
+    const productIds = adjustment.stock_adjustment_lines.map(
+      (l) => l.product_id,
+    );
+    const productFilter = documentProductFilter(cat, productIds);
+    if (!canSeeProductFilter(actor, productFilter)) continue;
+    const totalQty = adjustment.stock_adjustment_lines.reduce(
+      (sum, line) => sum + Math.abs(parseQty(line.delta_qty)),
+      0,
+    );
+    combined.push({
+      kind: "ADJUSTMENT",
+      id: adjustment.id,
+      documentNo: adjustment.adjustment_no,
+      productFilter,
+      transferMode: null,
+      fromSalesPointName: salesPointName(cat, adjustment.sales_point_id),
+      toSalesPointName: null,
+      documentDateIso: adjustment.occurred_at.toISOString().slice(0, 10),
+      createdByName: userNames.get(adjustment.created_by_user_id) ?? "—",
+      lineCount: adjustment.stock_adjustment_lines.length,
+      totalQty: formatQty(totalQty),
+    });
+  }
+
+  combined.sort((a, b) => {
+    const byDate = a.documentDateIso.localeCompare(b.documentDateIso);
+    if (byDate !== 0) return byDate;
+    return a.documentNo.localeCompare(b.documentNo);
+  });
+
+  const rows = combined.slice(0, VALIDATION_QUEUE_LIMIT);
+  return {
+    totalPending: combined.length,
+    rows,
+  };
+}
 
 export async function validateMany(
   userId: string,

@@ -70,7 +70,7 @@ export function DeliveryOrdersList({
   const [result, setResult] = useState<DeliveryOrdersListResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [printOrderId, setPrintOrderId] = useState<number | null>(null);
+  const [printOrderId, setPrintOrderId] = useState<number | string | null>(null);
   const [page, setPage] = useState(1);
 
   useEffect(() => {

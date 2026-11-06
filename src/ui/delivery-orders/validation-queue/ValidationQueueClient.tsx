@@ -12,7 +12,7 @@ interface ValidationQueueClientProps {
 
 export function ValidationQueueClient({ user, onOpenOrder }: ValidationQueueClientProps) {
   const [page, setPage] = useState<ValidationQueuePage | null>(null);
-  const [selected, setSelected] = useState<Record<number, boolean>>({});
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(
     null,
@@ -28,10 +28,12 @@ export function ValidationQueueClient({ user, onOpenOrder }: ValidationQueueClie
 
   const selectedIds = Object.entries(selected)
     .filter(([, checked]) => checked)
-    .map(([id]) => Number.parseInt(id, 10));
+    .map(([id]) => id);
 
   const allChecked =
-    page != null && page.rows.length > 0 && page.rows.every((row) => selected[row.id]);
+    page != null &&
+    page.rows.length > 0 &&
+    page.rows.every((row) => selected[String(row.id)]);
 
   async function validateSelected() {
     if (selectedIds.length === 0) {
@@ -44,7 +46,7 @@ export function ValidationQueueClient({ user, onOpenOrder }: ValidationQueueClie
 
     try {
       const result = await getElectronApi().deliveryOrders.validateMany({
-        orderIds: selectedIds,
+        orderIds: selectedIds as never,
         userId: user.id,
       });
 
@@ -114,10 +116,10 @@ export function ValidationQueueClient({ user, onOpenOrder }: ValidationQueueClie
                         if (!page) {
                           return;
                         }
-                        const next: Record<number, boolean> = {};
+                        const next: Record<string, boolean> = {};
                         if (checked) {
                           for (const row of page.rows) {
-                            next[row.id] = true;
+                            next[String(row.id)] = true;
                           }
                         }
                         setSelected(next);
@@ -145,12 +147,12 @@ export function ValidationQueueClient({ user, onOpenOrder }: ValidationQueueClie
                     <td>
                       <input
                         type="checkbox"
-                        checked={Boolean(selected[row.id])}
+                        checked={Boolean(selected[String(row.id)])}
                         onChange={(event) => {
                           const checked = (event.currentTarget as HTMLInputElement).checked;
                           setSelected((current) => ({
                             ...current,
-                            [row.id]: checked,
+                            [String(row.id)]: checked,
                           }));
                         }}
                       />

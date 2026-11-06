@@ -107,7 +107,7 @@ export function DeliveryOrdersScreen({
       {formOpen && canUseScreen ? (
         <FormDialog
           ariaLabel="Delivery order form"
-          title="Delivery Order Details"
+          title=""
           wide
           panelClassName="do-form-dialog-panel"
           onClose={closeForm}

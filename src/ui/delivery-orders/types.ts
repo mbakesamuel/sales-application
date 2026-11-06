@@ -73,18 +73,21 @@ export interface DeliveryOrderPaymentInput {
 
 export interface SaveDeliveryOrderInput {
   userId: string;
-  id?: number | null;
+  id?: number | string | null;
   deliveryOrderNo?: string;
   customerId: number;
   dateIssued: string;
   orderRef?: string;
   salesPointId: number;
+  financialYear?: number;
+  financialMonth?: number;
+  postingCalendarYear?: number;
   lines: DeliveryOrderLineInput[];
   payments: DeliveryOrderPaymentInput[];
 }
 
 export type SaveDeliveryOrderResult =
-  | { ok: true; id: number; deliveryOrderNo: string }
+  | { ok: true; id: number | string; deliveryOrderNo: string }
   | { ok: false; error: string };
 
 export type DeliveryOrderMutationResult =

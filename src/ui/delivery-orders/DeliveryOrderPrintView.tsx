@@ -21,7 +21,7 @@ import "../reports/StockCommitmentReport.css";
 import "./DeliveryOrderPrintView.css";
 
 interface DeliveryOrderPrintViewProps {
-  orderId: number;
+  orderId: number | string;
   onClose: () => void;
 }
 

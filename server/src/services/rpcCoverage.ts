@@ -3,6 +3,8 @@
  * unregistered. Explicit handlers in appRpc.ts always win.
  */
 import { prisma } from "../db/prisma.js";
+import { sql } from "../db/index.js";
+import { clearOperationalTables } from "../db/clearOperationalData.js";
 import {
   getCompanySettings,
   listCustomers,
@@ -26,6 +28,7 @@ import * as permissions from "./permissionsRpc.js";
 import * as salesExtras from "./salesRpcExtras.js";
 import * as doExtras from "./deliveryOrdersRpcExtras.js";
 import { getBalanceQty } from "./stockMovements.js";
+import { loadRpcActor } from "./rpcActor.js";
 
 type Ctx = { userId: string; salesPointId: number | null };
 type Handler = (args: unknown[], ctx: Ctx) => Promise<unknown>;
@@ -176,10 +179,32 @@ export const coverageHandlers: Record<string, Handler> = {
     });
     return { ok: true, uiThemePreset: resolved };
   },
-  "db.clearOperationalData": async () => ({
-    ok: false,
-    error: THIN,
-  }),
+  "db.clearOperationalData": async (args, ctx) => {
+    const input = firstObject(args);
+    const actor = await loadRpcActor(ctx.userId);
+    if (!actor || actor.role !== "ADMIN") {
+      return {
+        ok: false as const,
+        error: "Only Administrators can clear operational data.",
+      };
+    }
+    if (String(input.confirm ?? "") !== "CLEAR") {
+      return {
+        ok: false as const,
+        error: 'Confirmation required: confirm must be "CLEAR".',
+      };
+    }
+
+    const result = await clearOperationalTables(sql);
+    return {
+      ok: true as const,
+      deleted: result.deleted,
+      sequences: result.sequences,
+      // Thin client already clears the shared Postgres — no separate sync DB.
+      syncCleared: true,
+      syncTables: result.tables,
+    };
+  },
   "db.queryTable": async (args) => {
     const input = firstObject(args);
     return queryTable({

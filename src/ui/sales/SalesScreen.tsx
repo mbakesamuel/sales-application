@@ -86,7 +86,7 @@ export function SalesScreen({
       {formOpen && canUsePos ? (
         <FormDialog
           ariaLabel={formTitle}
-          title={formTitle}
+          title=""
           wide
           panelClassName="sales-form-dialog-panel"
           onClose={closeForm}
