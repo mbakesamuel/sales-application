@@ -371,7 +371,7 @@ export function getBottleOilStockSalesReport(
   hideZeroArg?: boolean | null,
   asAtIsoArg?: string | null,
 ): BottleOilStockSalesReport {
-  const { asAtIso: defaultAsAt, period } = resolveReportAsAt();
+  const { asAtIso: defaultAsAt, period } = resolveReportAsAt(userId);
   let asAtIso = defaultAsAt;
   if (typeof asAtIsoArg === "string" && /^\d{4}-\d{2}-\d{2}$/.test(asAtIsoArg.trim())) {
     const raw = asAtIsoArg.trim().slice(0, 10);

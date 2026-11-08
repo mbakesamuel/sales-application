@@ -402,6 +402,7 @@ model sales_points {
   storage_locations                                                                   storage_locations[]
   transport_rate_schedules                                                            transport_rate_schedules[]
   users                                                                               users[]
+  sales_point_posting_months                                                          sales_point_posting_months[]
 }
 
 model stock_adjustment_lines {
@@ -604,14 +605,15 @@ model document_sequences {
 }
 
 model financial_year_periods {
-  id             String             @id
-  financial_year Int                @unique
-  status         String             @default("OPEN")
-  opened_at      DateTime           @default(now()) @db.Timestamptz(6)
-  closed_at      DateTime?          @db.Timestamptz(6)
-  start_date     DateTime           @db.Date
-  end_date       DateTime           @db.Date
-  months         financial_months[]
+  id                         String                       @id
+  financial_year             Int                          @unique
+  status                     String                       @default("OPEN")
+  opened_at                  DateTime                     @default(now()) @db.Timestamptz(6)
+  closed_at                  DateTime?                    @db.Timestamptz(6)
+  start_date                 DateTime                     @db.Date
+  end_date                   DateTime                     @db.Date
+  months                     financial_months[]
+  sales_point_posting_months sales_point_posting_months[]
 
   @@index([status])
 }
@@ -630,6 +632,21 @@ model financial_months {
   @@unique([financial_year_period_id, calendar_month])
   @@index([financial_year_period_id, status], map: "financial_months_period_status_idx")
   @@index([financial_year, calendar_month], map: "financial_months_year_month_idx")
+}
+
+/// Live open/closed posting month per collection point (null sales_point_id = central/head office).
+model sales_point_posting_months {
+  id                       String                 @id
+  sales_point_id           Int?
+  financial_year_period_id String
+  calendar_month           Int
+  status                   String                 @default("CLOSED")
+  opened_at                DateTime?              @db.Timestamptz(6)
+  closed_at                DateTime?              @db.Timestamptz(6)
+  period                   financial_year_periods @relation(fields: [financial_year_period_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sales_points             sales_points?          @relation(fields: [sales_point_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([financial_year_period_id, status], map: "sales_point_posting_months_period_status_idx")
 }
 
 model auth_sessions {

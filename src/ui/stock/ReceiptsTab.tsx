@@ -173,7 +173,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
   useEffect(() => {
     let cancelled = false;
     void getAuthenticatedFinancialYears()
-      .getOpenPostingPeriod()
+      .getOpenPostingPeriod(scopedSalesPointId)
       .then((period) => {
         if (!cancelled) {
           setPostingPeriod(period);
@@ -188,7 +188,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [scopedSalesPointId]);
 
   function defaultReceivedAt(): string {
     return clampIsoDateToRange(utcIsoDateToday(), postingPeriod);

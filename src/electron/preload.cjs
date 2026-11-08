@@ -214,19 +214,33 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("financialYears:openYear", authToken, financialYear),
     closeYear: (authToken, periodId) =>
       ipcRenderer.invoke("financialYears:closeYear", authToken, periodId),
-    listMonthsForOpenYear: (authToken) =>
-      ipcRenderer.invoke("financialYears:listMonthsForOpenYear", authToken),
-    listMonthsForPeriod: (authToken, periodId) =>
-      ipcRenderer.invoke("financialYears:listMonthsForPeriod", authToken, periodId),
-    setMonthStatus: (authToken, monthId, status) =>
+    listMonthsForOpenYear: (authToken, salesPointId) =>
+      ipcRenderer.invoke(
+        "financialYears:listMonthsForOpenYear",
+        authToken,
+        salesPointId,
+      ),
+    listMonthsForPeriod: (authToken, periodId, salesPointId) =>
+      ipcRenderer.invoke(
+        "financialYears:listMonthsForPeriod",
+        authToken,
+        periodId,
+        salesPointId,
+      ),
+    setMonthStatus: (authToken, monthId, status, salesPointId) =>
       ipcRenderer.invoke(
         "financialYears:setMonthStatus",
         authToken,
         monthId,
         status,
+        salesPointId,
       ),
-    getOpenPostingPeriod: (authToken) =>
-      ipcRenderer.invoke("financialYears:getOpenPostingPeriod", authToken),
+    getOpenPostingPeriod: (authToken, salesPointId) =>
+      ipcRenderer.invoke(
+        "financialYears:getOpenPostingPeriod",
+        authToken,
+        salesPointId,
+      ),
   },
   stock: {
     getBootstrap: (userId, productFilter) =>

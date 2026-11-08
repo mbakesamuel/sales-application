@@ -92,7 +92,7 @@ function dispositionPaymentMethodName(
     return "Ration (deferred)";
   }
   if (paymentMethodId === options.publicRelationPaymentMethodId) {
-    return "Public relation (complimentary)";
+    return "Public relation";
   }
   return null;
 }
@@ -674,7 +674,9 @@ export function SalesClient({
       try {
         const [formOptions, period] = await Promise.all([
           getElectronApi().sales.getFormOptions(user.id),
-          getAuthenticatedFinancialYears().getOpenPostingPeriod(),
+          getAuthenticatedFinancialYears().getOpenPostingPeriod(
+            user.salesPointId,
+          ),
         ]);
         setOptions(formOptions);
         setPostingPeriod(period);
@@ -710,7 +712,7 @@ export function SalesClient({
     }
 
     void bootstrap();
-  }, [user.id, isBottleVariant, initialInvoiceNo]);
+  }, [user.id, user.salesPointId, isBottleVariant, initialInvoiceNo]);
 
   useEffect(() => {
     // Wait for form options so product/payment dropdowns can resolve loaded ids.
@@ -1767,44 +1769,6 @@ export function SalesClient({
             <p class="sales-doc-kicker">
               {isBottleVariant ? "Bottle Oil invoice" : "Sales invoice"}
             </p>
-            <div class="sales-doc-identity-row">
-              {saleId ? (
-                <div class="sales-doc-invoice-value">{invoiceNo || "—"}</div>
-              ) : (
-                <input
-                  class="sales-doc-invoice-input"
-                  type="text"
-                  inputMode={autoGenerateInvoiceNo ? "text" : "numeric"}
-                  pattern={autoGenerateInvoiceNo ? undefined : "\\d*"}
-                  value={invoiceNo}
-                  placeholder={
-                    !dispositionChosen
-                      ? "Select disposition first"
-                      : autoGenerateInvoiceNo
-                        ? "Invoice No. (or leave blank)"
-                        : "Invoice No."
-                  }
-                  disabled={!canEnterInvoiceNo}
-                  onInput={(event) =>
-                    setInvoiceNo(
-                      (event.currentTarget as HTMLInputElement).value,
-                    )
-                  }
-                  onBlur={() => void tryLoadInvoiceOnEnter()}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      void tryLoadInvoiceOnEnter();
-                    }
-                  }}
-                />
-              )}
-              {saleStatus ? (
-                <span class={statusPillClass(saleStatus)}>{saleStatus}</span>
-              ) : (
-                <span class="sales-status-pill">New</span>
-              )}
-            </div>
             {validatedByName || cancelledByName ? (
               <p class="sales-hint">
                 {validatedByName ? `Validated by ${validatedByName}` : ""}
@@ -1834,7 +1798,7 @@ export function SalesClient({
             <input
               type="radio"
               name="sale-disposition"
-              checked={saleDisposition === "NORMAL"}
+              checked={dispositionChosen && saleDisposition === "NORMAL"}
               disabled={!canEditDisposition}
               onChange={() => {
                 setSaleDisposition("NORMAL");
@@ -1848,7 +1812,7 @@ export function SalesClient({
               <input
                 type="radio"
                 name="sale-disposition"
-                checked={saleDisposition === "RATION"}
+                checked={dispositionChosen && saleDisposition === "RATION"}
                 disabled={!canEditDisposition}
                 onChange={() => {
                   setSaleDisposition("RATION");
@@ -1863,7 +1827,9 @@ export function SalesClient({
               <input
                 type="radio"
                 name="sale-disposition"
-                checked={saleDisposition === "PUBLIC_RELATION"}
+                checked={
+                  dispositionChosen && saleDisposition === "PUBLIC_RELATION"
+                }
                 disabled={!canEditDisposition}
                 onChange={() => {
                   setSaleDisposition("PUBLIC_RELATION");
@@ -1878,7 +1844,7 @@ export function SalesClient({
               <input
                 type="radio"
                 name="sale-disposition"
-                checked={saleDisposition === "RETAIL"}
+                checked={dispositionChosen && saleDisposition === "RETAIL"}
                 disabled={!canEditDisposition}
                 onChange={() => {
                   setSaleDisposition("RETAIL");
@@ -1891,7 +1857,7 @@ export function SalesClient({
         </fieldset>
         {!dispositionChosen && !isReadOnly ? (
           <p class="sales-hint">
-            Select disposition before entering the invoice number.
+            Select disposition before entering the Receipt No.
           </p>
         ) : null}
         {!isBottleVariant && isSpecialDisposition ? (
@@ -1903,6 +1869,48 @@ export function SalesClient({
             Retail price schedule.
           </p>
         ) : null}
+
+        <div class="sales-doc-identity-row sales-receipt-no-row">
+          <label class="sales-field sales-invoice-no-field">
+            <span>Receipt No.</span>
+            {saleId ? (
+              <div class="sales-doc-invoice-value">{invoiceNo || "—"}</div>
+            ) : (
+              <input
+                class="sales-doc-invoice-input"
+                type="text"
+                inputMode={autoGenerateInvoiceNo ? "text" : "numeric"}
+                pattern={autoGenerateInvoiceNo ? undefined : "\\d*"}
+                value={invoiceNo}
+                placeholder={
+                  !dispositionChosen
+                    ? "Select disposition first"
+                    : autoGenerateInvoiceNo
+                      ? "Receipt No. (or leave blank)"
+                      : "Receipt No."
+                }
+                disabled={!canEnterInvoiceNo}
+                onInput={(event) =>
+                  setInvoiceNo(
+                    (event.currentTarget as HTMLInputElement).value,
+                  )
+                }
+                onBlur={() => void tryLoadInvoiceOnEnter()}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void tryLoadInvoiceOnEnter();
+                  }
+                }}
+              />
+            )}
+          </label>
+          {saleStatus ? (
+            <span class={statusPillClass(saleStatus)}>{saleStatus}</span>
+          ) : (
+            <span class="sales-status-pill">New</span>
+          )}
+        </div>
 
         <div
           class={`sales-meta-grid${
@@ -2158,9 +2166,9 @@ export function SalesClient({
                       {isReadOnly
                         ? "This invoice has no line items."
                         : !dispositionChosen
-                          ? "Select disposition first, then enter the invoice number."
+                          ? "Select disposition first, then enter the Receipt No."
                           : isAwaitingInvoice
-                            ? "Enter invoice no. and press Enter to add items."
+                            ? "Enter Receipt No. and press Enter to add items."
                             : "Use Add line to enter products for this sale."}
                     </span>
                   </td>

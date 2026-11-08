@@ -339,17 +339,23 @@ interface FinancialYearsApi {
   closeYear(authToken: string, periodId: string): Promise<FinancialYearRow>;
   listMonthsForOpenYear(
     authToken: string,
+    salesPointId?: number | null,
   ): Promise<{ year: FinancialYearRow | null; months: FinancialMonthRow[] }>;
   listMonthsForPeriod(
     authToken: string,
     periodId: string,
+    salesPointId?: number | null,
   ): Promise<FinancialMonthRow[]>;
   setMonthStatus(
     authToken: string,
     monthId: string,
     status: FinancialPeriodStatus,
+    salesPointId?: number | null,
   ): Promise<FinancialMonthRow>;
-  getOpenPostingPeriod(authToken: string): Promise<OpenPostingPeriod | null>;
+  getOpenPostingPeriod(
+    authToken: string,
+    salesPointId?: number | null,
+  ): Promise<OpenPostingPeriod | null>;
 }
 
 interface VehicleConsignmentNotesApi {

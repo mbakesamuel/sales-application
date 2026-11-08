@@ -237,7 +237,9 @@ export function DeliveryOrdersClient({
       try {
         const [formOptions, period] = await Promise.all([
           getElectronApi().deliveryOrders.getFormOptions(user.id),
-          getAuthenticatedFinancialYears().getOpenPostingPeriod(),
+          getAuthenticatedFinancialYears().getOpenPostingPeriod(
+            user.salesPointId,
+          ),
         ]);
         setOptions(formOptions);
         setPostingPeriod(period);
@@ -260,7 +262,7 @@ export function DeliveryOrdersClient({
     }
 
     void bootstrap();
-  }, [user.id]);
+  }, [user.id, user.salesPointId]);
 
   useEffect(() => {
     if (initialLookupNo.trim()) {

@@ -36,7 +36,7 @@ function groupKey(line: {
 }
 
 export function getTransportCostReport(userId?: string | null): TransportCostReport {
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId);
   const settings = loadReportCompanySettings(userId, asAtIso);
   const comments = loadReportComments(ROUTE_ID);
 

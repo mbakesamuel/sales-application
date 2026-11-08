@@ -1466,13 +1466,14 @@ export async function getBinCard(
       where: { ...baseWhere, occurred_at: { lt: dayStart(fromIso) } },
       select: { kind: true, qty: true },
     }),
+    // Full period set (no take) so in-period CARRY_FORWARD can fold into Opening
+    // before the soft row limit is applied to ledger lines.
     prisma.stock_movements.findMany({
       where: {
         ...baseWhere,
         occurred_at: { gte: dayStart(fromIso), lt: nextDayStart(toIso) },
       },
       orderBy: [{ occurred_at: "asc" }, { created_at: "asc" }, { id: "asc" }],
-      take: BIN_CARD_ROW_LIMIT + 1,
     }),
   ]);
 
@@ -1481,9 +1482,21 @@ export async function getBinCard(
     openingBalance += signedDeltaForKind(row.kind as StockMovementKind, row.qty);
   }
 
-  const truncated = periodRows.length > BIN_CARD_ROW_LIMIT;
-  const rows = truncated ? periodRows.slice(0, BIN_CARD_ROW_LIMIT) : periodRows;
-  const { docNoByKey, carryForwardByKey } = await resolveMovementDocuments(rows);
+  const { docNoByKey, carryForwardByKey } =
+    await resolveMovementDocuments(periodRows);
+
+  const ledgerRows = [];
+  for (const row of periodRows) {
+    const key = `${row.source_kind}:${row.source_id}`;
+    if (carryForwardByKey.get(key) === true) {
+      openingBalance += signedDeltaForKind(row.kind as StockMovementKind, row.qty);
+      continue;
+    }
+    ledgerRows.push(row);
+  }
+
+  const truncated = ledgerRows.length > BIN_CARD_ROW_LIMIT;
+  const rows = truncated ? ledgerRows.slice(0, BIN_CARD_ROW_LIMIT) : ledgerRows;
 
   let running = openingBalance;
   const lines: BinCardLine[] = rows.map((row) => {
@@ -1492,15 +1505,12 @@ export async function getBinCard(
     running += signed;
     const key = `${row.source_kind}:${row.source_id}`;
     const documentNo = docNoByKey.get(key) ?? null;
-    const isCarryForward = carryForwardByKey.get(key) === true;
-    const kindLabel = isCarryForward
-      ? "Opening / carry-forward"
-      : (KIND_LABELS[kind] ?? kind);
+    const kindLabel = KIND_LABELS[kind] ?? kind;
     return {
       id: row.id,
       occurredAtIso: utcDay(row.occurred_at),
       reference: documentNo ?? kindLabel,
-      particulars: buildParticulars(kind, row.notes ?? null, isCarryForward),
+      particulars: buildParticulars(kind, row.notes ?? null, false),
       kind,
       condition: row.condition === "UNSELLABLE" ? "UNSELLABLE" : "SELLABLE",
       salesPointName: salesPointName(cat, row.sales_point_id),
@@ -1510,7 +1520,7 @@ export async function getBinCard(
       balance: parseQty(formatQty(running)),
       documentNo,
       notes: row.notes ?? null,
-      isCarryForward,
+      isCarryForward: false,
     };
   });
 

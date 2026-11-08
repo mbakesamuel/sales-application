@@ -116,7 +116,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
   useEffect(() => {
     let cancelled = false;
     void getAuthenticatedFinancialYears()
-      .getOpenPostingPeriod()
+      .getOpenPostingPeriod(scopedSalesPointId)
       .then((period) => {
         if (!cancelled) {
           setPostingPeriod(period);
@@ -131,7 +131,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [scopedSalesPointId]);
 
   function defaultOccurredAt(): string {
     return clampIsoDateToRange(utcIsoDateToday(), postingPeriod);

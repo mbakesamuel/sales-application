@@ -1,5 +1,5 @@
 import { prisma } from "../../db/prisma.js";
-import { getOpenPostingPeriod } from "../financialYearsService.js";
+import { getOpenPostingPeriod, postingScopeForUser } from "../financialYearsService.js";
 import {
   loadReportComments,
   loadReportCompanySettings,
@@ -237,8 +237,8 @@ export async function getRevenueTaxesReport(
   period: RevenueTaxesPeriod = "month",
   salesPointId?: number | null,
 ) {
-  const asAtIso = await resolveReportAsAt();
-  const posting = await getOpenPostingPeriod();
+  const asAtIso = await resolveReportAsAt(undefined, userId);
+  const posting = await getOpenPostingPeriod(await postingScopeForUser(userId));
   if (!posting) {
     throw new Error("Open a financial month first.");
   }

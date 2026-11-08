@@ -14,8 +14,21 @@ import {
   listMonthsForPeriod,
   listYears,
   openYear,
+  postingScopeForUser,
   setMonthStatus,
 } from "../financialYears/service.js";
+
+/** Omit/undefined → actor collection point; null → central/head office. */
+function resolvePostingScope(
+  authToken: string,
+  salesPointId?: number | null,
+): number | null {
+  const user = requireAuthUser(authToken);
+  if (salesPointId !== undefined) {
+    return salesPointId;
+  }
+  return postingScopeForUser(user.id);
+}
 
 export function registerFinancialYearsHandlers(): void {
   ipcMain.handle(
@@ -47,17 +60,24 @@ export function registerFinancialYearsHandlers(): void {
     (
       _event,
       authToken: string,
+      salesPointId?: number | null,
     ): { year: FinancialYearRow | null; months: FinancialMonthRow[] } => {
-      requireAuthUser(authToken);
-      return listMonthsForOpenYear();
+      return listMonthsForOpenYear(resolvePostingScope(authToken, salesPointId));
     },
   );
 
   ipcMain.handle(
     "financialYears:listMonthsForPeriod",
-    (_event, authToken: string, periodId: string): FinancialMonthRow[] => {
-      requireAuthUser(authToken);
-      return listMonthsForPeriod(periodId);
+    (
+      _event,
+      authToken: string,
+      periodId: string,
+      salesPointId?: number | null,
+    ): FinancialMonthRow[] => {
+      return listMonthsForPeriod(
+        periodId,
+        resolvePostingScope(authToken, salesPointId),
+      );
     },
   );
 
@@ -68,17 +88,24 @@ export function registerFinancialYearsHandlers(): void {
       authToken: string,
       monthId: string,
       status: FinancialPeriodStatus,
+      salesPointId?: number | null,
     ): FinancialMonthRow => {
-      requireAuthUser(authToken);
-      return setMonthStatus(monthId, status);
+      return setMonthStatus(
+        monthId,
+        status,
+        resolvePostingScope(authToken, salesPointId),
+      );
     },
   );
 
   ipcMain.handle(
     "financialYears:getOpenPostingPeriod",
-    (_event, authToken: string): OpenPostingPeriod | null => {
-      requireAuthUser(authToken);
-      return getOpenPostingPeriod();
+    (
+      _event,
+      authToken: string,
+      salesPointId?: number | null,
+    ): OpenPostingPeriod | null => {
+      return getOpenPostingPeriod(resolvePostingScope(authToken, salesPointId));
     },
   );
 }

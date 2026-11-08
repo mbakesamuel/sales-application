@@ -211,7 +211,7 @@ export function getRevenueTaxesReport(
   period: RevenueTaxesPeriod = "month",
   salesPointId?: number | null,
 ): RevenueTaxesReport {
-  const { asAtIso, period: posting } = resolveReportAsAt();
+  const { asAtIso, period: posting } = resolveReportAsAt(userId);
   const selectedPeriod: RevenueTaxesPeriod =
     period === "year" ? "year" : "month";
   const scopedSalesPointId = reportScopedSalesPointId(userId);

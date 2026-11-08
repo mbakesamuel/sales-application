@@ -699,7 +699,7 @@ export async function saveDeliveryOrder(
 
   let postingPeriod;
   try {
-    postingPeriod = assertDateInOpenMonth(dateIssued);
+    postingPeriod = assertDateInOpenMonth(dateIssued, input.salesPointId);
   } catch (periodError) {
     return {
       ok: false,

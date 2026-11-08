@@ -154,7 +154,7 @@ One `CARRY_FORWARD` DO **per outstanding original DO** (`sourceDocumentNo` requi
 | UI (print window) | `src/ui/stock/BinCardReportScreen.tsx` |
 | Report route | `stock-bin-card-report` in `REPORT_WINDOW_ROUTE_IDS` |
 
-The main screen posts filters to `windows:openReport` with a **`query`** payload (bottled product, date range, optional sales point / location / condition). Bin card is **bottled products only** (enforced in `getBinCard` and the product picker). The report window bootstraps via `report-window:bootstrap` and renders with shared report chrome (`StockCommitmentReport.css` + `BinCardReport.css`). Report window size is **A4 portrait** (~820×1120). Permissions: migration `051_stock_bin_card_permissions.sql` (copied from stock-movements / stock-balance routes).
+The main screen posts filters to `windows:openReport` with a **`query`** payload (bottled product, date range, optional sales point / location / condition). Bin card is **bottled products only** (enforced in `getBinCard` and the product picker). In-period `CARRY_FORWARD` stock adjustments are folded into **Opening balance** and omitted from ledger lines (display only; storage unchanged). The report window bootstraps via `report-window:bootstrap` and renders with shared report chrome (`StockCommitmentReport.css` + `BinCardReport.css`). Report window size is **A4 portrait** (~820×1120). Permissions: migration `051_stock_bin_card_permissions.sql` (copied from stock-movements / stock-balance routes).
 
 ## Pricing and tax
 

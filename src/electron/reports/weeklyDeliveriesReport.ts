@@ -344,7 +344,7 @@ export function getWeeklyDeliveriesReport(
   weekMondayIso?: string | null,
   hideZeroArg?: boolean | null,
 ): WeeklyDeliveriesReport {
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId);
   const settings = loadReportCompanySettings(userId, asAtIso);
   const hideZero = hideZeroArg ?? true;
   const salesPoints = loadSalesPointsForUser(userId);

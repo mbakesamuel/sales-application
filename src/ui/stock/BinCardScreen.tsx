@@ -128,7 +128,9 @@ export function BinCardScreen({
             );
         const [data, period] = await Promise.all([
           bootstrapPromise,
-          getAuthenticatedFinancialYears().getOpenPostingPeriod(),
+          getAuthenticatedFinancialYears().getOpenPostingPeriod(
+            user.salesPointId,
+          ),
         ]);
         if (cancelled) return;
         setBootstrap(data);
@@ -165,7 +167,7 @@ export function BinCardScreen({
     return () => {
       cancelled = true;
     };
-  }, [user.id, bootstrapProp]);
+  }, [user.id, user.salesPointId, bootstrapProp]);
 
   const products: ProductOption[] = bootstrap?.products ?? [];
   const salesPoints: SalesPointOption[] = bootstrap?.salesPoints ?? [];

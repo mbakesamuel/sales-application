@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../db/prisma.js";
-import { getOpenPostingPeriod } from "./financialYearsService.js";
+import { assertDateInOpenMonth } from "./financialYearsService.js";
 import { allocateDocumentSequence } from "./sequences.js";
 import { getTaxRatesAsOf } from "./salesRpcExtras.js";
 
@@ -111,35 +111,32 @@ function roundMoney2(value: number): string {
 async function resolvePostingPeriod(input: {
   financialYear?: number;
   financialMonth?: number;
+  salesPointId?: number | null;
+  dateIssued?: string | null;
 }): Promise<
   | { ok: true; financialYear: number; financialMonth: number }
   | { ok: false; error: string }
 > {
-  const yearOk = Number.isFinite(input.financialYear);
-  const monthOk = Number.isFinite(input.financialMonth);
-  if (yearOk && monthOk) {
+  try {
+    const date =
+      typeof input.dateIssued === "string" && input.dateIssued.trim()
+        ? input.dateIssued.trim().slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
+    const period = await assertDateInOpenMonth(date, input.salesPointId ?? null);
     return {
       ok: true,
-      financialYear: Number(input.financialYear),
-      financialMonth: Number(input.financialMonth),
+      financialYear: period.financialYear,
+      financialMonth: period.calendarMonth,
     };
-  }
-
-  const period = await getOpenPostingPeriod();
-  if (!period) {
+  } catch (error) {
     return {
       ok: false,
-      error: "No open posting period. Open a financial month first.",
+      error:
+        error instanceof Error
+          ? error.message
+          : "No open posting period. Open a financial month first.",
     };
   }
-
-  return {
-    ok: true,
-    financialYear: yearOk ? Number(input.financialYear) : period.financialYear,
-    financialMonth: monthOk
-      ? Number(input.financialMonth)
-      : period.calendarMonth,
-  };
 }
 
 function validateLines(

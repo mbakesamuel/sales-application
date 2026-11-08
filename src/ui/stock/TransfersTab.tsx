@@ -231,7 +231,7 @@ export function TransfersTab(props: TransfersTabProps) {
   useEffect(() => {
     let cancelled = false;
     void getAuthenticatedFinancialYears()
-      .getOpenPostingPeriod()
+      .getOpenPostingPeriod(scopedSalesPointId)
       .then((period) => {
         if (!cancelled) {
           setPostingPeriod(period);
@@ -246,7 +246,7 @@ export function TransfersTab(props: TransfersTabProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [scopedSalesPointId]);
 
   useEffect(() => {
     if (!open) {

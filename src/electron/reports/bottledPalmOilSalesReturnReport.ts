@@ -386,7 +386,7 @@ function buildIssuePacks(
 export function getBottledPalmOilSalesReturnReport(
   userId?: string,
 ): BottledPalmOilSalesReturnReport {
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId);
   const settings = loadReportCompanySettings(userId, asAtIso);
   const comments = loadReportComments(ROUTE_ID);
   const products = loadProducts();

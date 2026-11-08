@@ -231,7 +231,7 @@ function buildSupervisorQueueTiles(userId: string): SupervisorDashboardSummary["
 
 function getSupervisorDashboardSummary(userId: string): SupervisorDashboardSummary {
   const asAtIso = localTodayIso();
-  const period = getOpenPostingPeriod();
+  const period = getOpenPostingPeriod(getScopedSalesPointId(userId));
   const looseStock = loadStockOnHandByBottled(0);
   const bottleStock = loadStockOnHandByBottled(1);
   const queueTiles = buildSupervisorQueueTiles(userId);
@@ -661,7 +661,7 @@ function getCommercialDashboardSummary(): CommercialDashboardSummary {
 
 function getBottleOilDashboardSummary(userId: string): BottleOilDashboardSummary {
   const todayIso = localTodayIso();
-  const period = getOpenPostingPeriod();
+  const period = getOpenPostingPeriod(getScopedSalesPointId(userId));
   const asAtIso = period ? minIso(period.endDate, todayIso) : todayIso;
   const stock = loadBottledStockOnHand(asAtIso);
   const pendingReceives = countPendingReceives(userId);

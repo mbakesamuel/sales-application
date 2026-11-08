@@ -96,7 +96,7 @@ export function getDailySalesMatrixReport(
   salesPointId?: number | null,
   productId?: number | null,
 ): DailySalesMatrixReport {
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId);
   const monthStartIso = period.startDate;
   const monthEndIso = period.endDate;
   const effectiveEndIso = asAtIso < monthEndIso ? asAtIso : monthEndIso;

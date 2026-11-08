@@ -157,7 +157,7 @@ function loadSaleLines(
 export function getIndustryProductMonthlySalesReport(
   userId?: string,
 ): IndustryProductMonthlySalesReport {
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId);
   const financialYear = period.financialYear;
   const yearFromIso = `${financialYear}-01-01`;
   const yearToIso = `${financialYear}-12-31`;

@@ -354,7 +354,7 @@ export function getBinCard(userId: string, query: BinCardQuery): BinCardReport {
     storageLocationLabel = location.name;
   }
 
-  const openingBalance = loadOpeningBalance({
+  let openingBalance = loadOpeningBalance({
     productId,
     salesPointId,
     storageLocationId,
@@ -370,12 +370,24 @@ export function getBinCard(userId: string, query: BinCardQuery): BinCardReport {
     fromIso,
     toIso,
   });
-  const truncated = rawMovements.length > SOFT_ROW_LIMIT;
-  const periodRows = truncated
-    ? rawMovements.slice(0, SOFT_ROW_LIMIT)
-    : rawMovements;
+  // Resolve CF on the full period set before truncating so go-live carry-forward
+  // can fold into Opening even when the soft row limit would otherwise drop it.
+  const { docNoByKey, carryForwardByKey } = resolveDocumentMeta(rawMovements);
 
-  const { docNoByKey, carryForwardByKey } = resolveDocumentMeta(periodRows);
+  const ledgerMovements: MovementRaw[] = [];
+  for (const row of rawMovements) {
+    const key = `${row.sourceKind}:${row.sourceId}`;
+    if (carryForwardByKey.get(key) === true) {
+      openingBalance += signedDeltaForKind(row.kind, row.qty);
+      continue;
+    }
+    ledgerMovements.push(row);
+  }
+
+  const truncated = ledgerMovements.length > SOFT_ROW_LIMIT;
+  const periodRows = truncated
+    ? ledgerMovements.slice(0, SOFT_ROW_LIMIT)
+    : ledgerMovements;
 
   let running = openingBalance;
   const lines: BinCardLine[] = periodRows.map((row) => {
@@ -385,16 +397,13 @@ export function getBinCard(userId: string, query: BinCardQuery): BinCardReport {
     running += signed;
     const key = `${row.sourceKind}:${row.sourceId}`;
     const documentNo = docNoByKey.get(key) ?? null;
-    const isCarryForward = carryForwardByKey.get(key) === true;
-    const kindLabel = isCarryForward
-      ? "Opening / carry-forward"
-      : KIND_LABELS[row.kind] ?? row.kind;
+    const kindLabel = KIND_LABELS[row.kind] ?? row.kind;
 
     return {
       id: row.id,
       occurredAtIso: row.occurredAt.slice(0, 10),
       reference: documentNo ?? kindLabel,
-      particulars: buildParticulars(row.kind, row.notes, isCarryForward),
+      particulars: buildParticulars(row.kind, row.notes, false),
       kind: row.kind,
       condition: row.condition,
       salesPointName: row.salesPointName,
@@ -404,7 +413,7 @@ export function getBinCard(userId: string, query: BinCardQuery): BinCardReport {
       balance: parseQty(formatQty(running)),
       documentNo,
       notes: row.notes,
-      isCarryForward,
+      isCarryForward: false,
     };
   });
 

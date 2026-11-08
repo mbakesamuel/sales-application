@@ -1,4 +1,4 @@
-import { getOpenPostingPeriod } from "../financialYearsService.js";
+import { getOpenPostingPeriod, postingScopeForUser } from "../financialYearsService.js";
 import {
   loadReportComments,
   loadReportCompanySettings,
@@ -103,8 +103,8 @@ function makeDataRow(id: string, label: string, months: Cell[]): Row {
 }
 
 export async function getMonthlyPalmOilSalesReport(userId: string) {
-  const asAtIso = await resolveReportAsAt();
-  const period = await getOpenPostingPeriod();
+  const asAtIso = await resolveReportAsAt(undefined, userId);
+  const period = await getOpenPostingPeriod(await postingScopeForUser(userId));
   if (!period) {
     throw new Error("No open posting period. Open a financial month first.");
   }

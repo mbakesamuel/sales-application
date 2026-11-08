@@ -172,7 +172,7 @@ function loadValidatedNonBottledSaleLines(
 export function getMonthlyDeliveriesByDestinationReport(
   userId?: string,
 ): MonthlyDeliveriesByDestinationReport {
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId);
   const monthStartIso = period.startDate;
   const monthEndIso = period.endDate;
   const settings = loadReportCompanySettings(userId, asAtIso);

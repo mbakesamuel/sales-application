@@ -12,7 +12,7 @@ export function getSalesBudgetMonthlyRevenueCrosstabReport(
   userId?: string | null,
   reportYearRaw?: number | null,
 ): SalesBudgetMonthlyRevenueCrosstabReport {
-  const { asAtIso } = resolveReportAsAt();
+  const { asAtIso } = resolveReportAsAt(userId);
   const settings = loadReportCompanySettings(userId, asAtIso);
   const context = loadSalesBudgetCrosstabContext(reportYearRaw);
   const monthlyCache = new Map<string, number[]>();

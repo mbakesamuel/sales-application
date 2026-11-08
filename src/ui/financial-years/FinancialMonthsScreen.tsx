@@ -54,12 +54,18 @@ function IconChevronRight() {
 
 interface FinancialMonthsScreenProps {
   readOnly?: boolean;
+  /** Attached collection point, or null for central/head-office month. */
+  salesPointId?: number | null;
 }
 
 export function FinancialMonthsScreen({
   readOnly = false,
+  salesPointId = null,
 }: FinancialMonthsScreenProps = {}) {
   const canWrite = !readOnly;
+  const scopeId = salesPointId ?? null;
+  const scopeLabel =
+    scopeId == null ? "company (head office)" : "this collection point";
   const [year, setYear] = useState<FinancialYearRow | null>(null);
   const [rows, setRows] = useState<FinancialMonthRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,7 +85,10 @@ export function FinancialMonthsScreen({
       setIsLoading(true);
       setError(null);
       try {
-        const data = await getAuthenticatedFinancialYears().listMonthsForOpenYear();
+        const data =
+          await getAuthenticatedFinancialYears().listMonthsForOpenYear(
+            scopeId,
+          );
         if (!cancelled) {
           setYear(data.year);
           setRows(data.months);
@@ -102,7 +111,7 @@ export function FinancialMonthsScreen({
     return () => {
       cancelled = true;
     };
-  }, [refreshKey]);
+  }, [refreshKey, scopeId]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -146,7 +155,11 @@ export function FinancialMonthsScreen({
     setActionError(null);
     setBusyId(row.id);
     try {
-      await getAuthenticatedFinancialYears().setMonthStatus(row.id, next);
+      await getAuthenticatedFinancialYears().setMonthStatus(
+        row.id,
+        next,
+        scopeId,
+      );
       setRefreshKey((current) => current + 1);
     } catch (toggleError) {
       setActionError(
@@ -172,7 +185,7 @@ export function FinancialMonthsScreen({
             <h2 class="customers-screen-brand-title">Financial months</h2>
             <p class="customers-screen-brand-subtitle">
               {year
-                ? `Open year ${year.financialYear} — one open month for posting`
+                ? `Open year ${year.financialYear} — open month for ${scopeLabel}`
                 : "Open a financial year to manage months"}
             </p>
           </div>

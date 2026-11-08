@@ -503,7 +503,12 @@ function RouteContent({
   }
 
   if (route.id === "financial-months") {
-    return <FinancialMonthsScreen readOnly={readOnly} />;
+    return (
+      <FinancialMonthsScreen
+        readOnly={readOnly}
+        salesPointId={user.salesPointId}
+      />
+    );
   }
 
   return (
@@ -590,7 +595,9 @@ export function HomeScreen({
     async function refreshOpenPostingPeriod() {
       try {
         const period =
-          await getAuthenticatedFinancialYears().getOpenPostingPeriod();
+          await getAuthenticatedFinancialYears().getOpenPostingPeriod(
+            user.salesPointId,
+          );
         if (!cancelled) setOpenPostingPeriod(period);
       } catch {
         if (!cancelled) setOpenPostingPeriod(null);
@@ -607,7 +614,7 @@ export function HomeScreen({
       window.removeEventListener("focus", refreshOnFocus);
       window.clearInterval(intervalId);
     };
-  }, [activeRouteId]);
+  }, [activeRouteId, user.salesPointId]);
 
   useEffect(() => {
     const api = getElectronApi();

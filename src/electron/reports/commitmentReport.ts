@@ -138,7 +138,7 @@ export function getCommitmentReport(
   userId?: string | null,
   hideZeroArg?: boolean | null,
 ): CommitmentReport {
-  const { asAtIso } = resolveReportAsAt();
+  const { asAtIso } = resolveReportAsAt(userId);
   const settings = loadReportCompanySettings(userId, asAtIso);
   const hideZero = hideZeroArg ?? true;
   const salesPoints = loadSalesPointsForUser(userId);

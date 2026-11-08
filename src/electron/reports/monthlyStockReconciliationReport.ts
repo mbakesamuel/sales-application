@@ -340,7 +340,7 @@ export function getMonthlyStockReconciliationReport(
   userId?: string | null,
   hideZeroArg?: boolean | null,
 ): MonthlyStockReconciliationReport {
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId);
   const settings = loadReportCompanySettings(userId, asAtIso);
   const hideZero = hideZeroArg ?? true;
   const salesPoints = loadSalesPointsForUser(userId);

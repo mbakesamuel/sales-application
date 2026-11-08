@@ -1961,7 +1961,7 @@ export async function saveReceipt(
     const db = getDatabase();
 
     const receivedAtDate = normalizeIsoDateInput(input.receivedAt);
-    assertDateInOpenMonth(receivedAtDate);
+    assertDateInOpenMonth(receivedAtDate, input.salesPointId);
     const receivedAt = noonUtcIsoDate(receivedAtDate);
     const lines = input.lines.map((line) => {
       if (!isPositiveQty(line.qty)) {
@@ -2326,7 +2326,7 @@ export async function saveTransfer(
 
     const db = getDatabase();
     const dispatchedAtDate = normalizeIsoDateInput(input.dispatchedAt);
-    assertDateInOpenMonth(dispatchedAtDate);
+    assertDateInOpenMonth(dispatchedAtDate, input.fromSalesPointId);
     const dispatchedAt = noonUtcIsoDate(dispatchedAtDate);
     const consignedBy = normalizeOptionalTransferText(input.consignedBy);
     const consDesign = normalizeOptionalTransferText(input.consDesign);
@@ -2818,7 +2818,7 @@ export async function saveAdjustment(
 
     const db = getDatabase();
     const occurredAtDate = normalizeIsoDateInput(input.occurredAt);
-    assertDateInOpenMonth(occurredAtDate);
+    assertDateInOpenMonth(occurredAtDate, input.salesPointId);
     const occurredAt = noonUtcIsoDate(occurredAtDate);
     const lines = input.lines.map((line) => {
       if (!isNonZeroQty(line.deltaQty)) {

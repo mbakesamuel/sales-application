@@ -109,12 +109,12 @@ export function resolveSelectedWeek(
 }
 
 /** Week choices for the open posting month (weekly report toolbars). */
-export function getOpenMonthWeekChoices(): {
+export function getOpenMonthWeekChoices(userId?: string | null): {
   asAtIso: string;
   weekChoices: ReportWeekChoice[];
   defaultWeekMondayIso: string | null;
 } {
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId);
   const weekChoices = buildWeekChoices(period.startDate, period.endDate, asAtIso);
   const selected = resolveSelectedWeek(weekChoices, asAtIso, null);
   return {

@@ -29,6 +29,72 @@ export async function listProducts() {
   }));
 }
 
+export type SalesFormProductOption = {
+  productId: number;
+  productName: string;
+  productCat: string;
+  productCatCode: string;
+  isMain: boolean;
+  omitsStorageLocation: boolean;
+};
+
+function isLooseLpoSalesProduct(args: {
+  productCode: string | null;
+  productName: string;
+  isBottled: boolean;
+}): boolean {
+  if (args.isBottled) return false;
+  if ((args.productCode ?? "").trim().toUpperCase() === "LPO") return true;
+  return args.productName.trim().toLowerCase() === "loose palm oil";
+}
+
+/** Sales invoice form catalogs: split by ProductCat.is_bottled (Electron parity). */
+export async function listSalesFormProducts(): Promise<{
+  looseProducts: SalesFormProductOption[];
+  bottledProducts: SalesFormProductOption[];
+}> {
+  const rows = await prisma.products.findMany({
+    where: { exclude_from_sales: false },
+    orderBy: { product_name: "asc" },
+    take: 200,
+    include: {
+      product_cats: {
+        select: {
+          product_cat: true,
+          product_code: true,
+          is_bottled: true,
+        },
+      },
+    },
+  });
+
+  const looseProducts: SalesFormProductOption[] = [];
+  const bottledProducts: SalesFormProductOption[] = [];
+
+  for (const row of rows) {
+    const isBottled = Boolean(row.product_cats.is_bottled);
+    const option: SalesFormProductOption = {
+      productId: row.product_id,
+      productName: row.product_name,
+      productCat: row.product_cats.product_cat,
+      productCatCode: row.product_cats.product_code,
+      isMain: isLooseLpoSalesProduct({
+        productCode: row.product_code,
+        productName: row.product_name,
+        isBottled,
+      }),
+      omitsStorageLocation: Boolean(row.omits_storage_location),
+    };
+    if (isBottled) {
+      bottledProducts.push(option);
+    } else {
+      looseProducts.push(option);
+    }
+  }
+
+  return { looseProducts, bottledProducts };
+}
+
 export async function listSalesPoints() {
   const rows = await prisma.sales_points.findMany({
     where: { is_active: true },
@@ -59,9 +125,11 @@ export async function getCompanySettings() {
     autoGenerateSalesInvoiceNo: row.auto_generate_sales_invoice_no,
     enforceSalesInvoiceBookletValidation:
       row.enforce_sales_invoice_booklet_validation,
+    salesInvoiceLockUnitPrice: row.sales_invoice_lock_unit_price,
+    loosePalmOilRequireSalesTank: row.loose_palm_oil_require_sales_tank,
   };
 }
 
-export async function getOpenPostingPeriod() {
-  return getOpenFinancialPostingPeriod();
+export async function getOpenPostingPeriod(salesPointId?: number | null) {
+  return getOpenFinancialPostingPeriod(salesPointId);
 }

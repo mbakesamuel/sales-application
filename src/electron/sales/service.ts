@@ -1461,7 +1461,10 @@ export async function createSale(input: CreateSaleInput): Promise<SaveSaleResult
 
   let postingPeriod;
   try {
-    postingPeriod = assertDateInOpenMonth(soldAt);
+    postingPeriod = assertDateInOpenMonth(
+      soldAt,
+      input.salesPointId ?? null,
+    );
   } catch (periodError) {
     return {
       ok: false,

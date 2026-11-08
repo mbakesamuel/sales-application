@@ -557,9 +557,11 @@ async function buildSupervisorQueueTiles(
   ];
 }
 
-async function getCommercialDashboardSummary(): Promise<CommercialDashboardSummary> {
+async function getCommercialDashboardSummary(
+  salesPointId: number | null,
+): Promise<CommercialDashboardSummary> {
   const asAtIso = localTodayIso();
-  const period = await getOpenPostingPeriod();
+  const period = await getOpenPostingPeriod(salesPointId);
   if (!period) return emptyCommercial(asAtIso);
 
   const monthEnd = minIso(period.endDate, asAtIso);
@@ -610,7 +612,7 @@ async function getBottleOilDashboardSummary(
   salesPointId: number | null,
 ): Promise<BottleOilDashboardSummary> {
   const todayIso = localTodayIso();
-  const period = await getOpenPostingPeriod();
+  const period = await getOpenPostingPeriod(salesPointId);
   const asAtIso = period ? minIso(period.endDate, todayIso) : todayIso;
   const [stock, pendingReceives] = await Promise.all([
     loadStockOnHandByBottled(true, asAtIso),
@@ -678,7 +680,7 @@ async function getSupervisorDashboardSummary(
   salesPointId: number | null,
 ): Promise<SupervisorDashboardSummary> {
   const asAtIso = localTodayIso();
-  const period = await getOpenPostingPeriod();
+  const period = await getOpenPostingPeriod(salesPointId);
   const [looseStock, bottleStock, queueTiles] = await Promise.all([
     loadStockOnHandByBottled(false, asAtIso),
     loadStockOnHandByBottled(true, asAtIso),
@@ -734,5 +736,5 @@ export async function getDashboardSummary(
   if (isSupervisorOverviewRole(actor.role)) {
     return getSupervisorDashboardSummary(actor.salesPointId);
   }
-  return getCommercialDashboardSummary();
+  return getCommercialDashboardSummary(actor.salesPointId);
 }

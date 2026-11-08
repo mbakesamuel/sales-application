@@ -213,7 +213,7 @@ export function CarryForwardStockScreen({
   useEffect(() => {
     let cancelled = false;
     void getAuthenticatedFinancialYears()
-      .getOpenPostingPeriod()
+      .getOpenPostingPeriod(user.salesPointId)
       .then((period) => {
         if (!cancelled) {
           setPostingPeriod(period);
@@ -228,7 +228,7 @@ export function CarryForwardStockScreen({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user.salesPointId]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();

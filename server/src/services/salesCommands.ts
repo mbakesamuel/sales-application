@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "../db/prisma.js";
-import { getOpenPostingPeriod } from "./financialYearsService.js";
+import { assertDateInOpenMonth } from "./financialYearsService.js";
 import { allocateDocumentSequence } from "./sequences.js";
 import { getTaxRatesAsOf } from "./salesRpcExtras.js";
 import { applyMovement } from "./stockMovements.js";
@@ -12,6 +12,7 @@ import {
   assertRouteWrite,
   loadRpcActor,
 } from "./rpcActor.js";
+import { getCompanySettings } from "./mastersQueries.js";
 
 const SALES_ROUTE_ID = "sales";
 const BOTTLE_OIL_SALES_ROUTE_ID = "bottle-oil-sales";
@@ -339,25 +340,30 @@ export async function createSaleCommand(
     };
   }
 
-  const yearOk = Number.isFinite(input.financialYear);
-  const monthOk = Number.isFinite(input.financialMonth);
-  let financialYear = yearOk ? Number(input.financialYear) : NaN;
-  let financialMonth = monthOk ? Number(input.financialMonth) : NaN;
-  if (!yearOk || !monthOk) {
-    const period = await getOpenPostingPeriod();
-    if (!period) {
-      return {
-        ok: false,
-        error: "No open posting period. Open a financial month first.",
-      };
-    }
-    if (!yearOk) financialYear = period.financialYear;
-    if (!monthOk) financialMonth = period.calendarMonth;
+  let financialYear: number;
+  let financialMonth: number;
+  try {
+    const period = await assertDateInOpenMonth(
+      input.dateIssued.trim().slice(0, 10),
+      salesPointId,
+    );
+    financialYear = period.financialYear;
+    financialMonth = period.calendarMonth;
+  } catch (periodError) {
+    return {
+      ok: false,
+      error:
+        periodError instanceof Error
+          ? periodError.message
+          : "No open posting period. Open a financial month first.",
+    };
   }
 
   try {
     const saleId = randomUUID();
     let invoiceNo = input.invoiceNo?.trim() || "";
+    const company = await getCompanySettings();
+    const autoGenerateInvoiceNo = company?.autoGenerateSalesInvoiceNo === true;
 
     if (invoiceNo) {
       const existing = await prisma.sales.findUnique({
@@ -367,13 +373,15 @@ export async function createSaleCommand(
       if (existing) {
         return { ok: false, error: `Invoice ${invoiceNo} already exists.` };
       }
-    } else {
+    } else if (autoGenerateInvoiceNo) {
       const allocated = await allocateDocumentSequence({
         salesPointId,
         documentKind: "SALES_INVOICE",
         financialYear,
       });
       invoiceNo = allocated.documentNo;
+    } else {
+      return { ok: false, error: "Invoice number is required." };
     }
 
     const validateImmediately = Boolean(input.validateImmediately);

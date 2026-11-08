@@ -59,7 +59,7 @@ function resolveCalendarYear(
 export function getLooseLpoStockSummaryReport(
   userId?: string | null,
 ): LooseLpoStockSummaryReport {
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId);
   const settings = loadReportCompanySettings(userId, asAtIso);
   const salesPoints = loadSalesPointsForUser(userId);
   const scopedSalesPointId = reportScopedSalesPointId(userId);

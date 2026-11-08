@@ -854,7 +854,7 @@ export function getMonthlyDeliveryReport(
   half: 1 | 2,
   userId?: string | null,
 ): MonthlyDeliveryReport {
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId);
   const settings = loadReportCompanySettings(userId, asAtIso);
   const financialYear = period.financialYear;
   const categories = loadCategories();

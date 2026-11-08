@@ -1621,9 +1621,37 @@
   color: #991b1b;
 }
 
+.form-dialog-panel.sales-form-dialog-panel .sales-receipt-no-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-receipt-no-row .sales-invoice-no-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  margin: 0;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-receipt-no-row .sales-invoice-no-field > span:first-child {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-receipt-no-row .sales-status-pill {
+  margin-bottom: 6px;
+}
+
 .form-dialog-panel.sales-form-dialog-panel .sales-disposition-chips {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 4px;
   margin: 0 0 6px;
   padding: 0;

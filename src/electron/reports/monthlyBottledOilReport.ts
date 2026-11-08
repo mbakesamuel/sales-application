@@ -140,7 +140,7 @@ function loadSaleLines(saleIds: string[]): SaleLinePackRecord[] {
 export function getMonthlyBottledOilReport(
   userId?: string,
 ): MonthlyBottledOilReport {
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId);
   const settings = loadReportCompanySettings(userId, asAtIso);
   const comments = loadReportComments(ROUTE_ID);
   const monthStartIso = period.startDate;

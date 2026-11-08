@@ -26,18 +26,20 @@ import {
 import { prisma } from "../db/prisma.js";
 import {
   getCompanySettings,
-  getOpenPostingPeriod,
   listCustomers,
   listProducts,
+  listSalesFormProducts,
   listSalesPoints,
 } from "../services/mastersQueries.js";
 import { getDashboardSummary } from "../services/dashboardSummary.js";
 import {
   closeYear,
+  getOpenPostingPeriod,
   listMonthsForOpenYear,
   listMonthsForPeriod,
   listYears,
   openYear,
+  postingScopeForUser,
   setMonthStatus,
 } from "../services/financialYearsService.js";
 import { queryTable } from "../services/tableQuery.js";
@@ -589,7 +591,20 @@ const handlers: Record<string, Handler> = {
     return deleteReportSignatory(ctx.userId, id);
   },
 
-  "financialYears.getOpenPostingPeriod": async () => getOpenPostingPeriod(),
+  "financialYears.getOpenPostingPeriod": async (args, ctx) => {
+    // (authToken, salesPointId?) — omit/undefined → actor scope (null = central)
+    const explicit =
+      typeof args[1] === "number"
+        ? args[1]
+        : args[1] === null
+          ? null
+          : undefined;
+    const scope =
+      explicit !== undefined
+        ? explicit
+        : (await postingScopeForUser(ctx.userId));
+    return getOpenPostingPeriod(scope);
+  },
   "financialYears.listYears": async () => listYears(),
   "financialYears.openYear": async (args) => {
     // Authenticated wrappers pass (authToken, financialYear).
@@ -604,21 +619,57 @@ const handlers: Record<string, Handler> = {
       typeof args[1] === "string" ? args[1] : String(args[0] ?? "");
     return closeYear(periodId);
   },
-  "financialYears.listMonthsForOpenYear": async () => listMonthsForOpenYear(),
-  "financialYears.listMonthsForPeriod": async (args) => {
+  "financialYears.listMonthsForOpenYear": async (args, ctx) => {
+    const explicit =
+      typeof args[1] === "number"
+        ? args[1]
+        : args[1] === null
+          ? null
+          : undefined;
+    const scope =
+      explicit !== undefined
+        ? explicit
+        : (await postingScopeForUser(ctx.userId));
+    return listMonthsForOpenYear(scope);
+  },
+  "financialYears.listMonthsForPeriod": async (args, ctx) => {
     const periodId =
       typeof args[1] === "string" ? args[1] : String(args[0] ?? "");
-    return listMonthsForPeriod(periodId);
+    const explicit =
+      typeof args[2] === "number"
+        ? args[2]
+        : args[2] === null
+          ? null
+          : undefined;
+    const scope =
+      explicit !== undefined
+        ? explicit
+        : (await postingScopeForUser(ctx.userId));
+    return listMonthsForPeriod(periodId, scope);
   },
-  "financialYears.setMonthStatus": async (args) => {
-    // (authToken, monthId, status)
+  "financialYears.setMonthStatus": async (args, ctx) => {
+    // (authToken, monthId, status, salesPointId?)
     const monthId =
       typeof args[2] === "string" || args[2] === "OPEN" || args[2] === "CLOSED"
         ? String(args[1] ?? "")
         : String(args[0] ?? "");
     const statusRaw =
       typeof args[2] === "string" ? args[2] : String(args[1] ?? "CLOSED");
-    return setMonthStatus(monthId, statusRaw === "OPEN" ? "OPEN" : "CLOSED");
+    const explicit =
+      typeof args[3] === "number"
+        ? args[3]
+        : args[3] === null
+          ? null
+          : undefined;
+    const scope =
+      explicit !== undefined
+        ? explicit
+        : (await postingScopeForUser(ctx.userId));
+    return setMonthStatus(
+      monthId,
+      statusRaw === "OPEN" ? "OPEN" : "CLOSED",
+      scope,
+    );
   },
   "db.getCompanySettings": async () => getCompanySettings(),
   "db.queryTable": async (args) => {
@@ -716,7 +767,7 @@ const handlers: Record<string, Handler> = {
     const [
       actor,
       customers,
-      products,
+      salesProducts,
       salesPoints,
       company,
       paymentMethods,
@@ -724,7 +775,7 @@ const handlers: Record<string, Handler> = {
     ] = await Promise.all([
       loadRpcActor(ctx.userId),
       listCustomers(),
-      listProducts(),
+      listSalesFormProducts(),
       listSalesPoints(),
       getCompanySettings(),
       prisma.payment_method_definitions.findMany({
@@ -769,8 +820,8 @@ const handlers: Record<string, Handler> = {
       canWriteRoute(actor, "bottle-oil-sales") && canDirect;
     return {
       customers,
-      looseProducts: products,
-      bottledProducts: products,
+      looseProducts: salesProducts.looseProducts,
+      bottledProducts: salesProducts.bottledProducts,
       salesPoints,
       paymentMethods: paymentMethods.map((p) => ({
         id: p.id,
@@ -782,13 +833,15 @@ const handlers: Record<string, Handler> = {
       scopedSalesPointId: ctx.salesPointId,
       companyName: company?.companyName ?? "",
       vatRateDecimal: company?.vatRate ?? "0",
-      autoGenerateSalesInvoiceNo: true,
+      autoGenerateSalesInvoiceNo: company?.autoGenerateSalesInvoiceNo === true,
       canDirectValidateLoose,
       canDirectValidateBottled,
       canDirectValidate: canDirectValidateLoose || canDirectValidateBottled,
-      enforceSalesInvoiceBookletValidation: false,
-      salesInvoiceLockUnitPrice: false,
-      loosePalmOilRequireSalesTank: false,
+      enforceSalesInvoiceBookletValidation:
+        company?.enforceSalesInvoiceBookletValidation === true,
+      salesInvoiceLockUnitPrice: company?.salesInvoiceLockUnitPrice !== false,
+      loosePalmOilRequireSalesTank:
+        company?.loosePalmOilRequireSalesTank !== false,
       botaSalesPointId: botaSalesPoint?.id ?? null,
       bottleOilStoreLocationId: bottleOilStoreLocation?.id ?? null,
     };

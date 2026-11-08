@@ -62,7 +62,7 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
   useEffect(() => {
     let cancelled = false;
     void getAuthenticatedFinancialYears()
-      .getOpenPostingPeriod()
+      .getOpenPostingPeriod(user.salesPointId)
       .then((period) => {
         if (!cancelled) {
           setPostingPeriod(period);
@@ -76,7 +76,7 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user.salesPointId]);
 
   function openReceiveDialog(detail: TransferDetail) {
     const locations = page?.storageLocations ?? [];

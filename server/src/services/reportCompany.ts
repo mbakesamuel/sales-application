@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "../db/prisma.js";
-import { getOpenPostingPeriod } from "./financialYearsService.js";
+import {
+  getOpenPostingPeriod,
+  postingScopeForUser,
+} from "./financialYearsService.js";
 import { assertRouteWrite, loadRpcActor } from "./rpcActor.js";
 
 const DEFAULT_SIGNATORY_NAME = "NYAKE VICTORINE Epse MBUA";
@@ -37,10 +40,14 @@ export function nowIso(): string {
   return new Date().toISOString();
 }
 
-export async function resolveReportAsAt(asAtIso?: string | null): Promise<string> {
+export async function resolveReportAsAt(
+  asAtIso?: string | null,
+  userId?: string | null,
+): Promise<string> {
   const raw = (asAtIso ?? "").trim().slice(0, 10);
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  const period = await getOpenPostingPeriod();
+  const scope = await postingScopeForUser(userId);
+  const period = await getOpenPostingPeriod(scope);
   if (period) {
     const today = todayIso();
     return today < period.endDate ? today : period.endDate;

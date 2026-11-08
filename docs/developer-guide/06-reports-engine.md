@@ -195,7 +195,7 @@ Files: `salesBudgetMonthlyRevenueCrosstab.ts`, `salesBudgetWeeklyRevenueCrosstab
 
 Not a sidebar report route — opened from **Bin card** with filter query.
 
-- Builder: `getBinCard` in `src/electron/stock/binCard.ts` (ledger lines, opening/closing balance, truncation at 5 000 rows).
+- Builder: `getBinCard` in `src/electron/stock/binCard.ts` (ledger lines, opening/closing balance, truncation at 5 000 rows). In-period `CARRY_FORWARD` adjustments fold into Opening and are omitted from the ledger body (mirrored in `server/.../stockRpcExtras.ts`).
 - Report route: `stock-bin-card-report`; bootstrap includes optional `query` on `ReportWindowBootstrap`.
 - UI: `BinCardReportScreen.tsx` — `ReportHeader`, `scr-document` / `scr-table`, opening/closing as `scr-row-total`.
 - Window: `openOrFocusReportWindow` uses portrait dimensions for this route id; print injects `@page { size: A4 portrait }` in `BinCardReport.css`.

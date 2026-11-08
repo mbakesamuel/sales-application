@@ -106,7 +106,7 @@ function emptyTotals(): MonthlyPaymentDeliveryTotals {
 export function getMonthlyPaymentDeliveryReport(
   userId?: string,
 ): MonthlyPaymentDeliveryReport {
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId);
   const monthStartIso = period.startDate;
   const monthEndIso = period.endDate;
   const settings = loadReportCompanySettings(userId, asAtIso);

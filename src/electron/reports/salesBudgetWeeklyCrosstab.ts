@@ -14,7 +14,7 @@ export function getSalesBudgetWeeklyCrosstabReport(
   userId?: string | null,
   reportYearRaw?: number | null,
 ): SalesBudgetWeeklyCrosstabReport {
-  const { asAtIso } = resolveReportAsAt();
+  const { asAtIso } = resolveReportAsAt(userId);
   const settings = loadReportCompanySettings(userId, asAtIso);
   const context = loadSalesBudgetCrosstabContext(reportYearRaw);
   const phaseResultCache = new Map<string, SalesBudgetPhaseResult | null>();
