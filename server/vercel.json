@@ -1,19 +1,21 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npx prisma generate && npx tsc -p tsconfig.build.json",
+  "buildCommand": "npm run vercel-build",
   "installCommand": "npm install --include=dev",
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
   "functions": {
     "api/index.js": {
       "memory": 1024,
       "maxDuration": 60,
-      "includeFiles": "{dist/**,node_modules/@sparticuz/chromium/**}"
+      "includeFiles": "{api/_app.mjs,node_modules/@sparticuz/chromium/**}"
     }
   },
   "build": {
     "env": {
       "PUPPETEER_SKIP_DOWNLOAD": "1",
-      "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "1"
+      "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "1",
+      "EXPERIMENTAL_NODE_TYPESCRIPT_ERRORS": "0",
+      "VERCEL_FORCE_NO_BUILD_CACHE": "1"
     }
   }
 }
