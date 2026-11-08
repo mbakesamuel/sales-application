@@ -1,13 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npx prisma generate",
+  "buildCommand": "npx prisma generate && npx tsc -p tsconfig.build.json",
   "installCommand": "npm install --include=dev",
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
   "functions": {
-    "api/index.ts": {
+    "api/index.js": {
       "memory": 1024,
       "maxDuration": 60,
-      "includeFiles": "node_modules/@sparticuz/chromium/**"
+      "includeFiles": "{dist/**,node_modules/@sparticuz/chromium/**}"
     }
   },
   "build": {

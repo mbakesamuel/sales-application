@@ -1,7 +1,7 @@
 import { handle } from "hono/vercel";
-// Import source (not dist): Vercel remaps src→dist when tsconfig has outDir, which
-// breaks typechecking against emitted JS. Root tsconfig.json is noEmit for that reason.
-import { app } from "../src/app.js";
+// Plain JS entry: avoids Vercel NODE_TYPESCRIPT_ERROR on remapped ../dist/app.js.
+// Built by vercel.json buildCommand (`tsc -p tsconfig.build.json`).
+import { app } from "../dist/app.js";
 
 export const config = {
   runtime: "nodejs",
