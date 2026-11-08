@@ -89,6 +89,8 @@ Cancel an active booklet only when your process requires it (write access). See 
 
 On create and validate, the app checks **sellable stock as of the invoice date** (`dateIssued`) at the collection point and storage location — not only today’s live balance. Receipts, carry-forward stock, transfers, and prior sales through that date count; stock that arrived *after* the invoice date does not. Backdating an invoice before stock was on hand is blocked (even if you validate later, after a receipt).
 
+**Pending invoices also reserve that stock.** Available qty for new lines and new invoices is reduced by other **pending** sales (loose and bottle) dated on or before the invoice date at the same location. Saving a pending sale of 5 when 5 are on hand blocks further sales of that stock until the pending invoice is validated, cancelled, or deleted. Physical stock movements are still posted only on validate (or direct validate).
+
 Validated sales post stock movements stamped with the invoice date so later as-of checks stay consistent.
 
 ## Delivery order on the invoice

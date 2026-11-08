@@ -438,7 +438,7 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
                       {tax.label}
                       {tax.ratePercent ? ` (${tax.ratePercent})` : ""}
                     </span>
-                    <span>{tax.amount || `${formatMoney("0")} XAF`}</span>
+                    <span>{formatMoney(tax.amount || "0")} XAF</span>
                   </div>
                 ))
               : null}

@@ -10,6 +10,7 @@ import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
 import { RowActions } from "../components/RowActions.tsx";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 type SortKey = "label" | "id" | "type" | "userCount";
 type SortDir = "asc" | "desc";
@@ -428,7 +429,7 @@ export function RolesScreen({ permissions }: RolesScreenProps) {
     if (role.isSystem) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete role "${role.label}" (${role.id})? This cannot be undone.`,
     );
     if (!confirmed) {
@@ -469,7 +470,7 @@ export function RolesScreen({ permissions }: RolesScreenProps) {
       setError("System roles cannot be deleted. Clear selection or choose custom roles.");
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete ${toDelete.length} selected custom role(s)? This cannot be undone.`,
     );
     if (!confirmed) {

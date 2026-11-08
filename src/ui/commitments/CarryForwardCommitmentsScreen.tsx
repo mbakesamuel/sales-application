@@ -12,6 +12,7 @@ import { getElectronApi } from "../auth/client.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
 import "./CarryForwardCommitmentsScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 interface CarryForwardCommitmentsScreenProps {
   user: AuthUser;
@@ -352,7 +353,7 @@ export function CarryForwardCommitmentsScreen({
     if (!canWrite) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete CF line for ${row.customerName} / ${row.productName} at ${row.salesPointName}?`,
     );
     if (!confirmed) {

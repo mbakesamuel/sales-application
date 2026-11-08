@@ -552,34 +552,12 @@ function dashTileStatusClass(count: number): string {
 
 function BottleOilTiles({
   summary,
-  onNavigate,
 }: {
   summary: BottleOilDashboardSummary;
   onNavigate?: (routeId: string) => void;
 }) {
-  const pendingReceiveContent = (
-    <>
-      <div class="dash-tile-label">Pending receive</div>
-      <div class="dash-tile-value">{summary.pendingReceives}</div>
-      <div class="dash-tile-meta">Transfers awaiting receive</div>
-    </>
-  );
-
   return (
     <div class="dash-tiles">
-      {onNavigate ? (
-        <button
-          type="button"
-          class={`dash-tile dash-tile-btn ${dashTileStatusClass(summary.pendingReceives)}`}
-          onClick={() => onNavigate("receive-transfers")}
-        >
-          {pendingReceiveContent}
-        </button>
-      ) : (
-        <div class={`dash-tile ${dashTileStatusClass(summary.pendingReceives)}`}>
-          {pendingReceiveContent}
-        </div>
-      )}
       <div class={`dash-tile ${dashTileStatusClass(summary.invoiceCounts.pending)}`}>
         <div class="dash-tile-label">Pending invoices</div>
         <div class="dash-tile-value">{summary.invoiceCounts.pending}</div>

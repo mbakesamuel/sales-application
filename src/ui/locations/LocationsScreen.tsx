@@ -17,6 +17,7 @@ import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
 import { LocationFormModal } from "./LocationFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 /** First page fits rows 1–33; row 34 starts the next page. */
 const LOCATION_PRINT_ROWS_PER_PAGE = 33;
@@ -523,7 +524,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
     if (!schema) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete location "${row.locationName}"? This cannot be undone.`,
     );
     if (!confirmed) {
@@ -547,7 +548,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
     if (!schema || selectedIds.size === 0) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete ${selectedIds.size} selected location(s)? This cannot be undone.`,
     );
     if (!confirmed) {

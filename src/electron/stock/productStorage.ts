@@ -155,16 +155,29 @@ export function loadLoosePalmOilAllowInterSalesPointTransfer(
   }
 }
 
-/** Inter transfers: bottled always; loose Palm Oil only when company setting allows. */
+const BOTTLE_TRANSFER_BLOCKED_MESSAGE =
+  "Bottle products are received at Bota via Reception / consignment note; transfers are not used for bottle stock.";
+
+/** Bottle products never transfer (inter or intra) — intake is Reception at Bota. */
+export function assertNoBottledTransferProducts(
+  db: Database.Database,
+  productIds: number[],
+): void {
+  for (const productId of productIds) {
+    if (productIsBottledById(db, productId)) {
+      throw new Error(BOTTLE_TRANSFER_BLOCKED_MESSAGE);
+    }
+  }
+}
+
+/** Inter transfers: loose Palm Oil only when company setting allows (never bottled). */
 export function assertInterTransferProductsAllowed(
   db: Database.Database,
   productIds: number[],
 ): void {
+  assertNoBottledTransferProducts(db, productIds);
   const allowLoosePalmOil = loadLoosePalmOilAllowInterSalesPointTransfer(db);
   for (const productId of productIds) {
-    if (productIsBottledById(db, productId)) {
-      continue;
-    }
     if (productIsLoosePalmOilById(db, productId)) {
       if (allowLoosePalmOil) {
         continue;
@@ -174,7 +187,7 @@ export function assertInterTransferProductsAllowed(
       );
     }
     throw new Error(
-      "Only bottled products can be transferred between collection points. Use Within collection point for loose products.",
+      "Only loose Palm Oil (when enabled) can be transferred between collection points. Use Within collection point for other loose products.",
     );
   }
 }

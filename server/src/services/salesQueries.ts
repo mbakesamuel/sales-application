@@ -1,10 +1,35 @@
 import { prisma } from "../db/prisma.js";
 import { applyMovement } from "./stockMovements.js";
+import { resolveStockProductId } from "./stockIntakeGrouping.js";
+import { resolveSaleLineStorageLocationId } from "./saleStorageLocation.js";
+import { assertSaleLinesStockAsOf } from "./saleStockAssert.js";
+import {
+  assertAction,
+  assertRouteWrite,
+  canPerformAction,
+  loadRpcActor,
+} from "./rpcActor.js";
+
+const SALES_ROUTE_ID = "sales";
+const BOTTLE_OIL_SALES_ROUTE_ID = "bottle-oil-sales";
+
+function saleRouteIdForMode(saleProductMode: string | null | undefined): string {
+  return String(saleProductMode ?? "LOOSE").toUpperCase() === "BOTTLE"
+    ? BOTTLE_OIL_SALES_ROUTE_ID
+    : SALES_ROUTE_ID;
+}
 
 export async function listSalesValidationQueue(input: {
   userId?: string;
   salesPointId?: number | null;
 }) {
+  if (input.userId?.trim()) {
+    const actor = await loadRpcActor(input.userId);
+    if (!canPerformAction(actor, "validate_sales")) {
+      throw new Error("You do not have permission to validate sales.");
+    }
+  }
+
   const where: {
     status: string;
     sales_point_id?: number;
@@ -108,55 +133,136 @@ export async function listSales(filters: {
 }
 
 export async function loadSaleByInvoiceNo(invoiceNo: string) {
+  const trimmed = invoiceNo.trim();
+  if (!trimmed) return null;
+
   const sale = await prisma.sales.findUnique({
-    where: { invoice_no: invoiceNo.trim() },
+    where: { invoice_no: trimmed },
     include: {
-      sale_lines: true,
-      payments: true,
+      sale_lines: { orderBy: { id: "asc" } },
+      payments: { orderBy: { created_at: "asc" } },
       sales_points: { select: { name: true } },
     },
   });
   if (!sale) return null;
 
+  const productIds = [...new Set(sale.sale_lines.map((line) => line.product_id))];
+  const paymentMethodIds = [
+    ...new Set(sale.payments.map((payment) => payment.payment_method_id)),
+  ];
+  const userIds = [
+    sale.created_by_user_id,
+    sale.validated_by_user_id,
+    sale.cancelled_by_user_id,
+  ].filter((id): id is string => Boolean(id));
+
+  const [products, paymentMethods, users] = await Promise.all([
+    productIds.length
+      ? prisma.products.findMany({
+          where: { product_id: { in: productIds } },
+          include: {
+            product_cats: { select: { product_cat: true } },
+          },
+        })
+      : [],
+    paymentMethodIds.length
+      ? prisma.payment_method_definitions.findMany({
+          where: { id: { in: paymentMethodIds } },
+        })
+      : [],
+    userIds.length
+      ? prisma.users.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true },
+        })
+      : [],
+  ]);
+
+  const productById = new Map(
+    products.map((product) => [
+      product.product_id,
+      {
+        productName: product.product_name,
+        productCat: product.product_cats?.product_cat ?? "",
+      },
+    ]),
+  );
+  const methodById = new Map(
+    paymentMethods.map((method) => [
+      method.id,
+      {
+        methodCode: method.code,
+        methodName: method.name,
+        kind: method.kind,
+      },
+    ]),
+  );
+  const userName = new Map(users.map((user) => [user.id, user.name]));
+
   return {
     id: sale.id,
     invoiceNo: sale.invoice_no,
-    status: sale.status,
     soldAtIso: sale.sold_at.toISOString(),
-    dateIssuedIso: sale.date_issued,
-    customerId: sale.customer_id,
-    customerName: sale.customer_name_snapshot,
+    referenceNumber: sale.reference_number,
     salesPointId: sale.sales_point_id,
     salesPointName: sale.sales_points?.name ?? null,
+    customerId: sale.customer_id,
+    customerName: sale.customer_name_snapshot,
+    createdByUserId: sale.created_by_user_id,
+    createdByName: userName.get(sale.created_by_user_id) ?? "",
+    status: sale.status,
+    validatedAtIso: sale.validated_at ? sale.validated_at.toISOString() : null,
+    validatedByName: sale.validated_by_user_id
+      ? (userName.get(sale.validated_by_user_id) ?? null)
+      : null,
+    cancelledAtIso: sale.cancelled_at ? sale.cancelled_at.toISOString() : null,
+    cancelledByName: sale.cancelled_by_user_id
+      ? (userName.get(sale.cancelled_by_user_id) ?? null)
+      : null,
+    cancelReason: sale.cancel_reason,
     vehicleNumber: sale.vehicle_number,
+    dateIssuedIso: sale.date_issued,
     deliveryOrderNo: sale.delivery_order_no,
-    referenceNumber: sale.reference_number,
     saleProductMode: sale.sale_product_mode,
     saleDisposition: sale.sale_disposition,
     netAmount: String(sale.net_amount),
     vatAmount: String(sale.vat_amount),
     grossAmount: String(sale.gross_amount),
-    lines: sale.sale_lines.map((line) => ({
-      productId: line.product_id,
-      qtyKg: String(line.qty_kg),
-      qtyUnits: line.qty_units != null ? String(line.qty_units) : null,
-      unitPricePerKg: String(line.unit_price_per_kg),
-      unitPricePerUnit:
-        line.unit_price_per_unit != null ? String(line.unit_price_per_unit) : null,
-      lineNet: String(line.line_net),
-      lineVat: String(line.line_vat),
-      lineGross: String(line.line_gross),
-      storageLocationId: line.storage_location_id,
-    })),
-    payments: sale.payments.map((p) => ({
-      paymentMethodId: p.payment_method_id,
-      amount: String(p.amount),
-      chequeNo: p.cheque_no,
-      bank: p.bank,
-      traiteNo: p.traite_no,
-      traiteIssuedOn: p.traite_issued_on,
-      traiteMaturityOn: p.traite_maturity_on,
-    })),
+    lines: sale.sale_lines.map((line) => {
+      const product = productById.get(line.product_id);
+      return {
+        productId: line.product_id,
+        productName: product?.productName ?? `Product ${line.product_id}`,
+        productCat: product?.productCat ?? "",
+        storageLocationId: line.storage_location_id,
+        qtyKg: String(line.qty_kg),
+        qtyUnits: line.qty_units != null ? String(line.qty_units) : null,
+        unitPricePerKg: String(line.unit_price_per_kg),
+        unitPricePerUnit:
+          line.unit_price_per_unit != null
+            ? String(line.unit_price_per_unit)
+            : null,
+        lineNet: String(line.line_net),
+        lineVat: String(line.line_vat),
+        lineGross: String(line.line_gross),
+      };
+    }),
+    payments: sale.payments.map((payment) => {
+      const method = methodById.get(payment.payment_method_id);
+      return {
+        paymentMethodId: payment.payment_method_id,
+        methodCode: method?.methodCode ?? "",
+        methodName: method?.methodName ?? "",
+        kind: method?.kind ?? "OTHER",
+        amount: String(payment.amount),
+        chequeNo: payment.cheque_no,
+        bank: payment.bank,
+        traiteNo: payment.traite_no,
+        traiteIssuedOn: payment.traite_issued_on,
+        traiteMaturityOn: payment.traite_maturity_on,
+        paidAtIso: payment.paid_at.toISOString(),
+      };
+    }),
   };
 }
 
@@ -165,6 +271,13 @@ export async function validateSaleCommand(input: {
   userId: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
+    const actor = await loadRpcActor(input.userId);
+    assertAction(
+      actor,
+      "validate_sales",
+      "You do not have permission to validate sales.",
+    );
+
     await prisma.$transaction(async (tx) => {
       const sale = await tx.sales.findUnique({
         where: { id: input.saleId },
@@ -175,18 +288,48 @@ export async function validateSaleCommand(input: {
       if (sale.status !== "PENDING") {
         throw new Error(`Cannot validate a sale in status ${sale.status}.`);
       }
+      assertRouteWrite(actor, saleRouteIdForMode(sale.sale_product_mode));
 
       const isBottle = sale.sale_product_mode === "BOTTLE";
-      const occurredAt = sale.sold_at;
+      const dateIssued =
+        String(sale.date_issued ?? "").slice(0, 10) ||
+        sale.sold_at.toISOString().slice(0, 10);
+      const occurredAt = new Date(`${dateIssued}T12:00:00.000Z`);
       if (sale.sales_point_id != null) {
+        await assertSaleLinesStockAsOf(tx, {
+          salesPointId: sale.sales_point_id,
+          dateIssued,
+          isBottleMode: isBottle,
+          excludeSaleId: sale.id,
+          lines: sale.sale_lines.map((line) => ({
+            productId: line.product_id,
+            qtyKg: String(line.qty_kg),
+            qtyUnits: line.qty_units,
+            storageLocationId: line.storage_location_id,
+          })),
+        });
+
         for (const line of sale.sale_lines) {
           const qty = isBottle
             ? String(line.qty_units ?? line.qty_kg)
             : String(line.qty_kg);
+          const productId = await resolveStockProductId(tx, line.product_id);
+          let storageLocationId = line.storage_location_id;
+          if (isBottle && storageLocationId == null) {
+            storageLocationId = await resolveSaleLineStorageLocationId(tx, {
+              salesPointId: sale.sales_point_id,
+              preferredLocationId: null,
+              isBottleMode: true,
+            });
+            await tx.sale_lines.update({
+              where: { id: line.id },
+              data: { storage_location_id: storageLocationId },
+            });
+          }
           await applyMovement(tx, {
             salesPointId: sale.sales_point_id,
-            productId: line.product_id,
-            storageLocationId: line.storage_location_id,
+            productId,
+            storageLocationId,
             qty,
             kind: "SALE",
             occurredAt,
@@ -225,12 +368,20 @@ export async function cancelSaleCommand(input: {
   if (!reason) return { ok: false, error: "Cancellation reason is required." };
 
   try {
+    const actor = await loadRpcActor(input.userId);
+    assertAction(
+      actor,
+      "cancel_validated_sales",
+      "You do not have permission to cancel validated sales.",
+    );
+
     await prisma.$transaction(async (tx) => {
       const sale = await tx.sales.findUnique({ where: { id: input.saleId } });
       if (!sale) throw new Error("Sale not found.");
       if (sale.status !== "VALIDATED") {
         throw new Error("Only validated sales can be cancelled.");
       }
+      assertRouteWrite(actor, saleRouteIdForMode(sale.sale_product_mode));
 
       // Reverse SALE movements for this source.
       const movements = await tx.stock_movements.findMany({

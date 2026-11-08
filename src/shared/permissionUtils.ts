@@ -61,12 +61,7 @@ export function filterSectionsForPermissions<
     if (routeId === "stock") {
       return canAccessStockModule(snapshot);
     }
-    // Bottled Stock nav is for bottled-only roles (Store Keeper). Roles with
-    // main Stock already manage bottled products there — hide the duplicate.
     if (routeId === "bottled-stock") {
-      if (canAccessStockModule(snapshot)) {
-        return false;
-      }
       return canAccessBottledStockModule(snapshot);
     }
     return canAccessRouteFromSnapshot(snapshot, routeId);

@@ -44,6 +44,7 @@ interface ReceiptsTabProps {
   products: ProductOption[];
   onHand: StockBalanceRow[];
   scopedSalesPointId: number | null;
+  botaSalesPointId?: number | null;
   canPost: boolean;
   canCancel: boolean;
   canDraft: boolean;
@@ -65,6 +66,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     products,
     onHand,
     scopedSalesPointId,
+    botaSalesPointId = null,
     userId,
     autoGenerateReceiptNo,
     viewProductFilter = "all",
@@ -73,13 +75,25 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
   const bottledLocked =
     viewProductFilter === "bulk" || viewProductFilter === "bottled";
   const lockedBottled = viewProductFilter === "bottled";
+  const bottleReceiptAtBota = lockedBottled && botaSalesPointId != null;
+  const defaultSalesPointId = (): string => {
+    if (bottleReceiptAtBota) {
+      return String(botaSalesPointId);
+    }
+    return scopedSalesPointId != null ? String(scopedSalesPointId) : "";
+  };
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [bottledProducts, setBottledProducts] = useState(lockedBottled);
   const [receiptNo, setReceiptNo] = useState("");
-  const [salesPointId, setSalesPointId] = useState<string>(
-    scopedSalesPointId != null ? String(scopedSalesPointId) : "",
-  );
+  const [consignmentNoteNo, setConsignmentNoteNo] = useState("");
+  const [consignedBy, setConsignedBy] = useState("");
+  const [consDesign, setConsDesign] = useState("");
+  const [consDate, setConsDate] = useState("");
+  const [receiveBy, setReceiveBy] = useState("");
+  const [receiveByDesign, setReceiveByDesign] = useState("");
+  const [receiveDate, setReceiveDate] = useState("");
+  const [salesPointId, setSalesPointId] = useState<string>(defaultSalesPointId);
   const [supplierLabel, setSupplierLabel] = useState("");
   const [receivedAt, setReceivedAt] = useState(utcIsoDateToday());
   const [notes, setNotes] = useState("");
@@ -132,6 +146,13 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
   }
 
   const receiptSalesPoints = useMemo(() => {
+    if (lockedBottled) {
+      if (botaSalesPointId == null) {
+        return [];
+      }
+      const bota = salesPoints.find((sp) => sp.id === botaSalesPointId);
+      return bota ? [bota] : [];
+    }
     const millAttached = salesPoints.filter((sp) => sp.attachedToMill);
     if (!salesPointId) {
       return millAttached;
@@ -147,7 +168,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
       }
     }
     return millAttached;
-  }, [salesPoints, salesPointId]);
+  }, [salesPoints, salesPointId, lockedBottled, botaSalesPointId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,7 +199,19 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     const nextBottled = bottledLocked ? lockedBottled : false;
     setBottledProducts(nextBottled);
     setReceiptNo("");
-    const sp = scopedSalesPointId != null ? String(scopedSalesPointId) : "";
+    setConsignmentNoteNo("");
+    setConsignedBy("");
+    setConsDesign("");
+    setConsDate("");
+    setReceiveBy("");
+    setReceiveByDesign("");
+    setReceiveDate("");
+    const sp =
+      nextBottled && botaSalesPointId != null
+        ? String(botaSalesPointId)
+        : scopedSalesPointId != null
+          ? String(scopedSalesPointId)
+          : "";
     setSalesPointId(sp);
     setSupplierLabel("");
     setReceivedAt(defaultReceivedAt());
@@ -279,6 +312,21 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     if (!postImmediately && !editingId && !props.canDraft) {
       return;
     }
+    const showConsignment = bottledProducts;
+    if (showConsignment) {
+      if (!consignmentNoteNo.trim()) {
+        showModalErr("Consignment Note # is required for Bottle Oil receipts.");
+        return;
+      }
+      if (!consignedBy.trim()) {
+        showModalErr("Consigned by is required for Bottle Oil receipts.");
+        return;
+      }
+      if (!receiveBy.trim()) {
+        showModalErr("Received by is required for Bottle Oil receipts.");
+        return;
+      }
+    }
     setBusy(true);
     clearModalMessage();
     try {
@@ -294,6 +342,17 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         supplierLabel,
         receivedAt,
         notes: notes || null,
+        consignmentNoteNo: showConsignment
+          ? consignmentNoteNo.trim() || null
+          : null,
+        consignedBy: showConsignment ? consignedBy.trim() || null : null,
+        consDesign: showConsignment ? consDesign.trim() || null : null,
+        consDate: showConsignment ? consDate.trim() || null : null,
+        receiveBy: showConsignment ? receiveBy.trim() || null : null,
+        receiveByDesign: showConsignment
+          ? receiveByDesign.trim() || null
+          : null,
+        receiveDate: showConsignment ? receiveDate.trim() || null : null,
         lines: lines
           .filter((l) => {
             if (!l.productId || !l.qty) {
@@ -420,6 +479,13 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     setSalesPointId(String(detail.salesPointId));
     setSupplierLabel(detail.supplierLabel);
     setReceiptNo(detail.receiptNo);
+    setConsignmentNoteNo(detail.consignmentNoteNo ?? "");
+    setConsignedBy(detail.consignedBy ?? "");
+    setConsDesign(detail.consDesign ?? "");
+    setConsDate(detail.consDate ?? "");
+    setReceiveBy(detail.receiveBy ?? "");
+    setReceiveByDesign(detail.receiveByDesign ?? "");
+    setReceiveDate(detail.receiveDate ?? "");
     setBottledProducts(productFilterForDetail(detail) === "bottled");
     const rawDate =
       detail.receivedAtIso.length > 10
@@ -552,6 +618,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         <table class="stock-table">
           <thead>
             <tr>
+              <th>Receipt #</th>
               <th>Consignment Note #</th>
               <th>Date</th>
               <th>Collection point</th>
@@ -564,7 +631,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} class="stock-empty-cell">
+                <td colSpan={8} class="stock-empty-cell">
                   No receipts recorded yet.
                   {props.canDraft ? (
                     <>
@@ -579,6 +646,9 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               rows.map((r) => (
                 <tr key={r.id}>
                   <td class="stock-mono">{r.receiptNo}</td>
+                  <td class="stock-mono">
+                    {r.consignmentNoteNo?.trim() ? r.consignmentNoteNo : "—"}
+                  </td>
                   <td class="stock-nowrap">{formatDate(r.receivedAtIso)}</td>
                   <td>{r.salesPointName}</td>
                   <td>{r.supplierLabel}</td>
@@ -646,6 +716,39 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               <ReviewKeyValue label="Mill">
                 {reviewDetail.supplierLabel}
               </ReviewKeyValue>
+              {reviewDetail.consignmentNoteNo ? (
+                <ReviewKeyValue label="Consignment Note #">
+                  <span class="stock-mono">{reviewDetail.consignmentNoteNo}</span>
+                </ReviewKeyValue>
+              ) : null}
+              {reviewDetail.consignedBy ? (
+                <ReviewKeyValue label="Consigned by">
+                  {reviewDetail.consignedBy}
+                  {reviewDetail.consDesign
+                    ? ` (${reviewDetail.consDesign})`
+                    : ""}
+                  {reviewDetail.consDate ? (
+                    <span class="stock-subtext">
+                      {" "}
+                      {formatDate(reviewDetail.consDate)}
+                    </span>
+                  ) : null}
+                </ReviewKeyValue>
+              ) : null}
+              {reviewDetail.receiveBy ? (
+                <ReviewKeyValue label="Received by">
+                  {reviewDetail.receiveBy}
+                  {reviewDetail.receiveByDesign
+                    ? ` (${reviewDetail.receiveByDesign})`
+                    : ""}
+                  {reviewDetail.receiveDate ? (
+                    <span class="stock-subtext">
+                      {" "}
+                      {formatDate(reviewDetail.receiveDate)}
+                    </span>
+                  ) : null}
+                </ReviewKeyValue>
+              ) : null}
               <ReviewKeyValue label="Drafted by">
                 {reviewDetail.createdByName}
                 <span class="stock-subtext">
@@ -744,6 +847,23 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
             onSubmit={(event) => void onSave(event, false)}
             class="stock-form"
           >
+            {bottledProducts ? (
+              <label class="stock-form-row">
+                <span class="stock-form-label">Consignment Note #</span>
+                <input
+                  class="stock-form-control stock-mono"
+                  value={consignmentNoteNo}
+                  onInput={(event) =>
+                    setConsignmentNoteNo(
+                      (event.currentTarget as HTMLInputElement).value,
+                    )
+                  }
+                  placeholder="Mill consignment note number"
+                  required
+                />
+              </label>
+            ) : null}
+
             <label class="stock-form-row">
               <span class="stock-form-label">Receipt Date</span>
               <span class="stock-form-control-wrap">
@@ -768,7 +888,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
             </label>
             {!autoGenerateReceiptNo && !editingId ? (
               <label class="stock-form-row">
-                <span class="stock-form-label">Consignment Note #</span>
+                <span class="stock-form-label">Receipt number</span>
                 <input
                   class="stock-form-control stock-mono"
                   value={receiptNo}
@@ -809,7 +929,118 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               />
             </label>
 
-            {scopedSalesPointId == null ? (
+            {bottledProducts ? (
+              <>
+                <div class="stock-transfer-signatures">
+                  <div class="stock-transfer-signature-col">
+                    <label class="stock-form-row">
+                      <span class="stock-form-label">Consigned by</span>
+                      <span class="stock-form-control-wrap">
+                        <input
+                          class="stock-form-control"
+                          value={consignedBy}
+                          onInput={(event) =>
+                            setConsignedBy(
+                              (event.currentTarget as HTMLInputElement).value,
+                            )
+                          }
+                          required
+                        />
+                      </span>
+                    </label>
+                    <label class="stock-form-row">
+                      <span class="stock-form-label">Designation</span>
+                      <span class="stock-form-control-wrap">
+                        <input
+                          class="stock-form-control"
+                          value={consDesign}
+                          onInput={(event) =>
+                            setConsDesign(
+                              (event.currentTarget as HTMLInputElement).value,
+                            )
+                          }
+                        />
+                      </span>
+                    </label>
+                    <label class="stock-form-row">
+                      <span class="stock-form-label">Date</span>
+                      <span class="stock-form-control-wrap">
+                        <input
+                          type="date"
+                          class="stock-form-control"
+                          value={consDate}
+                          min={postingPeriod?.startDate}
+                          max={postingPeriod?.endDate}
+                          disabled={!postingPeriod}
+                          onInput={(event) =>
+                            setConsDate(
+                              clampIsoDateToRange(
+                                (event.currentTarget as HTMLInputElement).value,
+                                postingPeriod,
+                              ),
+                            )
+                          }
+                        />
+                      </span>
+                    </label>
+                  </div>
+                  <div class="stock-transfer-signature-col">
+                    <label class="stock-form-row">
+                      <span class="stock-form-label">Received by</span>
+                      <span class="stock-form-control-wrap">
+                        <input
+                          class="stock-form-control"
+                          value={receiveBy}
+                          onInput={(event) =>
+                            setReceiveBy(
+                              (event.currentTarget as HTMLInputElement).value,
+                            )
+                          }
+                          required
+                        />
+                      </span>
+                    </label>
+                    <label class="stock-form-row">
+                      <span class="stock-form-label">Designation</span>
+                      <span class="stock-form-control-wrap">
+                        <input
+                          class="stock-form-control"
+                          value={receiveByDesign}
+                          onInput={(event) =>
+                            setReceiveByDesign(
+                              (event.currentTarget as HTMLInputElement).value,
+                            )
+                          }
+                        />
+                      </span>
+                    </label>
+                    <label class="stock-form-row">
+                      <span class="stock-form-label">Date</span>
+                      <span class="stock-form-control-wrap">
+                        <input
+                          type="date"
+                          class="stock-form-control"
+                          value={receiveDate}
+                          min={postingPeriod?.startDate}
+                          max={postingPeriod?.endDate}
+                          disabled={!postingPeriod}
+                          onInput={(event) =>
+                            setReceiveDate(
+                              clampIsoDateToRange(
+                                (event.currentTarget as HTMLInputElement).value,
+                                postingPeriod,
+                              ),
+                            )
+                          }
+                        />
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            {scopedSalesPointId == null || bottleReceiptAtBota ? (
               <label class="stock-form-row">
                 <span class="stock-form-label">Collection point</span>
                 <select
@@ -820,6 +1051,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                       (event.currentTarget as HTMLSelectElement).value,
                     )
                   }
+                  disabled={bottleReceiptAtBota}
                   required
                 >
                   <option value="">Select collection point</option>
@@ -832,33 +1064,37 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               </label>
             ) : null}
 
-            <label class="stock-form-row stock-form-row-checkbox">
-              <span class="stock-form-label">Product type</span>
-              <span class="stock-form-control-wrap">
-                <label class="stock-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={bottledProducts}
-                    disabled={bottledLocked}
-                    onChange={(event) =>
-                      onBottledProductsChange(
-                        (event.currentTarget as HTMLInputElement).checked,
-                      )
-                    }
-                  />
-                  Bottled products
-                </label>
-                <span class="stock-form-hint">
-                  {bottledLocked
-                    ? viewProductFilter === "bottled"
-                      ? "Locked to bottled by the Stock product view."
-                      : "Locked to loose products by the Stock product view."
-                    : bottledProducts
+            {bottledLocked ? (
+              viewProductFilter === "bulk" ? (
+                <p class="stock-form-hint">
+                  Loose products only (including Palm Kernel / Cake). Bottle Oil
+                  stock is managed separately.
+                </p>
+              ) : null
+            ) : (
+              <label class="stock-form-row stock-form-row-checkbox">
+                <span class="stock-form-label">Product type</span>
+                <span class="stock-form-control-wrap">
+                  <label class="stock-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={bottledProducts}
+                      onChange={(event) =>
+                        onBottledProductsChange(
+                          (event.currentTarget as HTMLInputElement).checked,
+                        )
+                      }
+                    />
+                    Bottled products
+                  </label>
+                  <span class="stock-form-hint">
+                    {bottledProducts
                       ? "Line products are limited to bottled items."
                       : "Line products are limited to other (non-bottled) items, including Palm Kernel / Cake (no storage location)."}
+                  </span>
                 </span>
-              </span>
-            </label>
+              </label>
+            )}
             <label class="stock-form-row">
               <span class="stock-form-label">Description</span>
               <input

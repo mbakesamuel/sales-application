@@ -30,6 +30,7 @@ export function ConfirmDialog({
       ariaLabel={ariaLabel}
       title={title}
       subtitle={description}
+      elevated
       onClose={busy ? () => undefined : onCancel}
     >
       <div class="confirm-dialog-actions">

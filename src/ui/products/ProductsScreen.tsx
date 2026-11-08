@@ -18,6 +18,7 @@ import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import { ProductFormModal } from "./ProductFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 /** First page fits rows 1–33; row 34 starts the next page. */
 const PRODUCT_PRINT_ROWS_PER_PAGE = 33;
@@ -569,7 +570,7 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete product "${row.productName}"? This cannot be undone.`,
     );
     if (!confirmed) {
@@ -596,7 +597,7 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete ${selectedIds.size} selected product(s)? This cannot be undone.`,
     );
     if (!confirmed) {

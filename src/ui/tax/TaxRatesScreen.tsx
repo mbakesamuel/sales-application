@@ -19,6 +19,7 @@ import "../components/FormDialog.css";
 import { TaxRateFormModal } from "./TaxRateFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 type SortKey = "rateKind" | "ratePercent" | "effectiveFrom" | "createdAt" | "isActive";
 type SortDir = "asc" | "desc";
@@ -454,7 +455,7 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
 
   async function deleteRate(row: TaxRateRow) {
     if (!schema) return;
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete ${row.kindLabel} rate effective ${row.effectiveFrom}?`,
     );
     if (!confirmed) return;

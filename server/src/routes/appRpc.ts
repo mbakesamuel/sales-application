@@ -59,6 +59,14 @@ import * as vcnRpc from "../services/vehicleConsignmentNotesRpc.js";
 import { getOpenMonthWeekChoices } from "../services/reports/weekChoices.js";
 import { getRevenueTaxesReport } from "../services/reports/revenueTaxesReport.js";
 import { getStockReport } from "../services/reports/stockReport.js";
+import { getBottleOilStockSalesReport } from "../services/reports/bottleOilStockSalesReport.js";
+import { getBottledWeeklyIssuesReport } from "../services/reports/bottledWeeklyIssuesReport.js";
+import { getBottledPalmOilSalesReturnReport } from "../services/reports/bottledPalmOilSalesReturnReport.js";
+import { getMonthlyBottledOilReport } from "../services/reports/monthlyBottledOilReport.js";
+import { getLooseLpoStockSummaryReport } from "../services/reports/looseLpoStockSummaryReport.js";
+import { getMonthlyPalmOilSalesReport } from "../services/reports/monthlyPalmOilSalesReport.js";
+import { getPalmOilSalesActivityReport } from "../services/reports/palmOilSalesActivityReport.js";
+import { getMonthlyStockReconciliationReport } from "../services/reports/monthlyStockReconciliationReport.js";
 import {
   backupStubs,
   carryForwardStockStubs,
@@ -67,6 +75,11 @@ import {
   transportCostGetFormOptions,
 } from "../services/thinClientStubs.js";
 import { resolveHandler } from "../services/rpcCoverage.js";
+import {
+  canPerformAction,
+  canWriteRoute,
+  loadRpcActor,
+} from "../services/rpcActor.js";
 
 type Handler = (
   args: unknown[],
@@ -412,15 +425,23 @@ const handlers: Record<string, Handler> = {
   },
   "reports.getCommitmentReport": async (_args, ctx) =>
     reportShells.emptyCommitmentReport(ctx),
-  "reports.getBottleOilStockSales": async (_args, ctx) =>
-    reportShells.emptyBottleOilStockSales(ctx),
+  "reports.getBottleOilStockSales": async (args, ctx) => {
+    const hideZero =
+      typeof args[1] === "boolean"
+        ? args[1]
+        : args[1] === 0 || args[1] === 1
+          ? Boolean(args[1])
+          : undefined;
+    const asAtIso = typeof args[2] === "string" ? args[2] : undefined;
+    return getBottleOilStockSalesReport(ctx.userId, hideZero, asAtIso);
+  },
   "reports.getBottledWeeklyIssues": async (args, ctx) => {
     const estimateBasis =
       typeof args[1] === "string" ? args[1] : undefined;
     const weekMondayIso =
       typeof args[2] === "string" ? args[2] : undefined;
-    return reportShells.emptyBottledWeeklyIssues(
-      ctx,
+    return getBottledWeeklyIssuesReport(
+      ctx.userId,
       estimateBasis,
       weekMondayIso,
     );
@@ -436,10 +457,17 @@ const handlers: Record<string, Handler> = {
     const halfRaw = args[0] === 2 || args[0] === "2" ? 2 : 1;
     return reportShells.emptyMonthlyDelivery(ctx, halfRaw);
   },
-  "reports.getMonthlyStockReconciliation": async (_args, ctx) =>
-    reportShells.emptyMonthlyStockReconciliation(ctx),
+  "reports.getMonthlyStockReconciliation": async (args, ctx) => {
+    const hideZero =
+      typeof args[1] === "boolean"
+        ? args[1]
+        : args[1] === 0 || args[1] === 1
+          ? Boolean(args[1])
+          : undefined;
+    return getMonthlyStockReconciliationReport(ctx.userId, hideZero);
+  },
   "reports.getLooseLpoStockSummary": async (_args, ctx) =>
-    reportShells.emptyLooseLpoStockSummary(ctx),
+    getLooseLpoStockSummaryReport(ctx.userId),
   "reports.getMonthlyPaymentDelivery": async (_args, ctx) =>
     reportShells.emptyMonthlyPaymentDelivery(ctx),
   "reports.getTransportCost": async (_args, ctx) =>
@@ -447,17 +475,17 @@ const handlers: Record<string, Handler> = {
   "reports.getMonthlyDeliveriesByDestination": async (_args, ctx) =>
     reportShells.emptyMonthlyDeliveriesByDestination(ctx),
   "reports.getMonthlyPalmOilSales": async (_args, ctx) =>
-    reportShells.emptyMonthlyPalmOilSales(ctx),
+    getMonthlyPalmOilSalesReport(ctx.userId),
   "reports.getPalmOilSalesActivity": async (_args, ctx) =>
-    reportShells.emptyPalmOilSalesActivity(ctx),
+    getPalmOilSalesActivityReport(ctx.userId),
   "reports.getIndustryProductMonthlySales": async (_args, ctx) =>
     reportShells.emptyIndustryProductMonthlySales(ctx),
   "reports.getBottledPalmOilSalesReturn": async (_args, ctx) =>
-    reportShells.emptyBottledPalmOilSalesReturn(ctx),
+    getBottledPalmOilSalesReturnReport(ctx.userId),
   "reports.getOtherProductSalesDeliveries": async (_args, ctx) =>
     reportShells.emptyOtherProductSalesDeliveries(ctx),
   "reports.getMonthlyBottledOil": async (_args, ctx) =>
-    reportShells.emptyMonthlyBottledOil(ctx),
+    getMonthlyBottledOilReport(ctx.userId),
   "reports.getRevenueTaxes": async (args, ctx) => {
     const period =
       args[1] === "year" || args[1] === "month"
@@ -631,19 +659,46 @@ const handlers: Record<string, Handler> = {
   }),
   "carryForward.getFormOptions": async () => carryForwardStubs.getFormOptions(),
   "carryForward.list": async () => carryForwardStubs.list(),
-  "carryForward.listPending": async () => carryForwardStubs.listPending(),
-  "carryForward.upsert": async () => carryForwardStubs.upsert(),
-  "carryForward.upsertBatch": async () => carryForwardStubs.upsertBatch(),
-  "carryForward.delete": async () => carryForwardStubs.delete(),
+  "carryForward.listPending": async (_args, ctx) =>
+    carryForwardStubs.listPending(ctx.userId),
+  "carryForward.upsert": async (args, ctx) => {
+    const input = (args[0] ?? {}) as Record<string, unknown>;
+    return carryForwardStubs.upsert({
+      ...(input as Parameters<typeof carryForwardStubs.upsert>[0]),
+      userId: ctx.userId,
+    });
+  },
+  "carryForward.upsertBatch": async (args, ctx) => {
+    const input = (args[0] ?? {}) as Record<string, unknown>;
+    return carryForwardStubs.upsertBatch({
+      ...(input as Parameters<typeof carryForwardStubs.upsertBatch>[0]),
+      userId: ctx.userId,
+    });
+  },
+  "carryForward.delete": async (args, ctx) => {
+    const input = (args[0] ?? {}) as { detailId?: number };
+    return carryForwardStubs.delete({
+      userId: ctx.userId,
+      detailId: Number(input.detailId),
+    });
+  },
   "carryForwardStock.getFormOptions": async () =>
     carryForwardStockStubs.getFormOptions(),
   "carryForwardStock.list": async () => carryForwardStockStubs.list(),
-  "carryForwardStock.listPending": async () =>
-    carryForwardStockStubs.listPending(),
-  "carryForwardStock.listOnHand": async () =>
-    carryForwardStockStubs.listOnHand(),
-  "carryForwardStock.upsertBatch": async () =>
-    carryForwardStockStubs.upsertBatch(),
+  "carryForwardStock.listPending": async (_args, ctx) =>
+    carryForwardStockStubs.listPending(ctx.userId),
+  "carryForwardStock.listOnHand": async (args) => {
+    const salesPointId = Number(args[0]);
+    const productId = Number(args[1]);
+    return carryForwardStockStubs.listOnHand(salesPointId, productId);
+  },
+  "carryForwardStock.upsertBatch": async (args, ctx) => {
+    const input = (args[0] ?? {}) as Record<string, unknown>;
+    return carryForwardStockStubs.upsertBatch({
+      ...(input as Parameters<typeof carryForwardStockStubs.upsertBatch>[0]),
+      userId: ctx.userId,
+    });
+  },
   "transportCost.getFormOptions": async () => transportCostGetFormOptions(),
   "transportCost.compute": async () => transportCostCompute(),
   "backup.getInfo": async () => backupStubs.getInfo(),
@@ -658,27 +713,60 @@ const handlers: Record<string, Handler> = {
   "products.list": async () => listProducts(),
   "salesPoints.list": async () => listSalesPoints(),
   "sales.getFormOptions": async (_args, ctx) => {
-    const [customers, products, salesPoints, company, paymentMethods, storage] =
-      await Promise.all([
-        listCustomers(),
-        listProducts(),
-        listSalesPoints(),
-        getCompanySettings(),
-        prisma.payment_method_definitions.findMany({
-          where: { is_active: true },
-          orderBy: { sort_order: "asc" },
-        }),
-        prisma.storage_locations.findMany({
-          where: {
-            is_active: true,
-            ...(ctx.salesPointId != null
-              ? { sales_point_id: ctx.salesPointId }
-              : {}),
-          },
-          include: { locations: { select: { location_name: true } } },
-          take: 500,
-        }),
-      ]);
+    const [
+      actor,
+      customers,
+      products,
+      salesPoints,
+      company,
+      paymentMethods,
+      storage,
+    ] = await Promise.all([
+      loadRpcActor(ctx.userId),
+      listCustomers(),
+      listProducts(),
+      listSalesPoints(),
+      getCompanySettings(),
+      prisma.payment_method_definitions.findMany({
+        where: { is_active: true },
+        orderBy: { sort_order: "asc" },
+      }),
+      prisma.storage_locations.findMany({
+        where: {
+          is_active: true,
+          ...(ctx.salesPointId != null
+            ? { sales_point_id: ctx.salesPointId }
+            : {}),
+        },
+        include: { locations: { select: { location_name: true } } },
+        take: 500,
+      }),
+    ]);
+    const mappedLocations = storage.map((s) => ({
+      id: s.id,
+      name: s.locations?.location_name ?? `Storage #${s.id}`,
+      salesPointId: s.sales_point_id,
+      isDefault: Boolean(s.is_default),
+      isSalesTank: s.is_sales_tank,
+    }));
+    const botaSalesPoint =
+      salesPoints.find((point) =>
+        String(point.name ?? "")
+          .toUpperCase()
+          .includes("BOTA"),
+      ) ?? null;
+    const bottleOilStoreLocation =
+      mappedLocations.find(
+        (location) =>
+          botaSalesPoint != null &&
+          location.salesPointId === botaSalesPoint.id &&
+          location.name.toLowerCase().includes("bottle"),
+      ) ?? null;
+    const canDirect = canPerformAction(actor, "direct_validate_sales");
+    const canDirectValidateLoose =
+      canWriteRoute(actor, "sales") && canDirect;
+    const canDirectValidateBottled =
+      canWriteRoute(actor, "bottle-oil-sales") && canDirect;
     return {
       customers,
       looseProducts: products,
@@ -690,22 +778,19 @@ const handlers: Record<string, Handler> = {
         name: p.name,
         kind: p.kind,
       })),
-      storageLocations: storage.map((s) => ({
-        id: s.id,
-        name: s.locations?.location_name ?? `Storage #${s.id}`,
-        salesPointId: s.sales_point_id,
-        isSalesTank: s.is_sales_tank,
-      })),
+      storageLocations: mappedLocations,
       scopedSalesPointId: ctx.salesPointId,
       companyName: company?.companyName ?? "",
       vatRateDecimal: company?.vatRate ?? "0",
       autoGenerateSalesInvoiceNo: true,
-      canDirectValidateLoose: true,
-      canDirectValidateBottled: true,
-      canDirectValidate: true,
+      canDirectValidateLoose,
+      canDirectValidateBottled,
+      canDirectValidate: canDirectValidateLoose || canDirectValidateBottled,
       enforceSalesInvoiceBookletValidation: false,
       salesInvoiceLockUnitPrice: false,
       loosePalmOilRequireSalesTank: false,
+      botaSalesPointId: botaSalesPoint?.id ?? null,
+      bottleOilStoreLocationId: bottleOilStoreLocation?.id ?? null,
     };
   },
   "deliveryOrders.getFormOptions": async (_args, ctx) => {

@@ -6,6 +6,7 @@ interface ReceiptsTabProps {
     products: ProductOption[];
     onHand: StockBalanceRow[];
     scopedSalesPointId: number | null;
+    botaSalesPointId?: number | null;
     canPost: boolean;
     canCancel: boolean;
     canDraft: boolean;

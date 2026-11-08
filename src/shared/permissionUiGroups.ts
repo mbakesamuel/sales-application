@@ -99,6 +99,7 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
       "carry-forward-stock",
       "stock",
       "bottled-stock",
+      // Retired from sidebar; kept for Role permissions matrix completeness.
       "receive-transfers",
       "stock-validation",
       "stock-bin-card",

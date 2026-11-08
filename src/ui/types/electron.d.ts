@@ -234,6 +234,7 @@ interface ReportsApi {
   getBottleOilStockSales(
     authToken: string,
     hideZero?: boolean,
+    asAtIso?: string,
   ): Promise<BottleOilStockSalesReport>;
   getBottledWeeklyIssues(
     authToken: string,

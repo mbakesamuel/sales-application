@@ -183,21 +183,14 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         label: "Stock",
         table: "StockBalance",
         description:
-          "Manage loose and bottled stock balance, movements, receipts, transfers, and adjustments.",
+          "Manage loose stock balance, movements, receipts, transfers, and adjustments.",
       },
       {
         id: "bottled-stock",
         label: "Bottle Stock",
         table: "StockBalance",
         description:
-          "Bin card ledger, transfers, and adjustments for bottled products.",
-      },
-      {
-        id: "receive-transfers",
-        label: "Receive transfers",
-        table: "StockTransfer",
-        description:
-          "Review and receive dispatched bottled transfers at your collection point.",
+          "Bin card ledger, consignment reception, and adjustments for Bottle Oil stock at Bota.",
       },
       {
         id: "stock-validation",

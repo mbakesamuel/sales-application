@@ -19,6 +19,7 @@ import { getAuthenticatedDb } from "../auth/db.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
+import { openConfirm } from "../components/confirmModal.tsx";
 import { ReportFooter } from "../reports/ReportFooter.tsx";
 import "./SalesBudgetScreen.css";
 import "../components/FormDialog.css";
@@ -872,9 +873,13 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
                             if (readOnly || !budget) {
                               return;
                             }
-                            const confirmed = window.confirm(
-                              `Clear budget for “${cat.label}”? This cannot be undone.`,
-                            );
+                            const confirmed = await openConfirm({
+                              ariaLabel: "Confirm clear budget",
+                              title: "Clear budget?",
+                              description: `Clear budget for “${cat.label}”? This cannot be undone.`,
+                              confirmLabel: "Clear",
+                              confirmVariant: "danger",
+                            });
                             if (!confirmed) {
                               return;
                             }

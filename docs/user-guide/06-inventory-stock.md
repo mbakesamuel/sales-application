@@ -5,9 +5,8 @@ Sidebar section: **Stock**.
 | Sidebar item | Purpose |
 |--------------|---------|
 | **Opening Stock balances** | Opening / carried-forward on-hand quantities |
-| **Stock** | Main inventory workspace (loose + bottled when your role has Stock write) |
-| **Bottle Stock** | Bottled-only workspace (Store Keepers see this remapped as **Stock** when they lack main Stock) |
-| **Receive transfers** | Receive dispatched inter-site transfers at your collection point |
+| **Stock** | Main inventory workspace (loose products) |
+| **Bottle Stock** | Bottled-only workspace at Bota (Store Keepers see this remapped as **Stock** when they lack main Stock) |
 | **Stock validation** | Validate draft receipts, transfers, adjustments (including carry-forward) |
 
 ## Stock hub (**Stock**)
@@ -40,15 +39,17 @@ All posting dates must fall in the **open financial month**.
 
 ## Bottle Stock
 
-**Stock → Bottle Stock** is the bottled-products workspace. Tabs:
+**Stock → Bottle Stock** is the bottled-products workspace at **Bota**. Mills deliver bottle products to Bota outside the app; Bota posts stock in via **Reception** (consignment note). Bottle products share one storage location — **transfers are not used** for bottle stock.
 
 | Tab | Purpose |
 |-----|---------|
 | **Bin card** | Bottled ledger filters (default tab) |
-| **Transfers** | Bottled transfers |
-| **Adjustments** | Bottled adjustments |
+| **Reception** | Consignment goods-in at Bota: mill **Consignment Note #**, consigned-by / received-by signatures, then post to augment on-hand by bottle product type |
+| **Adjustments** | Bottled corrections / write-offs |
 
-**On hand**, **Movements**, and **Receipts** are not shown on Bottle Stock (use main **Stock** for those when you have access). Store Keepers typically use Bottle Stock only (sidebar label **Stock** when main Stock is hidden) plus **Receive transfers**.
+Reception keeps a system **Receipt #** and a separate mill **Consignment Note #**. Required on save: Consignment Note #, Consigned by, Received by (designations and consignment/receive dates are optional).
+
+**On hand**, **Movements**, and **Transfers** are not shown on Bottle Stock. Store Keepers typically use Bottle Stock only (sidebar label **Stock** when main Stock is hidden).
 
 ## Opening Stock balances (carry-forward stock)
 
@@ -65,14 +66,6 @@ These post as stock adjustments with a carry-forward source kind so movements an
 Submitted lines appear in **Awaiting validation** on the Opening Stock balances screen until a supervisor posts them; the posted balances table updates only after validation.
 
 **Dating:** Choose a date in the batch form (must fall in the **open financial month**). That date becomes the adjustment / movement `occurredAt`. On the **Stock** report it counts from that date once posted. On **Stock Reconciliation**, posted carry-forward LPO qty in the open month is included in **Opening stock** (one-time backlog), not under Reception.
-
-## Receive transfers
-
-Screen: **Stock → Receive transfers**.
-
-Shows **dispatched** transfers destined for your collection point that are awaiting receive. Open a row, assign destination storage locations, and **Receive**. Stock posts according to **App settings → Stock transfers → Use receive date for stock posting**.
-
-**Store Keepers** use this as their primary inbound path (receive-only; they do not draft or dispatch). The Bottle Oil Overview **Pending receive** tile navigates here.
 
 ## Stock validation
 

@@ -7,6 +7,7 @@ import "../components/FormDialog.css";
 import { CommercialServiceFormModal } from "./CommercialServiceFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 type SortKey =
   | "code"
@@ -657,7 +658,7 @@ export function CommercialServicesScreen({
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete commercial service "${row.name}"? This cannot be undone.`,
     );
     if (!confirmed) {
@@ -692,7 +693,7 @@ export function CommercialServicesScreen({
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete ${selectedIds.size} selected service(s)? This cannot be undone.`,
     );
     if (!confirmed) {

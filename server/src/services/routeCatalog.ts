@@ -146,7 +146,7 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
   },
   {
     id: "bottled-stock",
-    label: "Bottled Stock",
+    label: "Bottle Stock",
     sectionId: "inventory",
     table: "StockBalance",
   },

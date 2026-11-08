@@ -45,6 +45,12 @@ export function parseQty(value: string | number | null | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+export function formatDisplayDate(iso: string): string {
+  const [y, m, d] = String(iso).slice(0, 10).split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
+}
+
 export function sum(values: Array<number | null | undefined>): number {
   return values.reduce<number>((total, value) => total + (value ?? 0), 0);
 }
@@ -59,6 +65,18 @@ export function isStorageLocationEffectivelySellable(args: {
   );
 }
 
+const SLUDGE_MEMBER_NAMES = new Set([
+  "bottom tank oil grade a",
+  "palm sludge oil grade b",
+  "palm sludge oil grade c",
+]);
+const SLUDGE_POOL_NAME = "sludge oil";
+const LOOSE_PALM_OIL_NAME = "loose palm oil";
+
+function normalizeProductName(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 export function isLooseLpoProduct(product: {
   productCode?: string | null;
   productName?: string | null;
@@ -67,8 +85,35 @@ export function isLooseLpoProduct(product: {
   if (product.isBottled === 1 || product.isBottled === true) return false;
   const code = (product.productCode ?? "").trim().toUpperCase();
   if (code === "LPO") return true;
-  const name = (product.productName ?? "").trim().toLowerCase();
-  return name.includes("loose") && name.includes("palm") && name.includes("oil");
+  const name = normalizeProductName(product.productName ?? "");
+  return name === LOOSE_PALM_OIL_NAME;
+}
+
+export function isSludgeMemberReportProduct(product: {
+  productCode?: string | null;
+  productName?: string | null;
+  isBottled?: number | boolean | null;
+}): boolean {
+  if (product.isBottled === 1 || product.isBottled === true) return false;
+  return SLUDGE_MEMBER_NAMES.has(normalizeProductName(product.productName ?? ""));
+}
+
+export function isSludgePoolReportProduct(product: {
+  productCode?: string | null;
+  productName?: string | null;
+  isBottled?: number | boolean | null;
+}): boolean {
+  if (product.isBottled === 1 || product.isBottled === true) return false;
+  return normalizeProductName(product.productName ?? "") === SLUDGE_POOL_NAME;
+}
+
+/** Canonical LPO plus sludge member grades (report bucketing). */
+export function isLooseLpoReportProduct(product: {
+  productCode?: string | null;
+  productName?: string | null;
+  isBottled?: number | boolean | null;
+}): boolean {
+  return isLooseLpoProduct(product) || isSludgeMemberReportProduct(product);
 }
 
 export async function loadSalesPointsForUser(
@@ -166,15 +211,18 @@ export async function loadProducts(): Promise<ProductRow[]> {
 export function detectBottledPack(
   product: Pick<ProductRow, "productName" | "productCode">,
 ): BottledPackColumn {
-  const text = `${product.productName} ${product.productCode ?? ""}`.toUpperCase();
+  // Compact so "1X 15L" / "3 X 5L" match; check 15L before 5L ("15L" contains "5L").
+  const text = `${product.productName} ${product.productCode ?? ""}`
+    .toUpperCase()
+    .replace(/\s+/g, "");
   if (text.includes("20L") || text.includes("JUG")) {
     return { id: "jug20", label: "1X20L JUG", units: 0, litresPerUnit: 20 };
   }
+  if (text.includes("15L") || text.includes("1X15") || text.includes("1LX15")) {
+    return { id: "carton15", label: "1X15L CTN", units: 0, litresPerUnit: 15 };
+  }
   if (text.includes("3X5") || (text.includes("5L") && text.includes("CTN"))) {
     return { id: "carton5", label: "3X5L CTN", units: 0, litresPerUnit: 15 };
-  }
-  if (text.includes("15L")) {
-    return { id: "carton15", label: "1X15L CTN", units: 0, litresPerUnit: 15 };
   }
   if (text.includes("1L")) {
     return { id: "unit1", label: "1L BOTTLE", units: 0, litresPerUnit: 1 };

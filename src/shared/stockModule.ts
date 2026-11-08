@@ -128,7 +128,7 @@ export function canAccessBinCardReport(snapshot: RolePermissionsSnapshot): boole
   );
 }
 
-/** True when the role can manage bottled stock (module route or legacy bin-card write). */
+/** True when the role can manage bottled stock (dedicated module or legacy bin-card write). */
 export function hasUnifiedStockBottledCapability(snapshot: RolePermissionsSnapshot): boolean {
   if (getBottledStockModuleAccess(snapshot) === "write") {
     return true;
@@ -202,27 +202,20 @@ export function normalizeStockProductFilter(value: unknown): StockProductFilter 
 }
 
 /**
- * Main Stock screen variant: unified (loose + bottled) whenever the role can
- * write the stock module. Bottled-only roles (e.g. Store Keeper) open the
- * bottled-stock route instead (`routeVariant === "bottled"`).
- *
- * Stock Write also authorizes bottled document mutations on the main screen;
- * Bottled Stock Write remains for bottled-only keepers.
+ * Main Stock is always loose/bulk. Bottle Oil stock is a separate module
+ * (`routeVariant === "bottled"` → Bottle Stock screen).
  */
 export function resolveStockModuleVariant(
-  snapshot: RolePermissionsSnapshot,
+  _snapshot: RolePermissionsSnapshot,
   routeVariant: "bulk" | "bottled",
 ): StockModuleVariant {
-  if (routeVariant === "bottled") {
-    return "bottled";
-  }
-  if (getStockModuleAccess(snapshot) === "write") {
-    return "all";
-  }
-  return "bulk";
+  return routeVariant === "bottled" ? "bottled" : "bulk";
 }
 
-/** Bottled-only users (e.g. Store Keeper) use bottled stock; dual-write roles use unified all on Stock route. */
+/**
+ * Resolve bootstrap/document product filter from route access.
+ * Main Stock stays bulk-only; explicit `bottled` is for the Bottle Stock module.
+ */
 export function resolveStockProductFilterFromAccess(
   bulkAccess: RouteAccess,
   bottledAccess: RouteAccess,
@@ -240,21 +233,12 @@ export function resolveStockProductFilterFromAccess(
   if (hasBottledRoute && bulkAccess !== "write") {
     return "bottled";
   }
-  // Main Stock writers: honor Loose / Bottled / All view filter.
-  if (hasBulk && bulkAccess === "write") {
-    if (normalized === "bottled") {
-      return "bottled";
-    }
-    if (normalized === "bulk") {
-      return "bulk";
-    }
-    return "all";
-  }
-  if (hasBulk && hasBottledRoute) {
-    return normalizeStockProductFilter(requested);
+  // Explicit Bottle Stock bootstrap / mutations.
+  if (normalized === "bottled" && hasBottledRoute) {
+    return "bottled";
   }
   if (hasBulk) {
-    return normalized === "bottled" ? "bottled" : "bulk";
+    return "bulk";
   }
   if (hasBottledRoute) {
     return "bottled";

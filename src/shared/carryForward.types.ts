@@ -1,6 +1,7 @@
 export interface CarryForwardCommitmentRow {
   detailId: number;
-  deliveryOrderId: number;
+  /** SQLite autoincrement id, or Postgres UUID string in thin-client mode. */
+  deliveryOrderId: number | string;
   deliveryOrderNo: string;
   customerId: number;
   customerName: string;
@@ -19,7 +20,8 @@ export interface CarryForwardCommitmentRow {
 
 export interface CarryForwardCommitmentPendingRow {
   detailId: number;
-  deliveryOrderId: number;
+  /** SQLite autoincrement id, or Postgres UUID string in thin-client mode. */
+  deliveryOrderId: number | string;
   deliveryOrderNo: string;
   customerId: number;
   customerName: string;

@@ -6,6 +6,7 @@ import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
 import "../company-settings/CompanySettingsScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 interface ReportSettingsScreenProps {
   readOnly?: boolean;
@@ -109,7 +110,7 @@ export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenP
     if (readOnly || signatoryBusy) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete signatory "${row.name}" effective ${formatDisplayDate(row.effectiveFrom)}?`,
     );
     if (!confirmed) {

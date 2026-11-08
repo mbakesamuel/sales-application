@@ -840,6 +840,7 @@ export async function saveDeliveryOrder(
       return { ok: false, error: "Validated delivery orders cannot be edited." };
     }
 
+    const orderId = existing.id;
     const tx = db.transaction(() => {
       db.prepare(
         `UPDATE DeliveryOrder
@@ -860,15 +861,15 @@ export async function saveDeliveryOrder(
         commercialService?.phone ?? null,
         commercialService?.address ?? null,
         commercialService?.name ?? null,
-        input.id,
+        orderId,
       );
 
-      db.prepare(`DELETE FROM DeliveryOrderDetails WHERE deliveryOrderId = ?`).run(input.id);
+      db.prepare(`DELETE FROM DeliveryOrderDetails WHERE deliveryOrderId = ?`).run(orderId);
       db.prepare(`DELETE FROM DeliveryOrderPaymentDetails WHERE deliveryOrderId = ?`).run(
-        input.id,
+        orderId,
       );
 
-      insertLinesAndPayments(db, input.id!, preparedLines, input.payments, dateIssued);
+      insertLinesAndPayments(db, orderId, preparedLines, input.payments, dateIssued);
     });
 
     try {

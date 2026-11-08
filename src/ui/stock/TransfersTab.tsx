@@ -108,7 +108,7 @@ function isInterTransferProductAllowed(
     return false;
   }
   if (product.isBottled) {
-    return true;
+    return false;
   }
   return product.isLoosePalmOil && allowLoosePalmOilInter;
 }
@@ -299,8 +299,9 @@ export function TransfersTab(props: TransfersTabProps) {
       products
         .filter(
           (p) =>
-            p.isBottled ||
-            (p.isLoosePalmOil && loosePalmOilAllowInterSalesPointTransfer),
+            !p.isBottled &&
+            p.isLoosePalmOil &&
+            loosePalmOilAllowInterSalesPointTransfer,
         )
         .map((p) => p.productId),
     );

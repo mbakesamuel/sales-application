@@ -19,6 +19,7 @@ import { ReportHeader } from "../reports/ReportHeader.tsx";
 import { CustomerFormModal } from "./CustomerFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "./CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 /** First page fits rows 1–33; row 34 starts the next page. */
 const CUSTOMER_PRINT_ROWS_PER_PAGE = 33;
@@ -637,7 +638,7 @@ export function CustomersScreen({
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete customer "${customer.name}"? This cannot be undone.`,
     );
     if (!confirmed) {
@@ -666,7 +667,7 @@ export function CustomersScreen({
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete ${selectedIds.size} selected customer(s)? This cannot be undone.`,
     );
     if (!confirmed) {

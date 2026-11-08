@@ -8,6 +8,7 @@ import { getElectronApi } from "./auth/client.ts";
 import { useIdleSessionTimeout } from "./auth/useIdleSessionTimeout.ts";
 import { AppErrorBoundary } from "./components/AppErrorBoundary.tsx";
 import { AppLoadingShell } from "./components/AppLoadingShell.tsx";
+import { ConfirmModalHost } from "./components/confirmModal.tsx";
 import { ChangePasswordScreen } from "./pages/ChangePasswordScreen.tsx";
 import { HomeScreen } from "./pages/HomeScreen.tsx";
 import { LoginScreen } from "./pages/LoginScreen.tsx";
@@ -184,8 +185,10 @@ function MainApp() {
 }
 
 export function App() {
-  if (parseReportWindowHash()) {
-    return <ReportWindowApp />;
-  }
-  return <MainApp />;
+  return (
+    <>
+      <ConfirmModalHost />
+      {parseReportWindowHash() ? <ReportWindowApp /> : <MainApp />}
+    </>
+  );
 }

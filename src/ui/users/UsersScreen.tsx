@@ -10,6 +10,7 @@ import { RowActions } from "../components/RowActions.tsx";
 import { UserFormModal } from "./UserFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 type SortKey =
   | "name"
@@ -465,7 +466,7 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
     if (!schema) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete user "${row.name}" (${row.username})? This cannot be undone.`,
     );
     if (!confirmed) {
@@ -489,7 +490,7 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
     if (!schema || selectedIds.size === 0) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete ${selectedIds.size} selected user(s)? This cannot be undone.`,
     );
     if (!confirmed) {

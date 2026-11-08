@@ -76,6 +76,7 @@ import {
   assertMovementLocationRules,
   assertProductsAllowStorageLocation,
   assertInterTransferProductsAllowed,
+  assertNoBottledTransferProducts,
   loadLoosePalmOilAllowInterSalesPointTransfer,
   loadStockIntakeOilGrouping,
   storageLocationProductSql,
@@ -231,23 +232,13 @@ function resolveStockProductFilterForRole(
   );
 }
 
-function canWriteStockOrBottled(role: string): boolean {
-  return (
-    canWriteRoute(role, STOCK_MODULE_ROUTE_ID) ||
-    canWriteRoute(role, BOTTLED_STOCK_ROUTE_ID)
-  );
-}
-
-/** Main Stock Write covers all products; Bottled Stock Write covers bottled-only keepers. */
+/** Bulk docs need Stock write; bottled docs need Bottle Stock write. */
 function assertStockModuleWrite(
   role: string,
   productFilter: StockProductFilter,
   _bulkRouteId: string,
 ): void {
   if (productFilter === "bottled") {
-    if (canWriteStockOrBottled(role)) {
-      return;
-    }
     assertRouteWrite(role, BOTTLED_STOCK_ROUTE_ID);
     return;
   }
@@ -402,7 +393,7 @@ function assertProductsMatchStockFilter(
 function resolveWriteCaps(role: string, productFilter: StockProductFilter) {
   const moduleWrite =
     productFilter === "bottled"
-      ? canWriteStockOrBottled(role)
+      ? canWriteRoute(role, BOTTLED_STOCK_ROUTE_ID)
       : canWriteRoute(role, STOCK_MODULE_ROUTE_ID);
   return {
     canWriteReceipts: moduleWrite,
@@ -467,7 +458,6 @@ export function getStockBootstrap(
 
   if (productFilter === "bottled") {
     if (
-      !canAccessRoute(role, STOCK_MODULE_ROUTE_ID) &&
       !canAccessRoute(role, BOTTLED_STOCK_ROUTE_ID) &&
       !canAccessRoute(role, "stock-bin-card")
     ) {
@@ -486,10 +476,8 @@ export function getStockBootstrap(
     caps.canWriteTransfers && canPerformAction(role, "draft_stock_transfers");
   const canPostTransfers =
     caps.canWriteTransfers && canPerformAction(role, "post_stock_transfers");
-  const canReceiveTransfers =
-    productFilter === "bottled" &&
-    caps.canWriteTransfers &&
-    canPerformAction(role, "receive_stock_transfers");
+  // Bottle stock is received via Reception (consignment note) at Bota — not transfers.
+  const canReceiveTransfers = false;
   const canInitiateTransfers = canDraftTransfers || canPostTransfers;
   const canDispatchTransfers = canPostTransfers;
   const canCancelTransfers = canPostTransfers;
@@ -603,20 +591,22 @@ export function getStockBootstrap(
     .all(...productFilterParts.params)
     .map((row) => mapProductRow(row as Parameters<typeof mapProductRow>[0]));
 
-  // Always load both loose and bottled: the receipt modal filters by its
-  // Bottled-products checkbox (locked from the Stock view filter when Loose/Bottled).
-  // Returning [] for bottled view left the unified Stock → Receipts picker empty.
+  // Receipt picker follows the module filter (main Stock = loose;
+  // Bottle Stock Reception = bottled at Bota).
   const receiptProducts = db
     .prepare(
       `${productSelectSql}
        FROM Product p
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
+       WHERE ${productFilterParts.clause}
        ORDER BY p.productName ASC`,
     )
-    .all()
+    .all(...productFilterParts.params)
     .map((row) => mapProductRow(row as Parameters<typeof mapProductRow>[0]));
 
   const documentNumberSettings = loadStockDocumentNumberSettings();
+  const botaSalesPointId =
+    salesPoints.find((sp) => sp.name.toUpperCase().includes("BOTA"))?.id ?? null;
 
   return {
     productFilter,
@@ -635,6 +625,7 @@ export function getStockBootstrap(
     canDirectPostReceipts,
     canDirectPostTransfers,
     scopedSalesPointId,
+    botaSalesPointId,
     salesPoints,
     storageLocations,
     products,
@@ -1016,7 +1007,8 @@ function loadReceipts(
         return db
           .prepare(
             `SELECT r.id, r.receiptNo, r.salesPointId, sp.name AS salesPointName,
-                    r.receivedAt, r.supplierLabel, r.status, r.postedAt, r.createdAt,
+                    r.receivedAt, r.supplierLabel, r.consignmentNoteNo, r.status,
+                    r.postedAt, r.createdAt,
                     cu.name AS createdByName, pu.name AS postedByName
              FROM StockReceipt r
              JOIN SalesPoint sp ON sp.id = r.salesPointId
@@ -1032,7 +1024,8 @@ function loadReceipts(
       return db
         .prepare(
           `SELECT r.id, r.receiptNo, r.salesPointId, sp.name AS salesPointName,
-                  r.receivedAt, r.supplierLabel, r.status, r.postedAt, r.createdAt,
+                  r.receivedAt, r.supplierLabel, r.consignmentNoteNo, r.status,
+                  r.postedAt, r.createdAt,
                   cu.name AS createdByName, pu.name AS postedByName
            FROM StockReceipt r
            JOIN SalesPoint sp ON sp.id = r.salesPointId
@@ -1048,7 +1041,8 @@ function loadReceipts(
       return db
         .prepare(
           `SELECT r.id, r.receiptNo, r.salesPointId, sp.name AS salesPointName,
-                  r.receivedAt, r.supplierLabel, r.status, r.postedAt, r.createdAt,
+                  r.receivedAt, r.supplierLabel, r.consignmentNoteNo, r.status,
+                  r.postedAt, r.createdAt,
                   cu.name AS createdByName, pu.name AS postedByName
            FROM StockReceipt r
            JOIN SalesPoint sp ON sp.id = r.salesPointId
@@ -1063,7 +1057,8 @@ function loadReceipts(
     return db
       .prepare(
         `SELECT r.id, r.receiptNo, r.salesPointId, sp.name AS salesPointName,
-                r.receivedAt, r.supplierLabel, r.status, r.postedAt, r.createdAt,
+                r.receivedAt, r.supplierLabel, r.consignmentNoteNo, r.status,
+                r.postedAt, r.createdAt,
                 cu.name AS createdByName, pu.name AS postedByName
          FROM StockReceipt r
          JOIN SalesPoint sp ON sp.id = r.salesPointId
@@ -1097,6 +1092,9 @@ function loadReceipts(
       salesPointName: row.salesPointName as string,
       receivedAtIso: String(row.receivedAt).slice(0, 10),
       supplierLabel: String(row.supplierLabel),
+      consignmentNoteNo: row.consignmentNoteNo
+        ? String(row.consignmentNoteNo)
+        : null,
       status: row.status as ReceiptListRow["status"],
       totalQty: sumQty(lines.map((line) => line.qty)),
       lineCount: lines.length,
@@ -1432,6 +1430,8 @@ export function loadReceiptDetail(id: string, userId: string): ReceiptDetail | n
     .prepare(
       `SELECT r.id, r.receiptNo, r.salesPointId, sp.name AS salesPointName,
               r.receivedAt, r.supplierLabel, r.status, r.notes, r.postedAt, r.createdAt,
+              r.consignmentNoteNo, r.consignedBy, r.consDesign, r.consDate,
+              r.receiveBy, r.receiveByDesign, r.receiveDate,
               cu.name AS createdByName, pu.name AS postedByName
        FROM StockReceipt r
        JOIN SalesPoint sp ON sp.id = r.salesPointId
@@ -1469,6 +1469,9 @@ export function loadReceiptDetail(id: string, userId: string): ReceiptDetail | n
     salesPointName: row.salesPointName as string,
     receivedAtIso: String(row.receivedAt).slice(0, 10),
     supplierLabel: String(row.supplierLabel),
+    consignmentNoteNo: row.consignmentNoteNo
+      ? String(row.consignmentNoteNo)
+      : null,
     status: row.status as ReceiptDetail["status"],
     totalQty: sumQty(lines.map((line) => String(line.qty))),
     lineCount: lines.length,
@@ -1477,6 +1480,12 @@ export function loadReceiptDetail(id: string, userId: string): ReceiptDetail | n
     postedAtIso: row.postedAt ? String(row.postedAt) : null,
     createdAtIso: String(row.createdAt),
     notes: row.notes ? String(row.notes) : null,
+    consignedBy: row.consignedBy ? String(row.consignedBy) : null,
+    consDesign: row.consDesign ? String(row.consDesign) : null,
+    consDate: row.consDate ? String(row.consDate) : null,
+    receiveBy: row.receiveBy ? String(row.receiveBy) : null,
+    receiveByDesign: row.receiveByDesign ? String(row.receiveByDesign) : null,
+    receiveDate: row.receiveDate ? String(row.receiveDate) : null,
     lines: lines.map((line) => ({
       id: String(line.id),
       productId: line.productId as number,
@@ -1923,8 +1932,7 @@ export async function saveReceipt(
     const actor = getActor(input.userId);
     const uiProductFilter = normalizeStockProductFilter(input.productFilter);
     const postImmediately = Boolean(input.postImmediately);
-    // Receipts are owned by the Stock screen (bulk); require stock write for bottled or other.
-    assertRouteWrite(actor.role, STOCK_MODULE_ROUTE_ID);
+    assertStockModuleWrite(actor.role, uiProductFilter, "stock-receipts");
     if (postImmediately) {
       if (input.id) {
         return {
@@ -1952,19 +1960,6 @@ export async function saveReceipt(
 
     const db = getDatabase();
 
-    const millAttached = db
-      .prepare(
-        `SELECT COALESCE(attachedToMill, 0) AS attachedToMill
-         FROM SalesPoint WHERE id = ?`,
-      )
-      .get(input.salesPointId) as { attachedToMill: number } | undefined;
-    if (!millAttached || millAttached.attachedToMill !== 1) {
-      return {
-        ok: false,
-        error: "Collection point must be attached to a mill for stock receipts.",
-      };
-    }
-
     const receivedAtDate = normalizeIsoDateInput(input.receivedAt);
     assertDateInOpenMonth(receivedAtDate);
     const receivedAt = noonUtcIsoDate(receivedAtDate);
@@ -1974,17 +1969,78 @@ export async function saveReceipt(
       }
       return line;
     });
+    const mutationFilter = resolveMutationProductFilter(
+      db,
+      uiProductFilter,
+      lines.map((line) => line.productId),
+    );
+    const consignmentNoteNo = normalizeOptionalTransferText(
+      input.consignmentNoteNo,
+    );
+    const consignedBy = normalizeOptionalTransferText(input.consignedBy);
+    const consDesign = normalizeOptionalTransferText(input.consDesign);
+    const consDate = normalizeOptionalTransferDate(input.consDate);
+    const receiveBy = normalizeOptionalTransferText(input.receiveBy);
+    const receiveByDesign = normalizeOptionalTransferText(
+      input.receiveByDesign,
+    );
+    const receiveDate = normalizeOptionalTransferDate(input.receiveDate);
+    if (mutationFilter === "bottled") {
+      const botaRow = db
+        .prepare(
+          `SELECT id FROM SalesPoint
+           WHERE COALESCE(isActive, 1) = 1
+             AND UPPER(name) LIKE '%BOTA%'
+           ORDER BY name ASC
+           LIMIT 1`,
+        )
+        .get() as { id: number } | undefined;
+      if (!botaRow || input.salesPointId !== botaRow.id) {
+        return {
+          ok: false,
+          error: "Bottle Oil receipts must be posted at Bota.",
+        };
+      }
+      if (!consignmentNoteNo) {
+        return {
+          ok: false,
+          error: "Consignment Note # is required for Bottle Oil receipts.",
+        };
+      }
+      if (!consignedBy) {
+        return {
+          ok: false,
+          error: "Consigned by is required for Bottle Oil receipts.",
+        };
+      }
+      if (!receiveBy) {
+        return {
+          ok: false,
+          error: "Received by is required for Bottle Oil receipts.",
+        };
+      }
+    } else {
+      const millAttached = db
+        .prepare(
+          `SELECT COALESCE(attachedToMill, 0) AS attachedToMill
+           FROM SalesPoint WHERE id = ?`,
+        )
+        .get(input.salesPointId) as { attachedToMill: number } | undefined;
+      if (!millAttached || millAttached.attachedToMill !== 1) {
+        return {
+          ok: false,
+          error:
+            "Collection point must be attached to a mill for stock receipts.",
+        };
+      }
+    }
     assertReceiptProductLines(
       db,
       lines.map((line) => ({
         productId: line.productId,
         storageLocationId: line.storageLocationId ?? null,
       })),
-      resolveMutationProductFilter(
-        db,
-        uiProductFilter,
-        lines.map((line) => line.productId),
-      ),
+      mutationFilter,
     );
 
     const tx = db.transaction(() => {
@@ -2014,13 +2070,23 @@ export async function saveReceipt(
         db.prepare(`DELETE FROM StockReceiptLine WHERE receiptId = ?`).run(input.id);
         db.prepare(
           `UPDATE StockReceipt
-           SET salesPointId = ?, receivedAt = ?, supplierLabel = ?, notes = ?, updatedAt = datetime('now')
+           SET salesPointId = ?, receivedAt = ?, supplierLabel = ?, notes = ?,
+               consignmentNoteNo = ?, consignedBy = ?, consDesign = ?, consDate = ?,
+               receiveBy = ?, receiveByDesign = ?, receiveDate = ?,
+               updatedAt = datetime('now')
            WHERE id = ?`,
         ).run(
           input.salesPointId,
           receivedAt,
           input.supplierLabel.trim(),
           input.notes?.trim() || null,
+          consignmentNoteNo,
+          consignedBy,
+          consDesign,
+          consDate,
+          receiveBy,
+          receiveByDesign,
+          receiveDate,
           input.id,
         );
 
@@ -2092,8 +2158,10 @@ export async function saveReceipt(
 
       db.prepare(
         `INSERT INTO StockReceipt (
-          id, receiptNo, salesPointId, receivedAt, supplierLabel, status, notes, createdByUserId
-        ) VALUES (?, ?, ?, ?, ?, 'DRAFT', ?, ?)`,
+          id, receiptNo, salesPointId, receivedAt, supplierLabel, status, notes,
+          consignmentNoteNo, consignedBy, consDesign, consDate,
+          receiveBy, receiveByDesign, receiveDate, createdByUserId
+        ) VALUES (?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         id,
         receiptNo,
@@ -2101,6 +2169,13 @@ export async function saveReceipt(
         receivedAt,
         input.supplierLabel.trim(),
         input.notes?.trim() || null,
+        consignmentNoteNo,
+        consignedBy,
+        consDesign,
+        consDate,
+        receiveBy,
+        receiveByDesign,
+        receiveDate,
         input.userId,
       );
 
@@ -2160,7 +2235,7 @@ export async function postReceipt(
     }
     const actor = getActor(userId);
     const productFilter = normalizeStockProductFilter(productFilterInput);
-    assertRouteWrite(actor.role, STOCK_MODULE_ROUTE_ID);
+    assertStockModuleWrite(actor.role, productFilter, "stock-receipts");
     assertAction(actor.role, "post_stock_receipts");
     const db = getDatabase();
 
@@ -2277,6 +2352,10 @@ export async function saveTransfer(
       }
       return line;
     });
+    assertNoBottledTransferProducts(
+      db,
+      lines.map((line) => line.productId),
+    );
     assertProductsMatchStockFilter(
       db,
       lines.map((line) => line.productId),
@@ -3042,11 +3121,7 @@ function cancelStockDocument(
         : kind === "TRANSFER"
           ? "post_stock_transfers"
           : "post_stock_adjustments";
-    if (kind === "RECEIPT") {
-      assertRouteWrite(actor.role, STOCK_MODULE_ROUTE_ID);
-    } else {
-      assertStockModuleWrite(actor.role, productFilter, routeId);
-    }
+    assertStockModuleWrite(actor.role, productFilter, routeId);
     const db = getDatabase();
 
     const tx = db.transaction(() => {

@@ -87,7 +87,7 @@ export function StockClient({
       const binCardTab: VisibleTab = { id: "bin-card", label: "Bin card" };
       const documentTabs = TAB_DEFINITIONS.filter((tab) => {
         if (
-          tab.id === "receipts" ||
+          tab.id === "transfers" ||
           tab.id === "on-hand" ||
           tab.id === "movements"
         ) {
@@ -167,16 +167,12 @@ export function StockClient({
 
   const title =
     variant === "bottled"
-      ? "Stock Management - Bottled Products"
-      : variant === "all"
-        ? "Stock Management"
-        : "Stock Management - Loose Products/Others";
+      ? "Stock Management - Bottle Oil"
+      : "Stock Management - Loose Products/Others";
   const subtitle =
     variant === "bottled"
-      ? "Bin card ledger, transfers, and adjustments for bottled products."
-      : variant === "all"
-        ? "On-hand quantities, receipts, transfers, and adjustments for loose and bottled products."
-        : "On-hand quantities, receipts, transfers and adjustments as reported by Production.";
+      ? "Bin card ledger, transfers, and adjustments for Bottle Oil stock."
+      : "On-hand quantities, receipts, transfers and adjustments as reported by Production.";
 
   return (
     <div class="stock-screen">
@@ -273,6 +269,7 @@ export function StockClient({
             products={bootstrap.receiptProducts}
             onHand={bootstrap.onHand}
             scopedSalesPointId={bootstrap.scopedSalesPointId}
+            botaSalesPointId={bootstrap.botaSalesPointId}
             canPost={!tabReadOnly && bootstrap.canManageReceipts}
             canCancel={!tabReadOnly && bootstrap.canCancelDocuments}
             canDraft={!tabReadOnly && bootstrap.canDraftReceipts}
@@ -295,11 +292,7 @@ export function StockClient({
             onHand={stockModuleOnHand}
             scopedSalesPointId={bootstrap.scopedSalesPointId}
             canDispatch={!tabReadOnly && bootstrap.canDispatchTransfers}
-            canReceive={
-              !tabReadOnly &&
-              variant === "bottled" &&
-              bootstrap.canReceiveTransfers
-            }
+            canReceive={false}
             canCancel={!tabReadOnly && bootstrap.canCancelTransfers}
             canDraft={!tabReadOnly && bootstrap.canDraftTransfers}
             canDirectPost={!tabReadOnly && bootstrap.canDirectPostTransfers}

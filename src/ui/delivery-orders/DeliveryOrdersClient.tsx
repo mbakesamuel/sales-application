@@ -19,6 +19,7 @@ import {
 import { useServerConnectivity } from "../hooks/useServerConnectivity.ts";
 import "../sales/sales.css";
 import "./deliveryOrders.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 function clampDateToPeriod(
   isoDate: string,
@@ -771,7 +772,7 @@ export function DeliveryOrdersClient({
       return;
     }
 
-    if (!window.confirm(`Delete ${deliveryOrderNo || `DO #${orderId}`}?`)) {
+    if (!(await confirmDelete(`Delete ${deliveryOrderNo || `DO #${orderId}`}?`))) {
       return;
     }
 

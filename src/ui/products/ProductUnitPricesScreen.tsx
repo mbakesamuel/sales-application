@@ -18,6 +18,7 @@ import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import { ProductUnitPriceFormModal } from "./ProductUnitPriceFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 /** First page fits rows 1–33; row 34 starts the next page. */
 const PRICE_PRINT_ROWS_PER_PAGE = 33;
@@ -487,7 +488,7 @@ export function ProductUnitPricesScreen({ readOnly = false }: ProductUnitPricesS
 
   async function deletePrice(row: UnitPriceRow) {
     if (!schema) return;
-    const confirmed = window.confirm(`Delete price for "${row.productLabel}"? This cannot be undone.`);
+    const confirmed = await confirmDelete(`Delete price for "${row.productLabel}"? This cannot be undone.`);
     if (!confirmed) return;
     setActionError(null);
     try {
@@ -503,7 +504,7 @@ export function ProductUnitPricesScreen({ readOnly = false }: ProductUnitPricesS
 
   async function deleteSelected() {
     if (!schema || selectedIds.size === 0) return;
-    const confirmed = window.confirm(`Delete ${selectedIds.size} selected price(s)? This cannot be undone.`);
+    const confirmed = await confirmDelete(`Delete ${selectedIds.size} selected price(s)? This cannot be undone.`);
     if (!confirmed) return;
     setActionError(null);
     try {

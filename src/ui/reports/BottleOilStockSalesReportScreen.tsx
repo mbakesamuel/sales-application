@@ -1,13 +1,16 @@
 import { useEffect, useState } from "preact/hooks";
 import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
+import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import type {
   BottleOilSalesRow,
   BottleOilSalesSection,
   BottleOilStockSalesReport,
   BottleOilStockSection,
 } from "../../shared/reports.types.ts";
+import { clampIsoDateToRange, utcIsoDateToday } from "../stock/stockUtils.ts";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { HideZeroRowsToggle } from "./HideZeroRowsToggle.tsx";
@@ -251,9 +254,35 @@ export function BottleOilStockSalesReportScreen({
 }) {
   void windowMode;
   const [hideZero, setHideZero] = useHideZeroReportRows();
+  const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(
+    null,
+  );
+  const [asAtIso, setAsAtIso] = useState(() => utcIsoDateToday());
   const [report, setReport] = useState<BottleOilStockSalesReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getAuthenticatedFinancialYears()
+      .getOpenPostingPeriod()
+      .then((period) => {
+        if (!cancelled) {
+          setPostingPeriod(period);
+          setAsAtIso((current) => clampIsoDateToRange(current, period));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPostingPeriod(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -262,7 +291,10 @@ export function BottleOilStockSalesReportScreen({
       setLoading(true);
       setError(null);
       try {
-        const data = await getAuthenticatedReports().getBottleOilStockSales(hideZero);
+        const data = await getAuthenticatedReports().getBottleOilStockSales(
+          hideZero,
+          asAtIso,
+        );
         if (!cancelled) {
           setReport(data);
         }
@@ -285,7 +317,7 @@ export function BottleOilStockSalesReportScreen({
     return () => {
       cancelled = true;
     };
-  }, [hideZero]);
+  }, [hideZero, asAtIso]);
 
   if (loading && !report) {
     return (
@@ -304,11 +336,36 @@ export function BottleOilStockSalesReportScreen({
   return (
     <div class="scr-page">
       <div class="scr-toolbar no-print">
-        <HideZeroRowsToggle
-          checked={hideZero}
-          disabled={loading}
-          onChange={setHideZero}
-        />
+        <div class="dsr-filters">
+          <label class="dsr-filter">
+            <input
+              type="date"
+              placeholder="As at"
+              aria-label="As at date"
+              title="As at date"
+              value={asAtIso}
+              min={postingPeriod?.startDate}
+              max={postingPeriod?.endDate}
+              disabled={loading || !postingPeriod}
+              onInput={(event) =>
+                setAsAtIso(
+                  clampIsoDateToRange(
+                    (event.currentTarget as HTMLInputElement).value,
+                    postingPeriod,
+                  ),
+                )
+              }
+            />
+            {!postingPeriod ? (
+              <span>Open a financial month to pick a date.</span>
+            ) : null}
+          </label>
+          <HideZeroRowsToggle
+            checked={hideZero}
+            disabled={loading}
+            onChange={setHideZero}
+          />
+        </div>
       </div>
       {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}
       <BottleOilStockSalesReportDocument report={report} />

@@ -7,6 +7,7 @@ import "../components/FormDialog.css";
 import { RowActions } from "../components/RowActions.tsx";
 import { TransportRateFormModal } from "./TransportRateFormModal.tsx";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 type SortKey =
   | "salesPointLabel"
@@ -424,7 +425,7 @@ export function TransportRatesScreen({ readOnly = false }: TransportRatesScreenP
   }
 
   async function deleteRate(row: TransportRateRow) {
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete transport rate for "${row.productLabel}" at ${row.salesPointLabel}? This cannot be undone.`,
     );
     if (!confirmed) return;
@@ -444,7 +445,7 @@ export function TransportRatesScreen({ readOnly = false }: TransportRatesScreenP
 
   async function deleteSelected() {
     if (selectedIds.size === 0) return;
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete ${selectedIds.size} selected rate(s)? This cannot be undone.`,
     );
     if (!confirmed) return;

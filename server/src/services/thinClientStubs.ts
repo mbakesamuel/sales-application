@@ -1,7 +1,7 @@
 /**
- * Thin-client handlers for features that have no Postgres backing yet
- * (carry-forward commitments/stock, transport rates) or that are desktop-only
- * (SQLite backups). Shapes match src/shared/*.types.ts.
+ * Thin-client handlers for features that are desktop-only (SQLite backups)
+ * or still stubbed (transport rates). Carry-forward stock and commitments
+ * are implemented in dedicated RPC modules.
  */
 import { getOpenPostingPeriod } from "./financialYearsService.js";
 import {
@@ -9,11 +9,9 @@ import {
   listProducts,
   listSalesPoints,
 } from "./mastersQueries.js";
+import * as carryForwardStockRpc from "./carryForwardStockRpc.js";
+import * as carryForwardCommitmentsRpc from "./carryForwardCommitmentsRpc.js";
 
-const CARRY_FORWARD_UNAVAILABLE =
-  "Carry-forward commitments are not available in thin-client API mode yet (no server-side commitment tables).";
-const CARRY_FORWARD_STOCK_UNAVAILABLE =
-  "Carry-forward stock is not available in thin-client API mode yet (no server-side carry-forward stock support).";
 const TRANSPORT_RATES_UNAVAILABLE =
   "Transport cost rates are not configured on the server (no transport rate table).";
 const BACKUP_UNAVAILABLE =
@@ -22,46 +20,29 @@ const BACKUP_UNAVAILABLE =
 // ---------------------------------------------------------------- carryForward
 
 export const carryForwardStubs = {
-  getFormOptions: async () => {
-    const [customers, products, salesPoints] = await Promise.all([
-      listCustomers(),
-      listProducts(),
-      listSalesPoints(),
-    ]);
-    return { customers, products, salesPoints };
-  },
-  list: async () => [] as unknown[],
-  listPending: async () => [] as unknown[],
-  upsert: async () => ({ ok: false as const, error: CARRY_FORWARD_UNAVAILABLE }),
-  upsertBatch: async () => ({
-    ok: false as const,
-    error: CARRY_FORWARD_UNAVAILABLE,
-  }),
-  delete: async () => ({ ok: false as const, error: CARRY_FORWARD_UNAVAILABLE }),
+  getFormOptions: () => carryForwardCommitmentsRpc.getFormOptions(),
+  list: () => carryForwardCommitmentsRpc.list(),
+  listPending: (userId: string) =>
+    carryForwardCommitmentsRpc.listPending(userId),
+  upsert: (input: carryForwardCommitmentsRpc.UpsertCarryForwardInput) =>
+    carryForwardCommitmentsRpc.upsert(input),
+  upsertBatch: (
+    input: carryForwardCommitmentsRpc.UpsertCarryForwardBatchInput,
+  ) => carryForwardCommitmentsRpc.upsertBatch(input),
+  delete: (input: { userId: string; detailId: number }) =>
+    carryForwardCommitmentsRpc.deleteCommitment(input),
 };
 
 // ----------------------------------------------------------- carryForwardStock
 
 export const carryForwardStockStubs = {
-  getFormOptions: async () => {
-    const [products, salesPoints] = await Promise.all([
-      listProducts(),
-      listSalesPoints(),
-    ]);
-    return {
-      products,
-      salesPoints,
-      storageLocations: [] as unknown[],
-      stockIntakeOilGrouping: false,
-    };
-  },
-  list: async () => [] as unknown[],
-  listPending: async () => [] as unknown[],
-  listOnHand: async () => [] as unknown[],
-  upsertBatch: async () => ({
-    ok: false as const,
-    error: CARRY_FORWARD_STOCK_UNAVAILABLE,
-  }),
+  getFormOptions: () => carryForwardStockRpc.getFormOptions(),
+  list: () => carryForwardStockRpc.list(),
+  listPending: (userId: string) => carryForwardStockRpc.listPending(userId),
+  listOnHand: (salesPointId: number, productId: number) =>
+    carryForwardStockRpc.listOnHand(salesPointId, productId),
+  upsertBatch: (input: carryForwardStockRpc.UpsertCarryForwardStockBatchInput) =>
+    carryForwardStockRpc.upsertBatch(input),
 };
 
 // ---------------------------------------------------------------- transportCost
@@ -79,7 +60,6 @@ export async function transportCostGetFormOptions() {
     products: products.map((p) => ({
       productId: p.productId,
       productName: p.productName,
-      productCode: "",
     })),
     openPeriod,
     transportCostMoliweOnlyPolicy: false,

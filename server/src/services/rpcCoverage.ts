@@ -397,55 +397,11 @@ export const coverageHandlers: Record<string, Handler> = {
     validated: 0,
     errors: [],
   }),
-  "stock.getIntakeOilGroupingStatus": async () => ({
-    enabled: false,
-    canApply: false,
-  }),
-  "stock.applyIntakeOilGrouping": async () => ({
-    ok: false,
-    error: THIN,
-  }),
+  // stock.getIntakeOilGroupingStatus / applyIntakeOilGrouping — appRpc via stockRpcExtras
 
   // vehicleConsignmentNotes.* — implemented in appRpc via vehicleConsignmentNotesRpc
 
-  // ---- carry forward ----
-  "carryForward.getFormOptions": async () => {
-    const [customers, products, salesPoints] = await Promise.all([
-      listCustomers(),
-      listProducts(),
-      listSalesPoints(),
-    ]);
-    return { customers, products, salesPoints };
-  },
-  "carryForward.list": async () => [],
-  "carryForward.listPending": async () => [],
-  "carryForward.upsert": async () => ({
-    ok: false,
-    error: "Carry-forward commitments are not yet on the shared API.",
-  }),
-  "carryForward.upsertBatch": async () => ({
-    ok: false,
-    error: "Carry-forward commitments are not yet on the shared API.",
-  }),
-  "carryForward.delete": async () => ({
-    ok: false,
-    error: "Carry-forward commitments are not yet on the shared API.",
-  }),
-
-  "carryForwardStock.getFormOptions": async () => {
-    const [products, salesPoints] = await Promise.all([
-      listProducts(),
-      listSalesPoints(),
-    ]);
-    return { products, salesPoints };
-  },
-  "carryForwardStock.list": async () => [],
-  "carryForwardStock.listPending": async () => [],
-  "carryForwardStock.listOnHand": async () => [],
-  "carryForwardStock.upsertBatch": async () => ({
-    ok: false,
-    error: "Carry-forward stock is not yet on the shared API.",
-  }),
+  // carryForward.* / carryForwardStock.* — appRpc via thinClientStubs
 
   // ---- transport cost ----
   "transportCost.getFormOptions": async () => {

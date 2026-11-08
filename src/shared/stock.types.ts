@@ -95,6 +95,8 @@ export interface ReceiptListRow {
   salesPointName: string;
   receivedAtIso: string;
   supplierLabel: string;
+  /** Mill/paper consignment note number (independent of system receiptNo). */
+  consignmentNoteNo: string | null;
   status: StockDocStatus;
   totalQty: string;
   lineCount: number;
@@ -106,6 +108,12 @@ export interface ReceiptListRow {
 
 export interface ReceiptDetail extends ReceiptListRow {
   notes: string | null;
+  consignedBy: string | null;
+  consDesign: string | null;
+  consDate: string | null;
+  receiveBy: string | null;
+  receiveByDesign: string | null;
+  receiveDate: string | null;
   lines: Array<{
     id: string;
     productId: number;
@@ -251,6 +259,8 @@ export interface StockBootstrap {
   canDirectPostReceipts: boolean;
   canDirectPostTransfers: boolean;
   scopedSalesPointId: number | null;
+  /** Bota collection point (bottle oil hub); null if not configured. */
+  botaSalesPointId: number | null;
   salesPoints: SalesPointOption[];
   storageLocations: StorageLocationOption[];
   products: ProductOption[];
@@ -292,6 +302,13 @@ export interface SaveReceiptInput {
   supplierLabel: string;
   receivedAt: string;
   notes?: string | null;
+  consignmentNoteNo?: string | null;
+  consignedBy?: string | null;
+  consDesign?: string | null;
+  consDate?: string | null;
+  receiveBy?: string | null;
+  receiveByDesign?: string | null;
+  receiveDate?: string | null;
   lines: Array<{
     productId: number;
     qty: string;

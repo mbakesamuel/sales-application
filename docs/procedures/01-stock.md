@@ -86,22 +86,21 @@ Sidebar section: **Stock**. Reference: [Inventory and stock](../user-guide/06-in
 ### P-ST-04 Stock — create and dispatch a Transfer
 
 **Path:** Stock → Stock → **Transfers**  
-**Who:** Statistics clerk / supervisor with draft and dispatch transfer actions (Store Keepers normally **receive** only — see **P-ST-08**)  
-**Before you start:** Open month; source stock on hand; App settings allow inter-site loose Palm Oil if you need that path
+**Who:** Statistics clerk / supervisor with draft and dispatch transfer actions  
+**Before you start:** Open month; source stock on hand; App settings allow inter-site loose Palm Oil if you need that path. **Bottle products cannot be transferred** — use **P-ST-07** Reception at Bota instead.
 
 1. Open **Stock → Stock → Transfers**.
 2. Click **New transfer** (wording may be **New** / create).
 3. Choose transfer scope: **Within collection point** or **Between collection points**.
-   - Between points: bottled products always allowed; loose Palm Oil only if App settings allow it; other loose products stay within-point only.
+   - Between points: loose Palm Oil only if App settings allow it; other loose products stay within-point only. Bottled products are blocked.
 4. Set from / to collection points and **Dispatched** date in the open month.
 5. Add lines: product, qty, from location (and to location for within-point moves as the form requires).
 6. Save as draft if required by your permissions.
-7. **Dispatch** when ready (status becomes dispatched / in transit for inter-site).
-8. Destination Store Keeper completes **P-ST-08** for inter-site receives.
+7. **Dispatch** when ready (status becomes dispatched / in transit for inter-site), or post within-point moves per your rights.
 
-**Check:** Transfer listed with expected status; after receive, destination **On hand** increases and source decreases.
+**Check:** Transfer listed with expected status; destination **On hand** increases and source decreases after post/receive as applicable.
 
-**If it fails:** Insufficient stock at source; product not allowed for inter-site; missing dispatch/receive actions; closed month.
+**If it fails:** Insufficient stock at source; product not allowed for inter-site; bottled product selected; missing dispatch actions; closed month.
 
 ---
 
@@ -143,40 +142,32 @@ Sidebar section: **Stock**. Reference: [Inventory and stock](../user-guide/06-in
 
 ---
 
-### P-ST-07 Bottle Stock — Transfers and Adjustments
+### P-ST-07 Bottle Stock — Reception and Adjustments
 
-**Path:** Stock → Bottle Stock → **Transfers** or **Adjustments**  
-**Who:** Store Keeper / bottled stock writers  
-**Before you start:** Same as hub transfers/adjustments, bottled products only
+**Path:** Stock → Bottle Stock → **Reception** or **Adjustments**  
+**Who:** Store Keeper / bottled stock writers at Bota  
+**Before you start:** Open month; Bota collection point configured; bottled products and shared bottle storage location exist. Mills deliver bottles to Bota outside the app.
 
 1. Open **Bottle Stock**.
-2. Use **Transfers** or **Adjustments** tab (On hand / Movements / Receipts are not on this workspace).
-3. Follow the same create → draft/post or dispatch pattern as **P-ST-04** / **P-ST-05**, limited to bottled products.
-4. For inbound inter-site bottled transfers, prefer **P-ST-08**.
+2. **Reception** (consignment note):
+   - Click **New Reception**.
+   - Collection point is locked to **Bota**.
+   - Enter **Supplier Mill**, receipt date in the open month.
+   - Enter mill paperwork: **Consignment Note #**, **Consigned by** (optional designation / date), **Received by** (optional designation / date). Consignment Note #, Consigned by, and Received by are required.
+   - Add lines for each bottle product type and quantity (same storage location).
+   - Save draft or post per your rights; drafts need **P-ST-09**.
+3. **Adjustments:** corrections / write-offs only — same pattern as **P-ST-05**, bottled products only.
+4. Do **not** create stock transfers for bottle products (inter-site or within Bota).
 
-**Check:** Document appears in the Bottle Stock list; On hand on main Stock (if you have it) or store operations reflect the change after post/receive.
+**Check:** Posted reception increases bottle on-hand at Bota; bin card shows **In** movements from the receipt; print/review shows consignment note and signatures.
 
-**If it fails:** Trying to receipt on Bottle Stock (use main **Stock → Receipts** or a role with Stock write); receive-only users cannot dispatch.
+**If it fails:** Missing consignment note / consigned by / received by; Bota not found / not selected; mill-attached error should not apply at Bota for bottled receipts; closed month; missing draft/post receipt actions on Bottle Stock.
 
 ---
 
-### P-ST-08 Receive transfers
+### P-ST-08 Receive transfers (retired)
 
-**Path:** Stock → Receive transfers  
-**Who:** Store Keeper (primary); also users with receive action  
-**Before you start:** A transfer was **dispatched** to your collection point
-
-1. Open **Stock → Receive transfers** (or Overview **Pending receive** tile).
-2. Click **Refresh** if the list looks stale.
-3. Open a row awaiting receive.
-4. Assign **destination storage location(s)** for each line.
-5. Enter receive-by / design fields if shown.
-6. If App settings **Use receive date for stock posting** is on, set **Receive date** in the open month.
-7. Confirm **Receive**.
-
-**Check:** Row leaves the pending queue; destination stock increases. Overview pending receive count drops.
-
-**If it fails:** No rows — nothing dispatched to your point; missing locations; receive date outside open month; no `receive_stock_transfers` action.
+**Status:** Retired for bottle stock. Bottle intake is **P-ST-07 Reception** at Bota. Do not capture mill → Bota bottle movement as an inter-site transfer.
 
 ---
 

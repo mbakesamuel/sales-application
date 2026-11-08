@@ -197,12 +197,19 @@ syncRoute.post("/push", async (c) => {
             await trx`
               INSERT INTO stock_receipts (
                 id, receipt_no, sales_point_id, received_at, supplier_label,
-                status, notes, created_by_user_id, posted_by_user_id,
+                status, notes,
+                consignment_note_no, consigned_by, cons_design, cons_date,
+                receive_by, receive_by_design, receive_date,
+                created_by_user_id, posted_by_user_id,
                 posted_at, origin_device_id, synced_at, updated_at
               ) VALUES (
                 ${payload.id}, ${payload.receiptNo}, ${payload.salesPointId},
                 ${payload.receivedAt || new Date().toISOString()}, ${payload.supplierLabel || ""},
                 ${payload.status || "DRAFT"}, ${payload.notes || null},
+                ${payload.consignmentNoteNo || null}, ${payload.consignedBy || null},
+                ${payload.consDesign || null}, ${payload.consDate || null},
+                ${payload.receiveBy || null}, ${payload.receiveByDesign || null},
+                ${payload.receiveDate || null},
                 ${payload.createdByUserId}, ${payload.postedByUserId || null},
                 ${payload.postedAt || null}, ${device.id}, NOW(), NOW()
               )
@@ -211,6 +218,13 @@ syncRoute.post("/push", async (c) => {
                 posted_by_user_id = EXCLUDED.posted_by_user_id,
                 posted_at = EXCLUDED.posted_at,
                 notes = EXCLUDED.notes,
+                consignment_note_no = EXCLUDED.consignment_note_no,
+                consigned_by = EXCLUDED.consigned_by,
+                cons_design = EXCLUDED.cons_design,
+                cons_date = EXCLUDED.cons_date,
+                receive_by = EXCLUDED.receive_by,
+                receive_by_design = EXCLUDED.receive_by_design,
+                receive_date = EXCLUDED.receive_date,
                 synced_at = NOW(),
                 updated_at = NOW()
             `;

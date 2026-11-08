@@ -23,7 +23,7 @@ Default route access is defined per role (admins can change the matrix):
 | **SENIOR_SALES_SUPERVISOR** | Operations, customers, inventory read/write; validate sales/DOs/consignments. **Supervisor Overview** (queues + stock). |
 | **JNR_SALES_SUP** (junior sales supervisor) | Custom/manageable role (may already exist in production DBs). Shares **Supervisor Overview** with senior supervisors when granted matching routes. |
 | **STATISTICS_CLERK** | Broad **read** on operations, budgets, reports, and financial/tax screens; **write** on **Stock**, **Bottle Stock**, **Opening Stock balances**, and **Register Commitments** for company-wide transfers (bulk + bottled) and carry-forward entry. Primary transfer operator — draft, dispatch, and location moves across all collection points. Carry-forward saves stay pending until a supervisor validates them. No validate actions by default. Commercial Overview. |
-| **STORE_KEEPER** | **Bottle Stock** (including **Bin card** and printable bin card report) and Bottle Oil sales at their assigned collection point; **Receive transfers** (receive-only; cannot draft or dispatch). Selected reports; **Bottle Oil Overview** with **Pending receive**. Cannot validate by default. |
+| **STORE_KEEPER** | **Bottle Stock** at Bota (Bin card, **Reception** / consignment note, Adjustments) and Bottle Oil sales; selected reports; **Bottle Oil Overview**. Cannot validate by default. |
 
 ## Route access vs actions
 
@@ -74,8 +74,7 @@ After changing the matrix, affected users must **log out and sign in again** for
 | Route | Sidebar / behaviour | None | Read | Write |
 |-------|---------------------|------|------|-------|
 | `stock` | **Stock** (unified when write) | Hidden | View | Draft/post stock documents (plus actions) |
-| `bottled-stock` | **Bottle Stock** (Store Keeper nav may show as **Stock**) | Hidden | View bottled tabs | Bottled transfers/adjustments; **Bin card** tab |
-| `receive-transfers` | **Receive transfers** | Hidden | View queue | Receive dispatched transfers (also needs receive action) |
+| `bottled-stock` | **Bottle Stock** (Store Keeper nav may show as **Stock**) | Hidden | View bottled tabs | Reception / Adjustments; **Bin card** tab |
 | `stock-validation` | **Stock validation** | Hidden | View queue | Validate when action granted |
 | `carry-forward-stock` | **Opening Stock balances** | Hidden | View | Batch-set opening quantities (clerks submit drafts; supervisors with validate post immediately) |
 | `stock-bin-card` | Bin card filters (permission matrix; not a separate sidebar item) | Hidden | View / filter | Same as read unless write on related stock routes |
@@ -83,24 +82,23 @@ After changing the matrix, affected users must **log out and sign in again** for
 
 Legacy matrix rows (`stock-balance`, `stock-movements`, `stock-receipts`, …) may still appear for older databases; the live hub is gated mainly by **`stock`** / **`bottled-stock`**.
 
-**Store Keeper note:** Defaults use **`bottled-stock`**, **`receive-transfers`**, and seeded **`stock-bin-card`** / **`stock-bin-card-report`**. If **Open report** is denied after an upgrade, confirm those routes are not **None**, then sign out and back in.
+**Store Keeper note:** Defaults use **`bottled-stock`** with receipt/adjustment actions for Bota **Reception**, plus seeded **`stock-bin-card`** / **`stock-bin-card-report`**. If **Open report** is denied after an upgrade, confirm those routes are not **None**, then sign out and back in.
 
 ### Stock document actions
 
 | Action | Allows |
 |--------|--------|
-| Draft stock receipts | New receipt, edit/delete drafts |
-| Post stock receipts | Post and cancel posted receipts |
-| Draft stock transfers | New transfer, edit/delete drafts (Statistics clerk / supervisors) |
-| Post / dispatch stock transfers | Post location moves, dispatch inter-site transfers, cancel posted |
-| Receive incoming stock transfers | Receive on **Receive transfers** (Store Keeper and initiators) |
+| Draft stock receipts | New receipt / Bottle Stock **Reception**, edit/delete drafts |
+| Post stock receipts | Post and cancel posted receipts (including Bota consignment notes) |
+| Draft stock transfers | New loose transfer, edit/delete drafts (Statistics clerk / supervisors) |
+| Post / dispatch stock transfers | Post location moves, dispatch inter-site loose transfers, cancel posted |
 | Draft stock adjustments | New adjustment, edit/delete drafts |
 | Post stock adjustments | Post (including reclassify) and cancel posted |
 | Post stock receipts directly (skip draft review) | Create and post a new receipt in one step |
 | Post stock transfers directly (skip draft review) | Create and finalize a new transfer in one step |
 | Validate stock documents | Validate pending documents on **Stock → Stock validation** |
 
-Example: **Statistics clerk** drafts and dispatches transfers company-wide; **Store Keeper** at the destination collection point receives on **Receive transfers**. Supervisors clear drafts on **Stock validation**. Carry-forward opening balances submitted by clerks stay **draft** until a user with **Validate stock documents** posts them.
+Example: **Statistics clerk** drafts and dispatches **loose** transfers company-wide. **Store Keeper** posts Bottle Oil **Reception** (consignment notes) at Bota. Supervisors clear drafts on **Stock validation**. Carry-forward opening balances submitted by clerks stay **draft** until a user with **Validate stock documents** posts them.
 
 ## Manage roles
 

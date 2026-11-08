@@ -472,6 +472,13 @@ model stock_receipts {
   supplier_label      String
   status              String                @default("DRAFT")
   notes               String?
+  consignment_note_no String?
+  consigned_by        String?
+  cons_design         String?
+  cons_date           String?
+  receive_by          String?
+  receive_by_design   String?
+  receive_date        String?
   created_by_user_id  String
   posted_by_user_id   String?
   posted_at           DateTime?             @db.Timestamptz(6)

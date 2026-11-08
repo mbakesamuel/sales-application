@@ -4,6 +4,7 @@ import { getAuthenticatedDb } from "../auth/db.ts";
 import { RecordFormModal } from "./RecordFormModal.tsx";
 import type { TableQueryResult, TableSchema } from "../types/electron.d.ts";
 import "./TableDataView.css";
+import { confirmDelete } from "./confirmModal.tsx";
 
 interface TableDataViewProps {
   table: string;
@@ -161,7 +162,7 @@ export function TableDataView({ table, description, readOnly = false }: TableDat
       return;
     }
 
-    const confirmed = window.confirm("Delete this row? This cannot be undone.");
+    const confirmed = await confirmDelete("Delete this row? This cannot be undone.");
     if (!confirmed) {
       return;
     }

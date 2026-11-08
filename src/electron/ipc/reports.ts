@@ -132,9 +132,14 @@ export function registerReportsHandlers(): void {
       _event,
       authToken: string,
       hideZero?: unknown,
+      asAtIso?: unknown,
     ): BottleOilStockSalesReport => {
       const user = requireAuthUser(authToken);
-      return getBottleOilStockSalesReport(user.id, parseHideZero(hideZero));
+      return getBottleOilStockSalesReport(
+        user.id,
+        parseHideZero(hideZero),
+        typeof asAtIso === "string" ? asAtIso : null,
+      );
     },
   );
 

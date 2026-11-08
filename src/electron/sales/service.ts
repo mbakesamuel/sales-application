@@ -64,7 +64,7 @@ import {
   requireCommandApiOnline,
   requireCommandApiOnlineCached,
 } from "../api/onlineOnly.js";
-import { getSellableBalanceAsOf } from "../stock/asOfBalance.js";
+import { getAvailableSellableForSaleAsOf } from "../stock/pendingSaleReservations.js";
 import { assertSaleLinesStockAsOf, deductStockForValidatedSale, reverseStockForValidatedSale, productOmitsStorageLocationById, resolveSaleLineStorageLocation } from "../stock/sales.js";
 import {
   loadLoosePalmOilRequireSalesTank,
@@ -380,52 +380,30 @@ export function listStorageLocationsWithBalance(
     ? " AND COALESCE(sl.isSalesTank, 0) = 1"
     : "";
 
-  const asOf = asOfDateIso?.trim().slice(0, 10) || null;
-  if (asOf) {
-    const locations = db
-      .prepare(
-        `SELECT sl.id, l.locationName AS name
-         FROM StorageLocation sl
-         INNER JOIN Location l ON l.id = sl.locationId
-         WHERE sl.salesPointId = ?
-           AND COALESCE(sl.isActive, 1) = 1${salesTankSql}
-         ORDER BY l.locationName ASC`,
-      )
-      .all(salesPointId) as Array<{ id: number; name: string }>;
-
-    return locations
-      .map((location) => ({
-        id: location.id,
-        name: location.name,
-        qty: getSellableBalanceAsOf(db, salesPointId, stockProductId, location.id, asOf),
-      }))
-      .filter((row) => row.qty > QTY_EPS);
-  }
-
-  const rows = db
+  const asOf =
+    asOfDateIso?.trim().slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const locations = db
     .prepare(
-      `SELECT sl.id, l.locationName AS name, sb.qty
-       FROM StockBalance sb
-       INNER JOIN StorageLocation sl ON sl.id = sb.storageLocationId
+      `SELECT sl.id, l.locationName AS name
+       FROM StorageLocation sl
        INNER JOIN Location l ON l.id = sl.locationId
-       WHERE sb.salesPointId = ?
-         AND sb.productId = ?
-         AND sb.condition = 'SELLABLE'
-         AND sl.salesPointId = ?
+       WHERE sl.salesPointId = ?
          AND COALESCE(sl.isActive, 1) = 1${salesTankSql}
        ORDER BY l.locationName ASC`,
     )
-    .all(salesPointId, stockProductId, salesPointId) as Array<{
-    id: number;
-    name: string;
-    qty: string;
-  }>;
+    .all(salesPointId) as Array<{ id: number; name: string }>;
 
-  return rows
-    .map((row) => ({
-      id: row.id,
-      name: row.name,
-      qty: parseQty(row.qty),
+  return locations
+    .map((location) => ({
+      id: location.id,
+      name: location.name,
+      qty: getAvailableSellableForSaleAsOf(
+        db,
+        salesPointId,
+        stockProductId,
+        location.id,
+        asOf,
+      ),
     }))
     .filter((row) => row.qty > QTY_EPS);
 }

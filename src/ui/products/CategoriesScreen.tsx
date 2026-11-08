@@ -10,6 +10,7 @@ import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
 import { CategoryFormModal } from "./CategoryFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 type SortKey = "productCat" | "productCode" | "productCount" | "createdAt";
 type SortDir = "asc" | "desc";
@@ -384,7 +385,7 @@ export function CategoriesScreen({ readOnly = false }: CategoriesScreenProps = {
 
   async function deleteCategory(row: CategoryRow) {
     if (!schema) return;
-    const confirmed = window.confirm(`Delete category "${row.productCat}"? This cannot be undone.`);
+    const confirmed = await confirmDelete(`Delete category "${row.productCat}"? This cannot be undone.`);
     if (!confirmed) return;
     setActionError(null);
     try {
@@ -400,7 +401,7 @@ export function CategoriesScreen({ readOnly = false }: CategoriesScreenProps = {
 
   async function deleteSelected() {
     if (!schema || selectedIds.size === 0) return;
-    const confirmed = window.confirm(`Delete ${selectedIds.size} selected category(ies)? This cannot be undone.`);
+    const confirmed = await confirmDelete(`Delete ${selectedIds.size} selected category(ies)? This cannot be undone.`);
     if (!confirmed) return;
     setActionError(null);
     try {

@@ -14,6 +14,7 @@ import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
 import { StorageLocationFormModal } from "./StorageLocationFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 type SortKey =
   | "locationName"
@@ -500,7 +501,7 @@ export function StorageLocationsScreen({
     if (!schema) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete storage location "${row.locationName}" at ${row.salesPointLabel}? This cannot be undone.`,
     );
     if (!confirmed) {
@@ -526,7 +527,7 @@ export function StorageLocationsScreen({
     if (!schema || selectedIds.size === 0) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete ${selectedIds.size} selected location(s)? This cannot be undone.`,
     );
     if (!confirmed) {

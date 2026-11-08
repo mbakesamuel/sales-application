@@ -127,8 +127,13 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getStockReport", authToken, hideZero, asAtIso),
     getCommitmentReport: (authToken, hideZero) =>
       ipcRenderer.invoke("reports:getCommitmentReport", authToken, hideZero),
-    getBottleOilStockSales: (authToken, hideZero) =>
-      ipcRenderer.invoke("reports:getBottleOilStockSales", authToken, hideZero),
+    getBottleOilStockSales: (authToken, hideZero, asAtIso) =>
+      ipcRenderer.invoke(
+        "reports:getBottleOilStockSales",
+        authToken,
+        hideZero,
+        asAtIso,
+      ),
     getBottledWeeklyIssues: (authToken, estimateBasis, weekMondayIso) =>
       ipcRenderer.invoke(
         "reports:getBottledWeeklyIssues",

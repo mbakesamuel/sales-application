@@ -19,8 +19,8 @@ export function getAuthenticatedReports() {
       api.getStockReport(requireAuthToken(), hideZero, asAtIso),
     getCommitmentReport: (hideZero?: boolean) =>
       api.getCommitmentReport(requireAuthToken(), hideZero),
-    getBottleOilStockSales: (hideZero?: boolean) =>
-      api.getBottleOilStockSales(requireAuthToken(), hideZero),
+    getBottleOilStockSales: (hideZero?: boolean, asAtIso?: string) =>
+      api.getBottleOilStockSales(requireAuthToken(), hideZero, asAtIso),
     getBottledWeeklyIssues: (
       estimateBasis?: import("../../shared/reports.types.ts").BottledWeeklyEstimateBasis,
       weekMondayIso?: string,

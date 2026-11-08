@@ -18,6 +18,9 @@ export interface SalesLineDraft {
   unitPricePerKg: string;
   unitPricePerUnit: string;
   storageLocationId: string;
+  /** Set when loading an existing invoice so View works even if catalog filters omit the SKU. */
+  productLabel?: string;
+  locationLabel?: string;
 }
 
 interface SalesLineModalProps {
@@ -84,6 +87,8 @@ export function SalesLineModal({
   const omitsStorage = Boolean(selectedProduct?.omitsStorageLocation);
   const isLoosePalmOil = Boolean(selectedProduct?.isMain);
   const needsStorageLocation = !isBottleMode && !omitsStorage;
+  /** Bottle still checks Bottle Oil Store qty even though the picker stays hidden. */
+  const needsStockCheck = !omitsStorage;
   const subtitle = isBottleMode
     ? "Enter the bottled product and number of units."
     : omitsStorage
@@ -183,7 +188,7 @@ export function SalesLineModal({
   ]);
 
   useEffect(() => {
-    if (!needsStorageLocation) {
+    if (!needsStockCheck) {
       setBalanceLocations([]);
       setLocationsLoading(false);
       setLocationsError(null);
@@ -195,16 +200,27 @@ export function SalesLineModal({
       return;
     }
 
+    // Bottle sales hide the location picker but still deduct from Bottled Oil Store.
+    if (isBottleMode && preferredStorageLocationId) {
+      setDraft((current) =>
+        current.storageLocationId === preferredStorageLocationId
+          ? current
+          : { ...current, storageLocationId: preferredStorageLocationId },
+      );
+    }
+
     const productId = Number.parseInt(draft.productId, 10);
     if (!salesPointId || !Number.isFinite(productId)) {
       setBalanceLocations([]);
       setLocationsLoading(false);
       setLocationsError(null);
-      setDraft((current) =>
-        current.storageLocationId
-          ? { ...current, storageLocationId: "" }
-          : current,
-      );
+      if (!isBottleMode) {
+        setDraft((current) =>
+          current.storageLocationId
+            ? { ...current, storageLocationId: "" }
+            : current,
+        );
+      }
       return;
     }
 
@@ -225,6 +241,13 @@ export function SalesLineModal({
         setLocationsLoading(false);
         setBalanceLocations(rows);
         setDraft((current) => {
+          if (isBottleMode) {
+            const bottleLoc =
+              preferredStorageLocationId || current.storageLocationId;
+            return bottleLoc && current.storageLocationId !== bottleLoc
+              ? { ...current, storageLocationId: bottleLoc }
+              : current;
+          }
           const qty = parseDecimal(current.qtyKg);
           if (
             current.storageLocationId &&
@@ -248,11 +271,13 @@ export function SalesLineModal({
           setLocationsLoading(false);
           setBalanceLocations([]);
           setLocationsError("Could not load locations with stock.");
-          setDraft((current) =>
-            current.storageLocationId
-              ? { ...current, storageLocationId: "" }
-              : current,
-          );
+          if (!isBottleMode) {
+            setDraft((current) =>
+              current.storageLocationId
+                ? { ...current, storageLocationId: "" }
+                : current,
+            );
+          }
         }
       });
 
@@ -261,7 +286,8 @@ export function SalesLineModal({
     };
   }, [
     draft.productId,
-    needsStorageLocation,
+    isBottleMode,
+    needsStockCheck,
     preferredStorageLocationId,
     salesPointId,
     transactionDate,
@@ -325,8 +351,12 @@ export function SalesLineModal({
       return;
     }
 
-    if (needsStorageLocation) {
+    if (needsStockCheck) {
       const productLabel = selectedProduct?.productName ?? "this product";
+      const locationId =
+        draft.storageLocationId ||
+        (isBottleMode ? preferredStorageLocationId : "");
+      const unitLabel = isBottleMode ? "units" : "kg";
       if (!salesPointId) {
         setError("Select a collection point on the invoice first.");
         return;
@@ -337,30 +367,26 @@ export function SalesLineModal({
         );
         return;
       }
-      if (!draft.storageLocationId) {
+      if (!locationId) {
         setError(
           balanceLocations.length > 0
             ? `Not enough stock for ${productLabel} at this collection point for the quantity entered. Reduce the quantity, or receive more stock.`
-            : "Select a storage location with available stock.",
+            : isBottleMode
+              ? "Bottle Oil Store is not configured for this collection point."
+              : "Select a storage location with available stock.",
         );
         return;
       }
-      if (
-        !locationCoversQty(
-          balanceLocations,
-          draft.storageLocationId,
-          quantity,
-        )
-      ) {
+      if (!locationCoversQty(balanceLocations, locationId, quantity)) {
         const location = balanceLocations.find(
-          (row) => String(row.id) === draft.storageLocationId,
+          (row) => String(row.id) === locationId,
         );
         const locationName = location?.name ?? "the selected location";
         const availableLabel = location
           ? formatLocationQty(location.qty)
           : "0";
         setError(
-          `Not enough stock for ${productLabel} at ${locationName}. Only ${availableLabel} kg available.`,
+          `Not enough stock for ${productLabel} at ${locationName}. Only ${availableLabel} ${unitLabel} available.`,
         );
         return;
       }
@@ -377,7 +403,11 @@ export function SalesLineModal({
     }
 
     onSave(
-      omitsStorage ? { ...draft, storageLocationId: "" } : draft,
+      omitsStorage && !isBottleMode
+        ? { ...draft, storageLocationId: "" }
+        : isBottleMode && !draft.storageLocationId && preferredStorageLocationId
+          ? { ...draft, storageLocationId: preferredStorageLocationId }
+          : draft,
     );
   }
 

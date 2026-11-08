@@ -14,6 +14,7 @@ import { RowActions } from "../components/RowActions.tsx";
 import { SalesPointFormModal } from "./SalesPointFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 type SortKey =
   | "name"
@@ -432,7 +433,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
     if (!schema) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete collection point "${row.name}"? This cannot be undone.`,
     );
     if (!confirmed) {
@@ -456,7 +457,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
     if (!schema || selectedIds.size === 0) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete ${selectedIds.size} selected collection point(s)? This cannot be undone.`,
     );
     if (!confirmed) {

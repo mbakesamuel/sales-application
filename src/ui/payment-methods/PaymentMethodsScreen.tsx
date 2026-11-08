@@ -16,6 +16,7 @@ import {
 } from "./PaymentMethodFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 type SortKey = "name" | "code" | "kind" | "sortOrder" | "usageCount" | "createdAt";
 type SortDir = "asc" | "desc";
@@ -510,7 +511,7 @@ export function PaymentMethodsScreen({
       setActionError("System payment methods cannot be deleted.");
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete payment method "${row.name}"? Methods already used on payments cannot be removed.`,
     );
     if (!confirmed) return;
@@ -539,7 +540,7 @@ export function PaymentMethodsScreen({
       setActionError("System payment methods cannot be deleted.");
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete ${targets.length} selected payment method(s)? Methods already used on payments cannot be removed.`,
     );
     if (!confirmed) return;

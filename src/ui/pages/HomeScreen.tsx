@@ -50,7 +50,6 @@ import { CarryForwardCommitmentsScreen } from "../commitments/CarryForwardCommit
 import { CarryForwardStockScreen } from "../stock/CarryForwardStockScreen.tsx";
 import { StockScreen } from "../stock/StockScreen.tsx";
 import { StockValidationScreen } from "../stock/StockValidationScreen.tsx";
-import { ReceiveTransfersScreen } from "../stock/ReceiveTransfersScreen.tsx";
 import { SalesBudgetScreen } from "../sales-budget/SalesBudgetScreen.tsx";
 import {
   canAccessBinCardReport,
@@ -389,16 +388,12 @@ function RouteContent({
   }
 
   if (route.id === "receive-transfers") {
-    if (
-      !canPerformActionFromSnapshot(permissions, "receive_stock_transfers")
-    ) {
-      return (
-        <p class="home-access-denied">
-          You do not have permission to receive stock transfers.
-        </p>
-      );
-    }
-    return <ReceiveTransfersScreen user={user} />;
+    return (
+      <p class="home-access-denied">
+        Bottle Oil stock is received at Bota via Bottle Stock → Reception
+        (consignment note). Inter-site bottle transfers are no longer used.
+      </p>
+    );
   }
 
   if (opensInReportWindow(route.id)) {
@@ -769,7 +764,6 @@ export function HomeScreen({
     "stock",
     "bottled-stock",
     "stock-validation",
-    "receive-transfers",
     "sales-validation",
     "document-booklets",
     "booklet-validation",
@@ -1037,7 +1031,6 @@ export function HomeScreen({
             : activeRouteId === "stock" ||
                 activeRouteId === "bottled-stock" ||
                 activeRouteId === "stock-validation" ||
-                activeRouteId === "receive-transfers" ||
                 activeRouteId === "sales-validation" ||
                 activeRouteId === "vehicle-consignment-validation" ||
                 activeRouteId === "sales" ||

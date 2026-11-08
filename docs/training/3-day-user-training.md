@@ -46,7 +46,7 @@
 
 **Role callouts:**
 
-- **Store keeper:** Bottle Oil + receive transfers (mention only; detail if time).
+- **Store keeper:** Bottle Oil sales + Bottle Stock Reception (consignment note at Bota).
 - **Statistics clerk:** CF stock/commitments submit; no validate actions by default.
 - **Supervisors:** All validation queues (DO, sales, consignment, stock).
 
@@ -76,7 +76,7 @@
 |-------|------|-----|
 | Sales budget phasing + monthly crosstab | End of Day 3 or post-training | [Sales budgets](../user-guide/07-sales-budgets.md) |
 | Transfer DO balance | Day 2 extension for supervisors | [Delivery orders](../user-guide/05-delivery-orders.md) |
-| Stock transfers & receive transfers | Day 2 extension for store keeper | [Inventory and stock](../user-guide/06-inventory-stock.md), [Users and permissions](../user-guide/09-users-permissions.md) |
+| Bottle Stock Reception (consignment at Bota) | Day 2 extension for store keeper | [Inventory and stock](../user-guide/06-inventory-stock.md), [Users and permissions](../user-guide/09-users-permissions.md) |
 | Palm Oil Sales Activity (annual) | Month-end / finance session | [Reports](../user-guide/08-reports.md) |
 
 ---

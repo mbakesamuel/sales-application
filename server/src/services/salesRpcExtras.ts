@@ -1,6 +1,7 @@
 import { prisma } from "../db/prisma.js";
-import { getBalanceQty } from "./stockMovements.js";
+import { getAvailableSellableForSaleAsOf } from "./pendingSaleReservations.js";
 import { getCompanySettings } from "./mastersQueries.js";
+import { resolveStockProductId } from "./stockIntakeGrouping.js";
 
 const FALLBACK_TAX = {
   vatRate: 0.1925,
@@ -8,6 +9,7 @@ const FALLBACK_TAX = {
   salesSimplified: 0.05,
   salesNoTaxpayer: 0.1,
 };
+const QTY_EPS = 0.000001;
 
 function parseRate(value: string | null | undefined): number {
   const n = Number.parseFloat(String(value ?? "").trim());
@@ -98,33 +100,86 @@ export async function previewUnitPrice(payload: {
   return { ok: true as const, unitPriceExTax: hit.unit_price_ex_tax };
 }
 
+function isLooseLpoProduct(product: {
+  product_code: string | null;
+  product_name: string;
+  is_bottled: boolean;
+}): boolean {
+  if (product.is_bottled) return false;
+  if ((product.product_code ?? "").trim().toUpperCase() === "LPO") return true;
+  return product.product_name.trim().toLowerCase() === "loose palm oil";
+}
+
+/**
+ * Active sales-point storage locations with SELLABLE qty > 0 for a product.
+ * When intake grouping is on, member grades resolve to their pool product so
+ * locations like Drum show pooled stock (same as Electron).
+ */
 export async function listStorageLocationsWithBalance(payload: {
   salesPointId?: number;
   productId?: number;
-}) {
+  asOfDate?: string | null;
+}): Promise<Array<{ id: number; name: string; qty: number }>> {
   const salesPointId = Number(payload.salesPointId);
   const productId = Number(payload.productId);
   if (!Number.isFinite(salesPointId) || !Number.isFinite(productId)) return [];
+
+  const stockProductId = await resolveStockProductId(prisma, productId);
+  const [product, company] = await Promise.all([
+    prisma.products.findUnique({
+      where: { product_id: stockProductId },
+      include: {
+        product_cats: { select: { is_bottled: true } },
+      },
+    }),
+    prisma.company_settings.findFirst({
+      where: { id: "default" },
+      select: { loose_palm_oil_require_sales_tank: true },
+    }),
+  ]);
+
+  if (!product) return [];
+  if (product.omits_storage_location) return [];
+
+  const requireSalesTank =
+    isLooseLpoProduct({
+      product_code: product.product_code,
+      product_name: product.product_name,
+      is_bottled: Boolean(product.product_cats?.is_bottled),
+    }) && Boolean(company?.loose_palm_oil_require_sales_tank ?? true);
+
   const locations = await prisma.storage_locations.findMany({
-    where: { sales_point_id: salesPointId, is_active: true },
+    where: {
+      sales_point_id: salesPointId,
+      is_active: true,
+      ...(requireSalesTank ? { is_sales_tank: true } : {}),
+    },
     include: { locations: { select: { location_name: true } } },
     orderBy: { id: "asc" },
   });
-  const out: Array<{ id: number; name: string; qty: string }> = [];
+
+  const asOf =
+    String(payload.asOfDate ?? "").trim().slice(0, 10) ||
+    new Date().toISOString().slice(0, 10);
+  const out: Array<{ id: number; name: string; qty: number }> = [];
   for (const loc of locations) {
-    const qty = await getBalanceQty(
+    const qty = await getAvailableSellableForSaleAsOf(
       prisma,
       salesPointId,
-      productId,
+      stockProductId,
       loc.id,
-      "SELLABLE",
+      asOf,
     );
-    out.push({
-      id: loc.id,
-      name: loc.locations?.location_name ?? `Location #${loc.id}`,
-      qty: qtyStr(qty),
-    });
+    if (qty > QTY_EPS) {
+      out.push({
+        id: loc.id,
+        name: loc.locations?.location_name ?? `Location #${loc.id}`,
+        qty: Math.round(qty * 1_000_000) / 1_000_000,
+      });
+    }
   }
+
+  out.sort((a, b) => a.name.localeCompare(b.name));
   return out;
 }
 
@@ -313,6 +368,37 @@ export async function loadSalePrintById(saleId: string) {
   const productById = new Map(products.map((p) => [p.product_id, p]));
   const methodName = new Map(paymentMethods.map((m) => [m.id, m.name]));
 
+  let appliedTaxes = sale.sale_applied_taxes.map((t) => ({
+    label: t.label_snapshot,
+    ratePercent: String((parseRate(t.rate_snapshot) * 100).toFixed(2)),
+    amount: t.amount,
+  }));
+
+  // Older thin-client invoices may have tax folded into gross without rows in
+  // sale_applied_taxes. Reconstruct so print matches the invoice modal.
+  if (appliedTaxes.length === 0) {
+    const net = Number.parseFloat(String(sale.net_amount ?? "0")) || 0;
+    const vat = Number.parseFloat(String(sale.vat_amount ?? "0")) || 0;
+    const gross = Number.parseFloat(String(sale.gross_amount ?? "0")) || 0;
+    const salesTax = Math.round(gross - net - vat);
+    const vatRate = parseRate(sale.vat_rate_snapshot);
+    if (vat > 0.000001) {
+      appliedTaxes.push({
+        label: "VAT",
+        ratePercent: String((vatRate * 100).toFixed(2)),
+        amount: String(Math.round(vat)),
+      });
+    }
+    if (salesTax > 0.000001) {
+      const salesTaxRate = net > 0 ? salesTax / net : 0;
+      appliedTaxes.push({
+        label: "Sales tax",
+        ratePercent: String((salesTaxRate * 100).toFixed(2)),
+        amount: String(salesTax),
+      });
+    }
+  }
+
   return {
     companyName: company?.companyName ?? "MPOS",
     department: company?.department ?? null,
@@ -341,11 +427,7 @@ export async function loadSalePrintById(saleId: string) {
       netAmount: sale.net_amount,
       vatAmount: sale.vat_amount,
       grossAmount: sale.gross_amount,
-      appliedTaxes: sale.sale_applied_taxes.map((t) => ({
-        label: t.label_snapshot,
-        ratePercent: String((parseRate(t.rate_snapshot) * 100).toFixed(2)),
-        amount: t.amount,
-      })),
+      appliedTaxes,
       lines: sale.sale_lines.map((line, index) => {
         const product = productById.get(line.product_id);
         return {

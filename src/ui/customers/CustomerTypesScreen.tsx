@@ -9,6 +9,7 @@ import { RowActions } from "../components/RowActions.tsx";
 import { CustomerTypeFormModal } from "./CustomerTypeFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "./CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 type SortKey = "name" | "code" | "sortOrder" | "customerCount" | "createdAt";
 type SortDir = "asc" | "desc";
@@ -451,7 +452,7 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete customer type "${row.name}"? This cannot be undone.`,
     );
     if (!confirmed) {
@@ -486,7 +487,7 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete ${selectedIds.size} selected type(s)? This cannot be undone.`,
     );
     if (!confirmed) {

@@ -103,6 +103,12 @@ export function ReceiptPrintView({
                 <span class="do-print-label">Receipt #:</span>{" "}
                 <strong>{receipt.receiptNo}</strong>
               </p>
+              {receipt.consignmentNoteNo ? (
+                <p>
+                  <span class="do-print-label">Consignment Note #:</span>{" "}
+                  <strong>{receipt.consignmentNoteNo}</strong>
+                </p>
+              ) : null}
               <p>
                 <span class="do-print-label">Receipt date:</span>{" "}
                 {formatDisplayDate(receipt.receivedAtIso)}
@@ -126,6 +132,56 @@ export function ReceiptPrintView({
               </p>
             </div>
           </section>
+
+          {receipt.consignedBy ||
+          receipt.consDesign ||
+          receipt.consDate ||
+          receipt.receiveBy ||
+          receipt.receiveByDesign ||
+          receipt.receiveDate ? (
+            <section class="do-print-meta-grid sr-print-audit-grid">
+              <div class="do-print-meta-col">
+                <p class="do-print-label">Consignment</p>
+                {receipt.consignedBy ? (
+                  <p>
+                    <span class="do-print-label">Consigned by:</span>{" "}
+                    {receipt.consignedBy}
+                  </p>
+                ) : null}
+                {receipt.consDesign ? (
+                  <p>
+                    <span class="do-print-label">Designation:</span>{" "}
+                    {receipt.consDesign}
+                  </p>
+                ) : null}
+                {receipt.consDate ? (
+                  <p class="do-print-muted">
+                    {formatDisplayDate(receipt.consDate)}
+                  </p>
+                ) : null}
+              </div>
+              <div class="do-print-meta-col">
+                <p class="do-print-label">Receipt</p>
+                {receipt.receiveBy ? (
+                  <p>
+                    <span class="do-print-label">Received by:</span>{" "}
+                    {receipt.receiveBy}
+                  </p>
+                ) : null}
+                {receipt.receiveByDesign ? (
+                  <p>
+                    <span class="do-print-label">Designation:</span>{" "}
+                    {receipt.receiveByDesign}
+                  </p>
+                ) : null}
+                {receipt.receiveDate ? (
+                  <p class="do-print-muted">
+                    {formatDisplayDate(receipt.receiveDate)}
+                  </p>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
 
           <section class="do-print-meta-grid sr-print-audit-grid">
             <div class="do-print-meta-col">

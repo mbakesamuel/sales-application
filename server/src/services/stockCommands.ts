@@ -53,6 +53,55 @@ function uniqueConflict(message: string, label: string): string {
   return message;
 }
 
+const BOTTLE_TRANSFER_BLOCKED_MESSAGE =
+  "Bottle products are received at Bota via Reception / consignment note; transfers are not used for bottle stock.";
+
+async function assertBottleReceiptAtBota(
+  salesPointId: number,
+  productIds: number[],
+): Promise<string | null> {
+  const products = await prisma.products.findMany({
+    where: { product_id: { in: productIds } },
+    include: { product_cats: { select: { is_bottled: true } } },
+  });
+  if (products.length === 0) {
+    return null;
+  }
+  const anyBottled = products.some((p) => Boolean(p.product_cats?.is_bottled));
+  const anyLoose = products.some((p) => !p.product_cats?.is_bottled);
+  if (anyBottled && anyLoose) {
+    return "A receipt cannot mix bottled and loose products.";
+  }
+  if (!anyBottled) {
+    return null;
+  }
+  const bota = await prisma.sales_points.findFirst({
+    where: {
+      is_active: true,
+      name: { contains: "BOTA", mode: "insensitive" },
+    },
+    orderBy: { name: "asc" },
+    select: { id: true },
+  });
+  if (!bota || bota.id !== salesPointId) {
+    return "Bottle Oil receipts must be posted at Bota.";
+  }
+  return null;
+}
+
+async function assertNoBottledTransferProducts(
+  productIds: number[],
+): Promise<string | null> {
+  const products = await prisma.products.findMany({
+    where: { product_id: { in: productIds } },
+    include: { product_cats: { select: { is_bottled: true } } },
+  });
+  if (products.some((p) => Boolean(p.product_cats?.is_bottled))) {
+    return BOTTLE_TRANSFER_BLOCKED_MESSAGE;
+  }
+  return null;
+}
+
 export type CreateReceiptCommandInput = {
   userId: string;
   receiptNo?: string;
@@ -60,10 +109,46 @@ export type CreateReceiptCommandInput = {
   supplierLabel: string;
   receivedAt: string;
   notes?: string | null;
+  consignmentNoteNo?: string | null;
+  consignedBy?: string | null;
+  consDesign?: string | null;
+  consDate?: string | null;
+  receiveBy?: string | null;
+  receiveByDesign?: string | null;
+  receiveDate?: string | null;
   lines: ReceiptLineInput[];
   postImmediately?: boolean;
   originDeviceId?: string;
 };
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+async function assertBottledReceiptConsignmentFields(
+  productIds: number[],
+  input: CreateReceiptCommandInput,
+): Promise<string | null> {
+  const products = await prisma.products.findMany({
+    where: { product_id: { in: productIds } },
+    include: { product_cats: { select: { is_bottled: true } } },
+  });
+  const anyBottled = products.some((p) => Boolean(p.product_cats?.is_bottled));
+  if (!anyBottled) {
+    return null;
+  }
+  if (!normalizeOptionalText(input.consignmentNoteNo)) {
+    return "Consignment Note # is required for Bottle Oil receipts.";
+  }
+  if (!normalizeOptionalText(input.consignedBy)) {
+    return "Consigned by is required for Bottle Oil receipts.";
+  }
+  if (!normalizeOptionalText(input.receiveBy)) {
+    return "Received by is required for Bottle Oil receipts.";
+  }
+  return null;
+}
 
 export async function createReceiptCommand(
   input: CreateReceiptCommandInput,
@@ -81,6 +166,22 @@ export async function createReceiptCommand(
     if (!isPositiveQty(line.qty)) {
       return { ok: false, error: "Each line quantity must be greater than zero." };
     }
+  }
+
+  const bottleScopeError = await assertBottleReceiptAtBota(
+    input.salesPointId,
+    input.lines.map((line) => line.productId),
+  );
+  if (bottleScopeError) {
+    return { ok: false, error: bottleScopeError };
+  }
+
+  const consignError = await assertBottledReceiptConsignmentFields(
+    input.lines.map((line) => line.productId),
+    input,
+  );
+  if (consignError) {
+    return { ok: false, error: consignError };
   }
 
   try {
@@ -119,6 +220,13 @@ export async function createReceiptCommand(
           supplier_label: input.supplierLabel.trim(),
           status,
           notes: input.notes?.trim() || null,
+          consignment_note_no: normalizeOptionalText(input.consignmentNoteNo),
+          consigned_by: normalizeOptionalText(input.consignedBy),
+          cons_design: normalizeOptionalText(input.consDesign),
+          cons_date: normalizeOptionalText(input.consDate),
+          receive_by: normalizeOptionalText(input.receiveBy),
+          receive_by_design: normalizeOptionalText(input.receiveByDesign),
+          receive_date: normalizeOptionalText(input.receiveDate),
           created_by_user_id: input.userId,
           posted_by_user_id: postImmediately ? input.userId : null,
           posted_at: postImmediately ? now : null,
@@ -274,6 +382,13 @@ export async function createTransferCommand(
         };
       }
     }
+  }
+
+  const bottledTransferError = await assertNoBottledTransferProducts(
+    input.lines.map((line) => line.productId),
+  );
+  if (bottledTransferError) {
+    return { ok: false, error: bottledTransferError };
   }
 
   try {

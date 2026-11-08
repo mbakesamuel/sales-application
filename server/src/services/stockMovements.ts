@@ -67,6 +67,40 @@ export async function getBalanceQty(
   return total;
 }
 
+/** Sellable on-hand reconstructed from movements through asOfDate (inclusive). */
+export async function getSellableBalanceAsOf(
+  tx: Tx,
+  salesPointId: number,
+  productId: number,
+  storageLocationId: number | null,
+  asOfDateIso: string,
+): Promise<number> {
+  const asOf = asOfDateIso.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) {
+    return getBalanceQty(tx, salesPointId, productId, storageLocationId, "SELLABLE");
+  }
+
+  const endExclusive = new Date(`${asOf}T23:59:59.999Z`);
+  const rows = await tx.stock_movements.findMany({
+    where: {
+      sales_point_id: salesPointId,
+      product_id: productId,
+      condition: "SELLABLE",
+      occurred_at: { lte: endExclusive },
+      ...(storageLocationId == null
+        ? { storage_location_id: null }
+        : { storage_location_id: storageLocationId }),
+    },
+    select: { kind: true, qty: true },
+  });
+
+  let total = 0;
+  for (const row of rows) {
+    total += signedDeltaForKind(row.kind as StockMovementKind, row.qty);
+  }
+  return total;
+}
+
 export type ApplyMovementInput = {
   salesPointId: number;
   productId: number;

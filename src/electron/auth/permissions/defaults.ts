@@ -148,7 +148,6 @@ function buildDefaultRouteMatrix(): Record<string, RouteMatrix> {
     })(),
     STORE_KEEPER: buildRouteAccess([
       "bottled-stock",
-      "receive-transfers",
       "bottle-oil-sales",
       "stock-bin-card",
       "stock-bin-card-report",
@@ -251,9 +250,14 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     receive_stock_transfers: false,
   };
 
-  const storeKeeperReceiveOnly: ActionMatrix = {
+  const storeKeeperBottleReception: ActionMatrix = {
     ...none,
-    receive_stock_transfers: true,
+    draft_stock_receipts: true,
+    post_stock_receipts: true,
+    direct_post_stock_receipts: true,
+    draft_stock_adjustments: true,
+    post_stock_adjustments: true,
+    receive_stock_transfers: false,
   };
 
   return {
@@ -261,7 +265,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     MANAGER: manager,
     SENIOR_SALES_SUPERVISOR: seniorSupervisor,
     STATISTICS_CLERK: statisticsClerkTransferOperator,
-    STORE_KEEPER: storeKeeperReceiveOnly,
+    STORE_KEEPER: storeKeeperBottleReception,
     [JNR_SALES_SUP_ROLE_ID]: seniorSupervisor,
   };
 }

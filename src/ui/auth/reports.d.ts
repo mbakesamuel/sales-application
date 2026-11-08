@@ -2,7 +2,7 @@ export declare function getAuthenticatedReports(): {
     getStockCommitment: (hideZero?: boolean, asAtIso?: string) => Promise<import("../../shared/reports.types.ts").StockCommitmentReport>;
     getStockReport: (hideZero?: boolean, asAtIso?: string) => Promise<import("../../shared/reports.types.ts").StockReport>;
     getCommitmentReport: (hideZero?: boolean) => Promise<import("../../shared/reports.types.ts").CommitmentReport>;
-    getBottleOilStockSales: (hideZero?: boolean) => Promise<import("../../shared/reports.types.ts").BottleOilStockSalesReport>;
+    getBottleOilStockSales: (hideZero?: boolean, asAtIso?: string) => Promise<import("../../shared/reports.types.ts").BottleOilStockSalesReport>;
     getBottledWeeklyIssues: (estimateBasis?: import("../../shared/reports.types.ts").BottledWeeklyEstimateBasis, weekMondayIso?: string) => Promise<import("../../shared/reports.types.ts").BottledWeeklyIssuesReport>;
     getWeekChoices: () => Promise<{
         asAtIso: string;

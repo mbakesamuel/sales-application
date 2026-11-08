@@ -22,6 +22,10 @@ import {
   type StockCondition,
   type StockMovementKind,
 } from "./stockMovements.js";
+import {
+  applyIntakeOilGrouping as applyIntakeOilGroupingImpl,
+  getIntakeOilGroupingStatus as getIntakeOilGroupingStatusImpl,
+} from "./stockIntakeGrouping.js";
 
 /**
  * Thin-client stock RPC extras (bootstrap, as-of balances, bin card, review /
@@ -31,10 +35,9 @@ import {
  * receiptPrint,transferPrint}.ts. Types are redeclared locally because the
  * server tsconfig has rootDir ./src and cannot import from the Electron project.
  *
- * Schema limits (see "stubbed" handlers below): there is no StockBalance table
- * (balances are derived from stock_movements), and products/company_settings
- * have no intake-grouping, omits-storage-location or document-number-setting
- * columns.
+ * Schema note: there is no StockBalance table (balances are derived from
+ * stock_movements). Intake grouping uses company_settings.stock_intake_oil_grouping
+ * and products.stock_intake_group / stock_pool_product_id.
  */
 
 // ---------------------------------------------------------------------------
@@ -122,6 +125,7 @@ export interface ReceiptListRow {
   salesPointName: string;
   receivedAtIso: string;
   supplierLabel: string;
+  consignmentNoteNo: string | null;
   status: StockDocStatus;
   totalQty: string;
   lineCount: number;
@@ -133,6 +137,12 @@ export interface ReceiptListRow {
 
 export interface ReceiptDetail extends ReceiptListRow {
   notes: string | null;
+  consignedBy: string | null;
+  consDesign: string | null;
+  consDate: string | null;
+  receiveBy: string | null;
+  receiveByDesign: string | null;
+  receiveDate: string | null;
   lines: Array<{
     id: string;
     productId: number;
@@ -235,6 +245,7 @@ export interface StockBootstrap {
   canDirectPostReceipts: boolean;
   canDirectPostTransfers: boolean;
   scopedSalesPointId: number | null;
+  botaSalesPointId: number | null;
   salesPoints: SalesPointOption[];
   storageLocations: StorageLocationOption[];
   products: ProductOption[];
@@ -482,12 +493,8 @@ function resolveProductFilter(
   const hasBottled = bottled !== "none";
 
   if (hasBottled && bulk !== "write") return "bottled";
-  if (hasBulk && bulk === "write") {
-    if (normalized === "bottled") return "bottled";
-    if (normalized === "bulk") return "bulk";
-    return "all";
-  }
-  if (hasBulk) return normalized === "bottled" ? "bottled" : "bulk";
+  if (normalized === "bottled" && hasBottled) return "bottled";
+  if (hasBulk) return "bulk";
   return hasBottled ? "bottled" : "bulk";
 }
 
@@ -497,15 +504,9 @@ function assertSalesPointScope(actor: RpcActor, salesPointId: number): void {
   }
 }
 
-/** Bulk docs need Stock write; bottled docs accept Stock or Bottled Stock write. */
+/** Bulk docs need Stock write; bottled docs need Bottle Stock write. */
 function assertStockModuleWrite(actor: RpcActor, filter: StockProductFilter): void {
   if (filter === "bottled") {
-    if (
-      canWriteRoute(actor, STOCK_MODULE_ROUTE_ID) ||
-      canWriteRoute(actor, BOTTLED_STOCK_ROUTE_ID)
-    ) {
-      return;
-    }
     assertRouteWrite(actor, BOTTLED_STOCK_ROUTE_ID);
     return;
   }
@@ -522,6 +523,10 @@ type ProductInfo = {
   productCode: string | null;
   uom: string;
   isBottled: boolean;
+  omitsStorageLocation: boolean;
+  stockIntakeGroup: "PALM_OIL" | "SLUDGE_OIL" | "PALM_KERNEL" | null;
+  stockPoolProductId: number | null;
+  excludeFromSales: boolean;
 };
 
 type LocationInfo = {
@@ -556,19 +561,29 @@ async function loadCatalog(): Promise<Catalog> {
     prisma.sales_points.findMany(),
   ]);
 
+  const productMap = new Map<number, ProductInfo>();
+  for (const p of products) {
+    const stockIntakeGroup =
+      p.stock_intake_group === "PALM_OIL" ||
+      p.stock_intake_group === "SLUDGE_OIL" ||
+      p.stock_intake_group === "PALM_KERNEL"
+        ? p.stock_intake_group
+        : null;
+    productMap.set(p.product_id, {
+      productId: p.product_id,
+      productName: p.product_name,
+      productCode: p.product_code,
+      uom: uomFor(p.product_cats?.is_bottled ?? false, p.uom),
+      isBottled: p.product_cats?.is_bottled ?? false,
+      omitsStorageLocation: Boolean(p.omits_storage_location),
+      stockIntakeGroup,
+      stockPoolProductId: p.stock_pool_product_id ?? null,
+      excludeFromSales: Boolean(p.exclude_from_sales),
+    });
+  }
+
   return {
-    products: new Map(
-      products.map((p) => [
-        p.product_id,
-        {
-          productId: p.product_id,
-          productName: p.product_name,
-          productCode: p.product_code,
-          uom: uomFor(p.product_cats?.is_bottled ?? false, p.uom),
-          isBottled: p.product_cats?.is_bottled ?? false,
-        },
-      ]),
-    ),
+    products: productMap,
     locations: new Map(
       locations.map((l) => [
         l.id,
@@ -650,18 +665,23 @@ function isLooseLpoProduct(p: ProductInfo): boolean {
 }
 
 function mapProductOption(p: ProductInfo): ProductOption {
+  const excludeFromSales = p.excludeFromSales;
+  const stockPoolProductId = p.stockPoolProductId;
+  const stockIntakeGroup = p.stockIntakeGroup;
   return {
     productId: p.productId,
     productName: p.productName,
     uom: p.uom,
     isBottled: p.isBottled,
     isLoosePalmOil: isLooseLpoProduct(p),
-    // Schema has no per-product storage / intake-grouping columns.
-    omitsStorageLocation: false,
-    stockIntakeGroup: null,
-    stockPoolProductId: null,
-    excludeFromSales: false,
-    isStockPool: false,
+    omitsStorageLocation: p.omitsStorageLocation,
+    stockIntakeGroup,
+    stockPoolProductId,
+    excludeFromSales,
+    isStockPool:
+      Boolean(excludeFromSales) &&
+      stockPoolProductId == null &&
+      stockIntakeGroup != null,
   };
 }
 
@@ -798,6 +818,7 @@ function receiptListRow(
     salesPointName: salesPointName(cat, r.sales_point_id),
     receivedAtIso: utcDay(r.received_at),
     supplierLabel: r.supplier_label,
+    consignmentNoteNo: r.consignment_note_no ?? null,
     status: r.status as StockDocStatus,
     totalQty: sumQty(lines.map((l) => l.qty)),
     lineCount: lines.length,
@@ -817,6 +838,12 @@ function receiptDetailRow(
   return {
     ...receiptListRow(r, lines, cat, names),
     notes: r.notes ?? null,
+    consignedBy: r.consigned_by ?? null,
+    consDesign: r.cons_design ?? null,
+    consDate: r.cons_date ?? null,
+    receiveBy: r.receive_by ?? null,
+    receiveByDesign: r.receive_by_design ?? null,
+    receiveDate: r.receive_date ?? null,
     lines: lines.map((l) => ({
       id: l.id,
       productId: l.product_id,
@@ -1162,7 +1189,6 @@ export async function getBootstrap(
 
   if (productFilter === "bottled") {
     if (
-      !canAccessRoute(actor, STOCK_MODULE_ROUTE_ID) &&
       !canAccessRoute(actor, BOTTLED_STOCK_ROUTE_ID) &&
       !canAccessRoute(actor, "stock-bin-card")
     ) {
@@ -1174,8 +1200,7 @@ export async function getBootstrap(
 
   const moduleWrite =
     productFilter === "bottled"
-      ? canWriteRoute(actor, STOCK_MODULE_ROUTE_ID) ||
-        canWriteRoute(actor, BOTTLED_STOCK_ROUTE_ID)
+      ? canWriteRoute(actor, BOTTLED_STOCK_ROUTE_ID)
       : canWriteRoute(actor, STOCK_MODULE_ROUTE_ID);
   const can = (key: string) => moduleWrite && canPerformAction(actor, key);
 
@@ -1183,22 +1208,32 @@ export async function getBootstrap(
   const canPostReceipts = can("post_stock_receipts");
   const canDraftTransfers = can("draft_stock_transfers");
   const canPostTransfers = can("post_stock_transfers");
-  const canReceiveTransfers = productFilter === "bottled" && can("receive_stock_transfers");
+  // Bottle stock is received via Reception (consignment note) at Bota — not transfers.
+  const canReceiveTransfers = false;
   const canDraftAdjustments = can("draft_stock_adjustments");
   const canPostAdjustments = can("post_stock_adjustments");
 
   const cat = await loadCatalog();
   const onHandIds = productIdsForFilter(cat, productFilter);
 
-  const [balances, movements, receipts, transfers, adjustments] = await Promise.all([
-    aggregateBalances({ salesPointId: scoped }),
-    productFilter === "bottled"
-      ? Promise.resolve([] as StockMovementRow[])
-      : loadMovementList(scoped, productFilter, cat),
-    loadReceiptList(scoped, productFilter, cat),
-    loadTransferList(scoped, productFilter, cat),
-    loadAdjustmentList(scoped, productFilter, cat),
-  ]);
+  const [balances, movements, receipts, transfers, adjustments, company] =
+    await Promise.all([
+      aggregateBalances({ salesPointId: scoped }),
+      productFilter === "bottled"
+        ? Promise.resolve([] as StockMovementRow[])
+        : loadMovementList(scoped, productFilter, cat),
+      loadReceiptList(scoped, productFilter, cat),
+      loadTransferList(scoped, productFilter, cat),
+      loadAdjustmentList(scoped, productFilter, cat),
+      prisma.company_settings.findFirst({
+        where: { id: "default" },
+        select: {
+          stock_intake_oil_grouping: true,
+          stock_transfer_receive_uses_document_date: true,
+          loose_palm_oil_allow_inter_sales_point_transfer: true,
+        },
+      }),
+    ]);
 
   const onHand = sortBalanceRows(
     balances
@@ -1222,6 +1257,9 @@ export async function getBootstrap(
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((sp) => ({ id: sp.id, name: sp.name, attachedToMill: sp.attachedToMill }));
 
+  const botaSalesPointId =
+    salesPoints.find((sp) => sp.name.toUpperCase().includes("BOTA"))?.id ?? null;
+
   return {
     productFilter,
     canManageReceipts: canPostReceipts,
@@ -1238,16 +1276,23 @@ export async function getBootstrap(
     canDirectPostReceipts: can("direct_post_stock_receipts"),
     canDirectPostTransfers: can("direct_post_stock_transfers"),
     scopedSalesPointId: scoped,
+    botaSalesPointId,
     salesPoints,
     storageLocations,
     products: allProducts.filter((p) => matchesFilter(cat, p.productId, productFilter)),
-    receiptProducts: allProducts,
+    receiptProducts: allProducts.filter((p) =>
+      matchesFilter(cat, p.productId, productFilter),
+    ),
     // Server auto-allocates numbers whenever the client omits them.
     autoGenerateReceiptNo: true,
     autoGenerateTransferNo: true,
-    transferReceiveUsesDocumentDate: false,
-    loosePalmOilAllowInterSalesPointTransfer: false,
-    stockIntakeOilGrouping: false,
+    transferReceiveUsesDocumentDate: Boolean(
+      company?.stock_transfer_receive_uses_document_date,
+    ),
+    loosePalmOilAllowInterSalesPointTransfer: Boolean(
+      company?.loose_palm_oil_allow_inter_sales_point_transfer,
+    ),
+    stockIntakeOilGrouping: Boolean(company?.stock_intake_oil_grouping),
     onHand,
     movements,
     receipts,
@@ -2281,29 +2326,18 @@ export async function listReceiveQueue(userId: string): Promise<StockReceiveQueu
 }
 
 // ---------------------------------------------------------------------------
-// Intake oil grouping — STUBBED (schema blocks)
-//
-// Electron stores `stockIntakeOilGrouping` on CompanySettings and
-// `stockIntakeGroup` / `stockPoolProductId` on Product. Neither exists in the
-// Postgres Prisma schema, so grouping is permanently "off" on the thin client.
+// Intake oil grouping
 // ---------------------------------------------------------------------------
 
 export async function getIntakeOilGroupingStatus(): Promise<StockIntakeOilGroupingStatus> {
-  return { enabled: false, poolTotalQty: 0 };
+  return getIntakeOilGroupingStatusImpl();
 }
 
 export async function applyIntakeOilGrouping(
   userId: string,
   enabled: boolean,
 ): Promise<ApplyStockIntakeOilGroupingResult> {
-  await loadRpcActor(userId);
-  if (!enabled) {
-    // Already off; nothing to persist.
-    return { ok: true };
-  }
-  return {
-    ok: false,
-    error:
-      "Stock intake oil grouping is not available on the shared server yet (schema has no intake-group columns).",
-  };
+  const actor = await loadRpcActor(userId);
+  assertRouteWrite(actor, "company-settings");
+  return applyIntakeOilGroupingImpl(userId, enabled);
 }

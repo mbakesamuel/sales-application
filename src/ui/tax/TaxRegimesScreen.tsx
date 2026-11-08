@@ -17,6 +17,7 @@ import "../components/FormDialog.css";
 import { TaxRegimeFormModal } from "./TaxRegimeFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 type SortKey = "name" | "kind" | "customerCount" | "createdAt" | "isActive";
 type SortDir = "asc" | "desc";
@@ -455,7 +456,7 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
 
   async function deleteRegime(row: TaxRegimeRow) {
     if (!schema) return;
-    const confirmed = window.confirm(
+    const confirmed = await confirmDelete(
       `Delete tax regime "${row.name}"? Customers using it must be reassigned first.`,
     );
     if (!confirmed) return;

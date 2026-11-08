@@ -35,6 +35,7 @@ import type {
   StorageLocationOption,
 } from "./types.ts";
 import "./sales.css";
+import { confirmDelete } from "../components/confirmModal.tsx";
 
 interface SalesClientProps {
   user: AuthUser;
@@ -251,19 +252,24 @@ function formatAmount(value: number): string {
 function getProductLabel(
   productId: string,
   products: SalesProductOption[],
+  fallbackLabel?: string,
 ): string {
   const product = products.find((item) => String(item.productId) === productId);
-  return product ? `${product.productName} (${product.productCat})` : "—";
+  if (product) {
+    return `${product.productName} (${product.productCat})`;
+  }
+  return fallbackLabel?.trim() || "—";
 }
 
 function getLocationLabel(
   storageLocationId: string,
   locations: StorageLocationOption[],
+  fallbackLabel?: string,
 ): string {
   const location = locations.find(
     (item) => String(item.id) === storageLocationId,
   );
-  return location?.name ?? "—";
+  return location?.name ?? fallbackLabel?.trim() ?? "—";
 }
 
 function getLineQuantity(line: SalesLineDraft, isBottleMode: boolean): string {
@@ -674,6 +680,12 @@ export function SalesClient({
         setPostingPeriod(period);
         setTransactionDate((current) => clampDateToPeriod(current, period));
 
+        // Opening an existing invoice: keep draft empty until loadSale fills it.
+        // Resetting here races with loadSale and wipes customer/lines/payments.
+        if (initialInvoiceNo.trim()) {
+          return;
+        }
+
         setUseRegisteredCustomer(
           defaultUseRegisteredCustomer(formOptions, isBottleVariant),
         );
@@ -698,13 +710,15 @@ export function SalesClient({
     }
 
     void bootstrap();
-  }, [user.id, isBottleVariant]);
+  }, [user.id, isBottleVariant, initialInvoiceNo]);
 
   useEffect(() => {
-    if (initialInvoiceNo.trim()) {
-      void loadSale(initialInvoiceNo.trim());
+    // Wait for form options so product/payment dropdowns can resolve loaded ids.
+    if (!options || !initialInvoiceNo.trim()) {
+      return;
     }
-  }, [initialInvoiceNo]);
+    void loadSale(initialInvoiceNo.trim());
+  }, [initialInvoiceNo, options]);
 
   useEffect(() => {
     if (
@@ -1084,16 +1098,29 @@ export function SalesClient({
     setVehicleNumber(sale.vehicleNumber);
     setTransactionDate(sale.dateIssuedIso.slice(0, 10));
     setLines(
-      sale.lines.map((line) => ({
-        productId: String(line.productId),
-        qtyKg: line.qtyKg,
-        qtyUnits: line.qtyUnits ?? line.qtyKg,
-        unitPricePerKg: line.unitPricePerKg,
-        unitPricePerUnit: line.unitPricePerUnit ?? line.unitPricePerKg,
-        storageLocationId: line.storageLocationId
-          ? String(line.storageLocationId)
-          : "",
-      })),
+      sale.lines.map((line) => {
+        const locationId =
+          line.storageLocationId != null
+            ? String(line.storageLocationId)
+            : "";
+        const location = locationId
+          ? options?.storageLocations.find(
+              (entry) => String(entry.id) === locationId,
+            )
+          : undefined;
+        return {
+          productId: String(line.productId),
+          qtyKg: line.qtyKg,
+          qtyUnits: line.qtyUnits ?? line.qtyKg,
+          unitPricePerKg: line.unitPricePerKg,
+          unitPricePerUnit: line.unitPricePerUnit ?? line.unitPricePerKg,
+          storageLocationId: locationId,
+          productLabel: line.productCat
+            ? `${line.productName} (${line.productCat})`
+            : line.productName,
+          locationLabel: location?.name,
+        };
+      }),
     );
     setPayments(
       sale.payments.length > 0
@@ -1443,16 +1470,24 @@ export function SalesClient({
             : undefined,
         saleProductMode: defaultProductMode,
         saleDisposition,
-        lines: filteredLines.map((line) => ({
-          productId: Number.parseInt(line.productId, 10),
-          qtyKg: line.qtyKg,
-          qtyUnits: isBottleMode ? line.qtyUnits : undefined,
-          unitPricePerKg: line.unitPricePerKg,
-          unitPricePerUnit: isBottleMode ? line.unitPricePerUnit : undefined,
-          storageLocationId: line.storageLocationId
+        lines: filteredLines.map((line) => {
+          const parsedLocation = line.storageLocationId
             ? Number.parseInt(line.storageLocationId, 10)
-            : null,
-        })),
+            : NaN;
+          const bottleStoreId = options?.bottleOilStoreLocationId ?? null;
+          return {
+            productId: Number.parseInt(line.productId, 10),
+            qtyKg: line.qtyKg,
+            qtyUnits: isBottleMode ? line.qtyUnits : undefined,
+            unitPricePerKg: line.unitPricePerKg,
+            unitPricePerUnit: isBottleMode ? line.unitPricePerUnit : undefined,
+            storageLocationId: Number.isFinite(parsedLocation)
+              ? parsedLocation
+              : isBottleMode
+                ? bottleStoreId
+                : null,
+          };
+        }),
         payments: payments
           .filter((payment) => parseDec(payment.amount) > 0)
           .map((payment) => ({
@@ -1576,7 +1611,7 @@ export function SalesClient({
         ? `PERMANENTLY delete cancelled invoice ${invoiceNo || saleId}? This cannot be undone.`
         : `Delete invoice ${invoiceNo || saleId}? This cannot be undone.`;
 
-    const confirmed = window.confirm(confirmMessage);
+    const confirmed = await confirmDelete(confirmMessage);
     if (!confirmed) {
       return;
     }
@@ -2143,7 +2178,11 @@ export function SalesClient({
                       <td class="sales-items-col-no">{index + 1}</td>
                       <td>
                         <span class="sales-items-product">
-                          {getProductLabel(line.productId, catalogProducts)}
+                          {getProductLabel(
+                            line.productId,
+                            catalogProducts,
+                            line.productLabel,
+                          )}
                         </span>
                       </td>
                       {!isBottleMode ? (
@@ -2151,6 +2190,7 @@ export function SalesClient({
                           {getLocationLabel(
                             line.storageLocationId,
                             salesPointLocations,
+                            line.locationLabel,
                           )}
                         </td>
                       ) : null}

@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import type { StockCondition } from "../../shared/stock.types.js";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.js";
-import { getSellableBalanceAsOf } from "./asOfBalance.js";
+import { getAvailableSellableForSaleAsOf } from "./pendingSaleReservations.js";
 import { formatQty, parseQty } from "./decimal.js";
 import { InsufficientStockError } from "./errors.js";
 import { applyMovement } from "./post.js";
@@ -13,6 +13,7 @@ import {
 } from "./productStorage.js";
 
 export { getSellableBalanceAsOf } from "./asOfBalance.js";
+export { getAvailableSellableForSaleAsOf } from "./pendingSaleReservations.js";
 export { productOmitsStorageLocationById } from "./productStorage.js";
 
 export function resolveSellableStorageLocation(
@@ -171,7 +172,7 @@ export function assertSaleLinesStockAsOf(
 
     const key = `${stockProductId}:${storageLocationId ?? "null"}`;
     const alreadyReserved = reserved.get(key) ?? 0;
-    const available = getSellableBalanceAsOf(
+    const available = getAvailableSellableForSaleAsOf(
       db,
       args.salesPointId,
       stockProductId,

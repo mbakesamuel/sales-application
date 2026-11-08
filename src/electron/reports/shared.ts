@@ -157,15 +157,18 @@ export function loadProducts(): ProductRow[] {
 }
 
 export function detectBottledPack(product: Pick<ProductRow, "productName" | "productCode">): BottledPackColumn {
-  const text = `${product.productName} ${product.productCode ?? ""}`.toUpperCase();
+  // Compact so "1X 15L" / "3 X 5L" match; check 15L before 5L ("15L" contains "5L").
+  const text = `${product.productName} ${product.productCode ?? ""}`
+    .toUpperCase()
+    .replace(/\s+/g, "");
   if (text.includes("20L") || text.includes("JUG")) {
     return { id: "jug20", label: "1X20L JUG", units: 0, litresPerUnit: 20 };
   }
+  if (text.includes("15L") || text.includes("1X15") || text.includes("1LX15")) {
+    return { id: "carton15", label: "1X15L CTN", units: 0, litresPerUnit: 15 };
+  }
   if (text.includes("3X5") || (text.includes("5L") && text.includes("CTN"))) {
     return { id: "carton5", label: "3X5L CTN", units: 0, litresPerUnit: 15 };
-  }
-  if (text.includes("15L")) {
-    return { id: "carton15", label: "1X15L CTN", units: 0, litresPerUnit: 15 };
   }
   if (text.includes("1L")) {
     return { id: "unit1", label: "1L BOTTLE", units: 0, litresPerUnit: 1 };
