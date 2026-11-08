@@ -1,5 +1,5 @@
 import { handle } from "hono/vercel";
-// Built by `prisma generate && tsc` (vercel.json buildCommand) before packaging.
+// Built by `npm run build` (`prisma generate && tsc`, with declaration emit) before packaging.
 import { app } from "../dist/app.js";
 
 export const config = {
