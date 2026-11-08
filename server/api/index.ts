@@ -1,6 +1,5 @@
 import { handle } from "hono/vercel";
-// Built by `npm run build` (`prisma generate && tsc`, with declaration emit) before packaging.
-import { app } from "../dist/app.js";
+import { app } from "../src/app.js";
 
 export const config = {
   runtime: "nodejs",
