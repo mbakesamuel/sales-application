@@ -1,25 +1,38 @@
-import { handle } from "hono/vercel";
+import { handle } from "@hono/node-server/vercel";
+import { Hono } from "hono";
 // Bundled by `npm run vercel-build`.
-import { app } from "./_app.mjs";
+import { app as coreApp } from "./_app.mjs";
 
-// Web Handler API — named method exports receive Fetch `Request` and return
-// `Response`. A bare default export is treated as legacy Node (req, res) on
- // current Vercel Node runtimes, which crashes Hono CORS with:
-//   TypeError: this.raw.headers.get is not a function
-const handler = handle(app);
+/**
+ * Vercel Node calls the default export as (req, res) => void.
+ * `@hono/node-server/vercel` adapts that correctly.
+ * `hono/vercel` does NOT (Web Fetch only) and causes:
+ *   TypeError: this.raw.headers.get is not a function
+ * plus hung responses / 60s timeouts.
+ *
+ * Also: for files under /api, some runtimes present the path without the
+ * `/api` prefix. Retry once with `/api` prepended when the first match 404s.
+ */
+const app = new Hono();
 
-export const GET = handler;
-export const POST = handler;
-export const PUT = handler;
-export const PATCH = handler;
-export const DELETE = handler;
-export const OPTIONS = handler;
-export const HEAD = handler;
+app.all("*", async (c) => {
+  const first = await coreApp.fetch(c.req.raw);
+  if (first.status !== 404) {
+    return first;
+  }
+  const url = new URL(c.req.url);
+  if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
+    return first;
+  }
+  url.pathname =
+    url.pathname === "/" ? "/api" : `/api${url.pathname}`;
+  return coreApp.fetch(new Request(url.toString(), c.req.raw));
+});
+
+export default handle(app);
 
 export const config = {
   runtime: "nodejs",
   maxDuration: 60,
   memory: 1024,
 };
-
-export default handler;
