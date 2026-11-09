@@ -244,6 +244,27 @@ export async function loadOutstandingCommitmentsAsOf(
   return [...totals.values()];
 }
 
+/** Aggregate as-of outstanding by sales point + product (stock-commitment metrics). */
+export async function loadCommitmentMetricsAsOf(
+  asAtDateIso: string,
+  options?: { salesPointId?: number | null },
+): Promise<Array<{ salesPointId: number; productId: number; qty: number }>> {
+  const totals = new Map<string, number>();
+  for (const row of await loadOutstandingCommitmentsAsOf(asAtDateIso, {
+    hideZero: true,
+    salesPointId: options?.salesPointId,
+  })) {
+    const key = `${row.salesPointId}:${row.productId}`;
+    totals.set(key, (totals.get(key) ?? 0) + row.qty);
+  }
+  return [...totals.entries()].map(([key, qty]) => {
+    const [salesPointId, productId] = key
+      .split(":")
+      .map((value) => Number.parseInt(value, 10));
+    return { salesPointId, productId, qty };
+  });
+}
+
 function qtyForSalesPoint(
   commitments: OutstandingCommitment[],
   salesPointId: number,
