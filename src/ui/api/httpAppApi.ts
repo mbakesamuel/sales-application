@@ -32,6 +32,29 @@ export function isHttpApiMode(explicitBaseUrl?: string | null): boolean {
   return Boolean(resolveBaseUrl(explicitBaseUrl));
 }
 
+const SERVER_UNREACHABLE_MESSAGE = "Cannot connect to server.";
+
+function isNetworkFetchError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const name = error.name.toLowerCase();
+  const message = error.message.toLowerCase();
+  return (
+    name === "typeerror" ||
+    name === "networkerror" ||
+    message.includes("failed to fetch") ||
+    message.includes("networkerror") ||
+    message.includes("load failed") ||
+    message.includes("network request failed")
+  );
+}
+
+function toUserFacingFetchError(error: unknown): Error {
+  if (isNetworkFetchError(error)) {
+    return new Error(SERVER_UNREACHABLE_MESSAGE);
+  }
+  return error instanceof Error ? error : new Error(String(error));
+}
+
 async function httpJson<T>(
   baseUrl: string,
   path: string,
@@ -45,10 +68,15 @@ async function httpJson<T>(
     headers.set("Authorization", `Bearer ${init.token}`);
   }
 
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...init,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers,
+    });
+  } catch (error) {
+    throw toUserFacingFetchError(error);
+  }
 
   const text = await response.text();
   let body: unknown = null;
@@ -85,15 +113,20 @@ async function fetchPdfBytes(
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
-  const response = await fetch(`${baseUrl}/api/print/html-to-pdf`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      html,
-      landscape: options?.landscape === true,
-      attributionFooter: options?.attributionFooter !== false,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/api/print/html-to-pdf`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        html,
+        landscape: options?.landscape === true,
+        attributionFooter: options?.attributionFooter !== false,
+      }),
+    });
+  } catch (error) {
+    throw toUserFacingFetchError(error);
+  }
 
   if (!response.ok) {
     const text = await response.text();
