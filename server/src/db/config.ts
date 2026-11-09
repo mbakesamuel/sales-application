@@ -33,6 +33,30 @@ function parseDatabaseName(databaseUrl: string): string {
  */
 export function loadDbConfig(): DbConfig {
   const target = resolveTarget(process.env.DB_TARGET);
+  const onVercel = Boolean(process.env.VERCEL);
+
+  // On Vercel, prefer any configured remote URL even if DB_TARGET was left at "dev".
+  if (onVercel) {
+    const vercelUrl =
+      process.env.DATABASE_URL_PROD?.trim() ||
+      process.env.DATABASE_URL?.trim() ||
+      process.env.DATABASE_URL_DEV?.trim() ||
+      "";
+    if (vercelUrl) {
+      const resolvedTarget = process.env.DATABASE_URL_PROD?.trim()
+        ? "prod"
+        : target;
+      return {
+        target: resolvedTarget,
+        databaseUrl: vercelUrl,
+        databaseName: parseDatabaseName(vercelUrl),
+      };
+    }
+    throw new Error(
+      "Vercel is missing a Postgres URL. Set DATABASE_URL_PROD (recommended) or DATABASE_URL in Project → Environment Variables. Do not use localhost.",
+    );
+  }
+
   const namedUrl =
     target === "prod"
       ? process.env.DATABASE_URL_PROD?.trim()
@@ -42,12 +66,9 @@ export function loadDbConfig(): DbConfig {
   let databaseUrl = namedUrl || legacyUrl || "";
 
   if (!databaseUrl) {
-    const onVercel = Boolean(process.env.VERCEL);
-    if (target === "prod" || onVercel) {
+    if (target === "prod") {
       throw new Error(
-        onVercel
-          ? "Vercel is missing a Postgres URL. Set DATABASE_URL (or DATABASE_URL_PROD + DB_TARGET=prod) in the Vercel project Environment Variables. Do not use localhost."
-          : 'DB_TARGET=prod but DATABASE_URL_PROD (and legacy DATABASE_URL) are unset. Set DATABASE_URL_PROD in server/.env.',
+        "DB_TARGET=prod but DATABASE_URL_PROD (and legacy DATABASE_URL) are unset. Set DATABASE_URL_PROD in server/.env.",
       );
     }
     databaseUrl = LEGACY_DEFAULT_URL;
