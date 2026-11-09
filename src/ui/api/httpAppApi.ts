@@ -233,31 +233,35 @@ function downloadPdfInBrowser(fileName: string, data: Uint8Array): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-function printPdfInBrowser(data: Uint8Array): Promise<void> {
+/**
+ * Print via a hidden iframe (no new tab) — same pattern as
+ * Personel Management `printHtmlInBrowser`.
+ * Unlocks as soon as print() is invoked so cancel cannot freeze the UI;
+ * the iframe is removed later on afterprint / focus / timeout.
+ */
+function printViaHiddenIframe(assign: (frame: HTMLIFrameElement) => void): Promise<void> {
   return new Promise((resolve, reject) => {
-    const copy = new Uint8Array(data.byteLength);
-    copy.set(data);
-    const blob = new Blob([copy], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.setAttribute("title", "Print");
+    frame.style.position = "fixed";
+    frame.style.right = "0";
+    frame.style.bottom = "0";
+    frame.style.width = "0";
+    frame.style.height = "0";
+    frame.style.border = "0";
+    frame.style.opacity = "0";
+    frame.style.pointerEvents = "none";
+    frame.style.zIndex = "-1";
 
-    // Prefer a real window — zero-size iframes are blocked/unreliable in
-    // several browsers for window.print().
-    const win = window.open(url, "_blank", "noopener,noreferrer");
-    if (!win) {
-      URL.revokeObjectURL(url);
-      reject(
-        new Error(
-          "Pop-up blocked. Allow pop-ups for this site to print, or use Save PDF.",
-        ),
-      );
-      return;
-    }
+    let unlocked = false;
+    let cleaned = false;
+    let safetyTimer: ReturnType<typeof setTimeout> | undefined;
+    let objectUrl: string | null = null;
 
-    let settled = false;
-    const finish = (err?: unknown) => {
-      if (settled) return;
-      settled = true;
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    const unlock = (err?: unknown) => {
+      if (unlocked) return;
+      unlocked = true;
       if (err != null) {
         reject(err instanceof Error ? err : new Error("Print failed."));
         return;
@@ -265,61 +269,80 @@ function printPdfInBrowser(data: Uint8Array): Promise<void> {
       resolve();
     };
 
-    const triggerPrint = () => {
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      if (safetyTimer !== undefined) window.clearTimeout(safetyTimer);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("afterprint", onAfterPrint);
       try {
-        win.addEventListener("afterprint", () => finish(), { once: true });
-        window.setTimeout(() => finish(), 2500);
-        win.focus();
-        win.print();
+        frame.contentWindow?.removeEventListener("afterprint", onAfterPrint);
+      } catch {
+        // Detached.
+      }
+      window.setTimeout(() => {
+        frame.remove();
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+      }, 300);
+    };
+
+    const onAfterPrint = () => cleanup();
+    const onFocus = () => {
+      window.setTimeout(cleanup, 400);
+    };
+
+    frame.onload = () => {
+      try {
+        const win = frame.contentWindow;
+        if (!win) {
+          cleanup();
+          unlock(new Error("Could not open print preview."));
+          return;
+        }
+        win.addEventListener("afterprint", onAfterPrint, { once: true });
+        window.addEventListener("afterprint", onAfterPrint, { once: true });
+        safetyTimer = window.setTimeout(cleanup, 120_000);
+        // Schedule print on the next task so we can unlock the overlay UI
+        // before Chromium's modal print() blocks the main thread.
+        window.setTimeout(() => {
+          try {
+            win.focus();
+            win.print();
+          } catch {
+            cleanup();
+          }
+        }, 0);
+        unlock();
+        window.setTimeout(() => {
+          window.addEventListener("focus", onFocus, { once: true });
+        }, 300);
       } catch (err) {
-        finish(err);
+        cleanup();
+        unlock(err);
       }
     };
 
-    // Some browsers fire load before PDF plugin is ready.
-    window.setTimeout(triggerPrint, 500);
+    assign(frame);
+    // Capture blob URL created by assign (PDF path) for cleanup.
+    if (frame.src.startsWith("blob:")) {
+      objectUrl = frame.src;
+    }
+    document.body.appendChild(frame);
+  });
+}
+
+function printPdfInBrowser(data: Uint8Array): Promise<void> {
+  return printViaHiddenIframe((frame) => {
+    const copy = new Uint8Array(data.byteLength);
+    copy.set(data);
+    const blob = new Blob([copy], { type: "application/pdf" });
+    frame.src = URL.createObjectURL(blob);
   });
 }
 
 function printHtmlInBrowser(html: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const win = window.open(url, "_blank", "noopener,noreferrer");
-    if (!win) {
-      URL.revokeObjectURL(url);
-      reject(
-        new Error(
-          "Pop-up blocked. Allow pop-ups for this site to print, or use Save PDF.",
-        ),
-      );
-      return;
-    }
-
-    let settled = false;
-    const finish = (err?: unknown) => {
-      if (settled) return;
-      settled = true;
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      if (err != null) {
-        reject(err instanceof Error ? err : new Error("Print failed."));
-        return;
-      }
-      resolve();
-    };
-
-    const triggerPrint = () => {
-      try {
-        win.addEventListener("afterprint", () => finish(), { once: true });
-        window.setTimeout(() => finish(), 2500);
-        win.focus();
-        win.print();
-      } catch (err) {
-        finish(err);
-      }
-    };
-
-    window.setTimeout(triggerPrint, 400);
+  return printViaHiddenIframe((frame) => {
+    frame.srcdoc = html;
   });
 }
 
