@@ -69,6 +69,7 @@ import { getLooseLpoStockSummaryReport } from "../services/reports/looseLpoStock
 import { getMonthlyPalmOilSalesReport } from "../services/reports/monthlyPalmOilSalesReport.js";
 import { getPalmOilSalesActivityReport } from "../services/reports/palmOilSalesActivityReport.js";
 import { getMonthlyStockReconciliationReport } from "../services/reports/monthlyStockReconciliationReport.js";
+import { getCommitmentReport } from "../services/reports/commitmentReport.js";
 import {
   backupStubs,
   carryForwardStockStubs,
@@ -425,8 +426,15 @@ const handlers: Record<string, Handler> = {
     const asAtIso = typeof args[2] === "string" ? args[2] : undefined;
     return reportShells.emptyStockCommitment(ctx, asAtIso);
   },
-  "reports.getCommitmentReport": async (_args, ctx) =>
-    reportShells.emptyCommitmentReport(ctx),
+  "reports.getCommitmentReport": async (args, ctx) => {
+    const hideZero =
+      typeof args[1] === "boolean"
+        ? args[1]
+        : args[1] === 0 || args[1] === 1
+          ? Boolean(args[1])
+          : undefined;
+    return getCommitmentReport(ctx.userId, hideZero);
+  },
   "reports.getBottleOilStockSales": async (args, ctx) => {
     const hideZero =
       typeof args[1] === "boolean"
