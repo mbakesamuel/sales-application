@@ -1,9 +1,9 @@
+import "../customers/CustomersScreen.css";
 import "./FinancialMonthsScreen.css";
 interface FinancialMonthsScreenProps {
-  readOnly?: boolean;
-  salesPointId?: number | null;
+    readOnly?: boolean;
+    /** Attached collection point, or null for central/head-office month. */
+    salesPointId?: number | null;
 }
-export declare function FinancialMonthsScreen({
-  readOnly,
-  salesPointId,
-}?: FinancialMonthsScreenProps): import("preact").JSX.Element;
+export declare function FinancialMonthsScreen({ readOnly, salesPointId, }?: FinancialMonthsScreenProps): import("preact").JSX.Element;
+export {};

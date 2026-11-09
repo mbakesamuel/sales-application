@@ -30,7 +30,7 @@ export declare function getBottledStockModuleAccess(snapshot: RolePermissionsSna
  * Matches getBinCard: stock-bin-card, bottled-stock, or the dedicated report route.
  */
 export declare function canAccessBinCardReport(snapshot: RolePermissionsSnapshot): boolean;
-/** True when the role can manage bottled stock (module route or legacy bin-card write). */
+/** True when the role can manage bottled stock (dedicated module or legacy bin-card write). */
 export declare function hasUnifiedStockBottledCapability(snapshot: RolePermissionsSnapshot): boolean;
 export declare function canAccessStockTab(snapshot: RolePermissionsSnapshot, _tabId: StockTabId): boolean;
 export declare function isStockTabReadOnly(snapshot: RolePermissionsSnapshot, _tabId: StockTabId): boolean;
@@ -41,9 +41,13 @@ export declare function getVisibleStockTabs(snapshot: RolePermissionsSnapshot): 
 export declare function getVisibleStockTabsForVariant(snapshot: RolePermissionsSnapshot, variant: StockModuleVariant): StockTabId[];
 export declare function normalizeStockProductFilter(value: unknown): StockProductFilter;
 /**
- * Main Stock is always loose/bulk. Bottle Oil stock uses `routeVariant === "bottled"`.
+ * Main Stock is always loose/bulk. Bottle Oil stock is a separate module
+ * (`routeVariant === "bottled"` → Bottle Stock screen).
  */
-export declare function resolveStockModuleVariant(snapshot: RolePermissionsSnapshot, routeVariant: "bulk" | "bottled"): StockModuleVariant;
-/** Main Stock stays bulk-only; explicit `bottled` is for the Bottle Stock module. */
+export declare function resolveStockModuleVariant(_snapshot: RolePermissionsSnapshot, routeVariant: "bulk" | "bottled"): StockModuleVariant;
+/**
+ * Resolve bootstrap/document product filter from route access.
+ * Main Stock stays bulk-only; explicit `bottled` is for the Bottle Stock module.
+ */
 export declare function resolveStockProductFilterFromAccess(bulkAccess: RouteAccess, bottledAccess: RouteAccess, requested?: StockProductFilter | null, _bottledCapabilityAccess?: RouteAccess | null): StockProductFilter;
 export declare function resolveStockProductFilterFromSnapshot(snapshot: RolePermissionsSnapshot, requested?: StockProductFilter | null): StockProductFilter;

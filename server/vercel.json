@@ -7,7 +7,7 @@
     "api/index.js": {
       "memory": 1024,
       "maxDuration": 60,
-      "includeFiles": "{api/_app.mjs,node_modules/@sparticuz/chromium/**}"
+      "includeFiles": "api/_app.mjs"
     }
   },
   "build": {

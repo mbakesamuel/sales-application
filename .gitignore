@@ -34,3 +34,5 @@ server/.env
 docs/export/*.pdf
 docs/export/*.docx
 docs/export/*.md
+
+.vercel

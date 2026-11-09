@@ -21,9 +21,19 @@ if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
-export async function checkPrismaConnection(): Promise<boolean> {
+export async function checkPrismaConnection(
+  timeoutMs = 4_000,
+): Promise<boolean> {
   try {
-    await prisma.$queryRaw`SELECT 1 AS connected`;
+    await Promise.race([
+      prisma.$queryRaw`SELECT 1 AS connected`,
+      new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error(`Prisma health check timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
+      }),
+    ]);
     return true;
   } catch (err) {
     console.error("Prisma connection check failed:", err);

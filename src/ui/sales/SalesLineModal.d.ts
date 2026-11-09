@@ -7,6 +7,9 @@ export interface SalesLineDraft {
     unitPricePerKg: string;
     unitPricePerUnit: string;
     storageLocationId: string;
+    /** Set when loading an existing invoice so View works even if catalog filters omit the SKU. */
+    productLabel?: string;
+    locationLabel?: string;
 }
 interface SalesLineModalProps {
     line: SalesLineDraft;

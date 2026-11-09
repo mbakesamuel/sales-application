@@ -8,6 +8,7 @@
   "main": "dist-electron/electron/main.js",
   "scripts": {
     "dev": "run-p dev:react dev:electron",
+    "vercel:build": "npx vercel build --yes",
     "dev:thin": "run-p server:dev dev:react", 
     "dev:react": "vite",
     "dev:electron": "npm run transpile:electron && cross-env SALES_THIN_CLIENT=1 electron .",

@@ -42,9 +42,12 @@ export function loadDbConfig(): DbConfig {
   let databaseUrl = namedUrl || legacyUrl || "";
 
   if (!databaseUrl) {
-    if (target === "prod") {
+    const onVercel = Boolean(process.env.VERCEL);
+    if (target === "prod" || onVercel) {
       throw new Error(
-        'DB_TARGET=prod but DATABASE_URL_PROD (and legacy DATABASE_URL) are unset. Set DATABASE_URL_PROD in server/.env.',
+        onVercel
+          ? "Vercel is missing a Postgres URL. Set DATABASE_URL (or DATABASE_URL_PROD + DB_TARGET=prod) in the Vercel project Environment Variables. Do not use localhost."
+          : 'DB_TARGET=prod but DATABASE_URL_PROD (and legacy DATABASE_URL) are unset. Set DATABASE_URL_PROD in server/.env.',
       );
     }
     databaseUrl = LEGACY_DEFAULT_URL;
