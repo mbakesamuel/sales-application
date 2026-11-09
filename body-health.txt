@@ -1,0 +1,1 @@
+{"ok":true,"version":"1.1.0","service":"sales-sync-server","serverTime":"2026-11-09T02:41:21.523Z","database":"connected","prisma":"connected","dbTarget":"prod","databaseName":"neondb"}

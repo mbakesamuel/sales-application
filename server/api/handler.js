@@ -1,17 +1,12 @@
 import { handle } from "@hono/node-server/vercel";
 import { Hono } from "hono";
-// Bundled by `npm run vercel-build`.
 import { app as coreApp } from "./_app.mjs";
 
 /**
- * Vercel Node calls the default export as (req, res) => void.
- * `@hono/node-server/vercel` adapts that correctly.
- * `hono/vercel` does NOT (Web Fetch only) and causes:
- *   TypeError: this.raw.headers.get is not a function
- * plus hung responses / 60s timeouts.
+ * Shared Vercel entry for /api and /api/*.
  *
- * Also: for files under /api, some runtimes present the path without the
- * `/api` prefix. Retry once with `/api` prepended when the first match 404s.
+ * Use `@hono/node-server/vercel` (Node req/res), not `hono/vercel` (Web Fetch).
+ * Retry without/with `/api` prefix so both path styles work.
  */
 const app = new Hono();
 
@@ -24,8 +19,7 @@ app.all("*", async (c) => {
   if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
     return first;
   }
-  url.pathname =
-    url.pathname === "/" ? "/api" : `/api${url.pathname}`;
+  url.pathname = url.pathname === "/" ? "/api" : `/api${url.pathname}`;
   return coreApp.fetch(new Request(url.toString(), c.req.raw));
 });
 

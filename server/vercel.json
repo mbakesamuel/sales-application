@@ -6,10 +6,15 @@
   "outputDirectory": "public",
   "rewrites": [{ "source": "/", "destination": "/api" }],
   "functions": {
-    "api/[[...route]].js": {
+    "api/index.js": {
       "memory": 1024,
       "maxDuration": 60,
-      "includeFiles": "api/_app.mjs"
+      "includeFiles": "{api/_app.mjs,api/handler.js}"
+    },
+    "api/[...route].js": {
+      "memory": 1024,
+      "maxDuration": 60,
+      "includeFiles": "{api/_app.mjs,api/handler.js}"
     }
   },
   "build": {
