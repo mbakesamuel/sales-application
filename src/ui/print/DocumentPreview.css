@@ -27,3 +27,22 @@
   overflow: hidden;
   pointer-events: none;
 }
+
+.doc-preview-html {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 420px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.doc-preview-html-frame {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 420px;
+  border: 0;
+  background: #fff;
+}

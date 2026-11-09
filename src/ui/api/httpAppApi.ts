@@ -156,8 +156,8 @@ function createShellAdapters(
 ): Pick<ElectronAppApi, "dialog" | "print" | "windows" | "reportWindow"> {
   const electron = window.api;
   if (
-    electron?.print?.htmlToPdf &&
-    electron?.windows?.openReport &&
+    typeof electron?.print?.htmlToPdf === "function" &&
+    typeof electron?.windows?.openReport === "function" &&
     electron?.reportWindow
   ) {
     return {
@@ -239,21 +239,25 @@ function printPdfInBrowser(data: Uint8Array): Promise<void> {
     copy.set(data);
     const blob = new Blob([copy], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
-    const frame = document.createElement("iframe");
-    frame.setAttribute("aria-hidden", "true");
-    frame.style.position = "fixed";
-    frame.style.right = "0";
-    frame.style.bottom = "0";
-    frame.style.width = "0";
-    frame.style.height = "0";
-    frame.style.border = "0";
+
+    // Prefer a real window — zero-size iframes are blocked/unreliable in
+    // several browsers for window.print().
+    const win = window.open(url, "_blank", "noopener,noreferrer");
+    if (!win) {
+      URL.revokeObjectURL(url);
+      reject(
+        new Error(
+          "Pop-up blocked. Allow pop-ups for this site to print, or use Save PDF.",
+        ),
+      );
+      return;
+    }
 
     let settled = false;
     const finish = (err?: unknown) => {
       if (settled) return;
       settled = true;
-      frame.remove();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
       if (err != null) {
         reject(err instanceof Error ? err : new Error("Print failed."));
         return;
@@ -261,15 +265,10 @@ function printPdfInBrowser(data: Uint8Array): Promise<void> {
       resolve();
     };
 
-    frame.onload = () => {
+    const triggerPrint = () => {
       try {
-        const win = frame.contentWindow;
-        if (!win) {
-          finish(new Error("Could not open print preview."));
-          return;
-        }
         win.addEventListener("afterprint", () => finish(), { once: true });
-        window.setTimeout(() => finish(), 2000);
+        window.setTimeout(() => finish(), 2500);
         win.focus();
         win.print();
       } catch (err) {
@@ -277,30 +276,31 @@ function printPdfInBrowser(data: Uint8Array): Promise<void> {
       }
     };
 
-    frame.src = url;
-    document.body.appendChild(frame);
+    // Some browsers fire load before PDF plugin is ready.
+    window.setTimeout(triggerPrint, 500);
   });
 }
 
 function printHtmlInBrowser(html: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const frame = document.createElement("iframe");
-    frame.setAttribute("aria-hidden", "true");
-    frame.style.position = "fixed";
-    frame.style.right = "0";
-    frame.style.bottom = "0";
-    frame.style.width = "0";
-    frame.style.height = "0";
-    frame.style.border = "0";
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, "_blank", "noopener,noreferrer");
+    if (!win) {
+      URL.revokeObjectURL(url);
+      reject(
+        new Error(
+          "Pop-up blocked. Allow pop-ups for this site to print, or use Save PDF.",
+        ),
+      );
+      return;
+    }
 
     let settled = false;
-    const cleanup = () => {
-      frame.remove();
-    };
     const finish = (err?: unknown) => {
       if (settled) return;
       settled = true;
-      cleanup();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
       if (err != null) {
         reject(err instanceof Error ? err : new Error("Print failed."));
         return;
@@ -308,15 +308,10 @@ function printHtmlInBrowser(html: string): Promise<void> {
       resolve();
     };
 
-    frame.onload = () => {
+    const triggerPrint = () => {
       try {
-        const win = frame.contentWindow;
-        if (!win) {
-          finish(new Error("Could not open print preview."));
-          return;
-        }
         win.addEventListener("afterprint", () => finish(), { once: true });
-        window.setTimeout(() => finish(), 2000);
+        window.setTimeout(() => finish(), 2500);
         win.focus();
         win.print();
       } catch (err) {
@@ -324,8 +319,7 @@ function printHtmlInBrowser(html: string): Promise<void> {
       }
     };
 
-    frame.srcdoc = html;
-    document.body.appendChild(frame);
+    window.setTimeout(triggerPrint, 400);
   });
 }
 
@@ -334,7 +328,7 @@ function printHtmlInBrowser(html: string): Promise<void> {
  * (server Chromium).
  */
 export function canExportPdf(explicitBaseUrl?: string | null): boolean {
-  if (window.api?.print?.htmlToPdf) return true;
+  if (typeof window.api?.print?.htmlToPdf === "function") return true;
   return isHttpApiMode(explicitBaseUrl);
 }
 

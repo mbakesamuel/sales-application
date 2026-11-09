@@ -27,6 +27,7 @@ async function launchBrowser(): Promise<Browser> {
   if (isServerlessRuntime()) {
     // Lightweight Chromium build that fits Vercel serverless limits.
     const chromium = await import("@sparticuz/chromium");
+    chromium.default.setGraphicsMode = false;
     return puppeteer.launch({
       args: chromium.default.args,
       defaultViewport: { width: 794, height: 1123, deviceScaleFactor: 1 },
