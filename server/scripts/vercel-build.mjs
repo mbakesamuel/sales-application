@@ -9,6 +9,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 execSync("npx prisma generate", { cwd: root, stdio: "inherit" });
 
 await mkdir(path.join(root, "api"), { recursive: true });
+// Vercel "Other" / null framework expects a static output directory after build.
+await mkdir(path.join(root, "public"), { recursive: true });
 
 await build({
   absWorkingDir: root,

@@ -3,6 +3,7 @@
   "framework": null,
   "buildCommand": "npm run vercel-build",
   "installCommand": "npm install --include=dev",
+  "outputDirectory": "public",
   "rewrites": [{ "source": "/", "destination": "/api" }],
   "functions": {
     "api/[[...route]].js": {
