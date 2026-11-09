@@ -78,7 +78,8 @@ async function loadPermissions(roleId: string): Promise<RolePermissionsSnapshot>
 }
 
 async function purgeExpiredSessions(): Promise<void> {
-  await sql`DELETE FROM auth_sessions WHERE expires_at <= NOW()`;
+  // Qualify schema: Neon pooler can leave search_path empty / neon_auth-only.
+  await sql`DELETE FROM public.auth_sessions WHERE expires_at <= NOW()`;
 }
 
 export async function loginUser(
@@ -100,7 +101,7 @@ export async function loginUser(
   }
 
   const matched = await sql`
-    SELECT id FROM users WHERE lower(username) = ${normalized} LIMIT 1
+    SELECT id FROM public.users WHERE lower(username) = ${normalized} LIMIT 1
   `;
   if (matched.length === 0) {
     return { error: "Invalid username or password." };
@@ -129,7 +130,7 @@ export async function loginUser(
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
   await sql`
-    INSERT INTO auth_sessions (id, user_id, token_hash, expires_at)
+    INSERT INTO public.auth_sessions (id, user_id, token_hash, expires_at)
     VALUES (${randomUUID()}, ${user.id}, ${tokenHash}, ${expiresAt})
   `;
 
@@ -153,7 +154,7 @@ export async function getUserSession(token: string): Promise<{
 
   const rows = await sql`
     SELECT s.user_id
-    FROM auth_sessions s
+    FROM public.auth_sessions s
     WHERE s.token_hash = ${tokenHash} AND s.expires_at > NOW()
     LIMIT 1
   `;
@@ -175,7 +176,7 @@ export async function getUserSession(token: string): Promise<{
 export async function logoutUser(token: string): Promise<void> {
   if (!token?.trim()) return;
   const tokenHash = hashToken(token.trim());
-  await sql`DELETE FROM auth_sessions WHERE token_hash = ${tokenHash}`;
+  await sql`DELETE FROM public.auth_sessions WHERE token_hash = ${tokenHash}`;
 }
 
 export async function changeUserPassword(input: {

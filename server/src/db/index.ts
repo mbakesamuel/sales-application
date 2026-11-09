@@ -9,10 +9,17 @@ export const sql = postgres(dbConfig.databaseUrl, {
   max: onServerless ? 1 : 20,
   idle_timeout: onServerless ? 5 : 30,
   connect_timeout: 5,
+  // Neon pooler / Auth can override search_path; pin public on connect.
+  connection: {
+    search_path: "public",
+  },
   transform: {
     undefined: null,
   },
 });
+
+// Best-effort for session-mode poolers; callers should still schema-qualify.
+void sql`select set_config('search_path', 'public', false)`.catch(() => undefined);
 
 export function getDbConfig(): DbConfig {
   return dbConfig;
