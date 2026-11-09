@@ -4,14 +4,12 @@
   "buildCommand": "npm run vercel-build",
   "installCommand": "npm install --include=dev",
   "outputDirectory": "public",
-  "rewrites": [{ "source": "/", "destination": "/api" }],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/", "destination": "/api" }
+  ],
   "functions": {
     "api/index.js": {
-      "memory": 1024,
-      "maxDuration": 60,
-      "includeFiles": "{api/_app.mjs,api/handler.js}"
-    },
-    "api/[...route].js": {
       "memory": 1024,
       "maxDuration": 60,
       "includeFiles": "{api/_app.mjs,api/handler.js}"
