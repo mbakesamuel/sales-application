@@ -14,6 +14,7 @@
     "dev:electron": "npm run transpile:electron && cross-env SALES_THIN_CLIENT=1 electron .",
     "dev:electron:legacy": "npm run transpile:electron && electron .",
     "build": "tsc -b && npm run transpile:electron && vite build",
+    "build:web": "vite build",
     "pack:win": "npm run build && electron-builder --win --x64",
     "dist:win": "npm run pack:win",
     "release": "node scripts/release.mjs",
