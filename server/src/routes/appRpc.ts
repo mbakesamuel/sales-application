@@ -54,7 +54,6 @@ import {
   saveReportComments,
   upsertReportSignatory,
 } from "../services/reportCompany.js";
-import * as reportShells from "../services/reportShells.js";
 import * as stockExtras from "../services/stockRpcExtras.js";
 import * as bookletsRpc from "../services/bookletsRpc.js";
 import * as vcnRpc from "../services/vehicleConsignmentNotesRpc.js";
@@ -71,6 +70,19 @@ import { getPalmOilSalesActivityReport } from "../services/reports/palmOilSalesA
 import { getMonthlyStockReconciliationReport } from "../services/reports/monthlyStockReconciliationReport.js";
 import { getCommitmentReport } from "../services/reports/commitmentReport.js";
 import { getStockCommitmentReport } from "../services/reports/stockCommitmentReport.js";
+import { getDailySalesReport } from "../services/reports/dailySalesReport.js";
+import { getDailySalesMatrixReport } from "../services/reports/dailySalesMatrixReport.js";
+import { getWeeklyDeliveriesReport } from "../services/reports/weeklyDeliveriesReport.js";
+import { getMonthlyDeliveryReport } from "../services/reports/monthlyDeliveryReport.js";
+import { getMonthlyPaymentDeliveryReport } from "../services/reports/monthlyPaymentDeliveryReport.js";
+import { getTransportCostReport } from "../services/reports/transportCostReport.js";
+import { getMonthlyDeliveriesByDestinationReport } from "../services/reports/monthlyDeliveriesByDestinationReport.js";
+import { getIndustryProductMonthlySalesReport } from "../services/reports/industryProductMonthlySalesReport.js";
+import { getOtherProductSalesDeliveriesReport } from "../services/reports/otherProductSalesDeliveriesReport.js";
+import { getSalesBudgetMonthlyCrosstabReport } from "../services/reports/salesBudgetMonthlyCrosstab.js";
+import { getSalesBudgetWeeklyCrosstabReport } from "../services/reports/salesBudgetWeeklyCrosstab.js";
+import { getSalesBudgetMonthlyRevenueCrosstabReport } from "../services/reports/salesBudgetMonthlyRevenueCrosstab.js";
+import { getSalesBudgetWeeklyRevenueCrosstabReport } from "../services/reports/salesBudgetWeeklyRevenueCrosstab.js";
 import {
   backupStubs,
   carryForwardStockStubs,
@@ -467,12 +479,12 @@ const handlers: Record<string, Handler> = {
   "reports.getWeeklyDeliveries": async (args, ctx) => {
     const weekMondayIso =
       typeof args[1] === "string" ? args[1] : undefined;
-    return reportShells.emptyWeeklyDeliveries(ctx, weekMondayIso);
+    return getWeeklyDeliveriesReport(ctx.userId, weekMondayIso);
   },
   "reports.getMonthlyDelivery": async (args, ctx) => {
     // Client calls (half, authToken) — half is first.
     const halfRaw = args[0] === 2 || args[0] === "2" ? 2 : 1;
-    return reportShells.emptyMonthlyDelivery(ctx, halfRaw);
+    return getMonthlyDeliveryReport(ctx.userId, halfRaw);
   },
   "reports.getMonthlyStockReconciliation": async (args, ctx) => {
     const hideZero =
@@ -486,21 +498,21 @@ const handlers: Record<string, Handler> = {
   "reports.getLooseLpoStockSummary": async (_args, ctx) =>
     getLooseLpoStockSummaryReport(ctx.userId),
   "reports.getMonthlyPaymentDelivery": async (_args, ctx) =>
-    reportShells.emptyMonthlyPaymentDelivery(ctx),
+    getMonthlyPaymentDeliveryReport(ctx.userId),
   "reports.getTransportCost": async (_args, ctx) =>
-    reportShells.emptyTransportCost(ctx),
+    getTransportCostReport(ctx.userId),
   "reports.getMonthlyDeliveriesByDestination": async (_args, ctx) =>
-    reportShells.emptyMonthlyDeliveriesByDestination(ctx),
+    getMonthlyDeliveriesByDestinationReport(ctx.userId),
   "reports.getMonthlyPalmOilSales": async (_args, ctx) =>
     getMonthlyPalmOilSalesReport(ctx.userId),
   "reports.getPalmOilSalesActivity": async (_args, ctx) =>
     getPalmOilSalesActivityReport(ctx.userId),
   "reports.getIndustryProductMonthlySales": async (_args, ctx) =>
-    reportShells.emptyIndustryProductMonthlySales(ctx),
+    getIndustryProductMonthlySalesReport(ctx.userId),
   "reports.getBottledPalmOilSalesReturn": async (_args, ctx) =>
     getBottledPalmOilSalesReturnReport(ctx.userId),
   "reports.getOtherProductSalesDeliveries": async (_args, ctx) =>
-    reportShells.emptyOtherProductSalesDeliveries(ctx),
+    getOtherProductSalesDeliveriesReport(ctx.userId),
   "reports.getMonthlyBottledOil": async (_args, ctx) =>
     getMonthlyBottledOilReport(ctx.userId),
   "reports.getRevenueTaxes": async (args, ctx) => {
@@ -523,32 +535,32 @@ const handlers: Record<string, Handler> = {
   "reports.getSalesBudgetMonthlyCrosstab": async (args, ctx) => {
     const year =
       typeof args[1] === "number" ? args[1] : Number(args[1] ?? NaN);
-    return reportShells.emptySalesBudgetMonthlyCrosstab(
-      ctx,
+    return getSalesBudgetMonthlyCrosstabReport(
+      ctx.userId,
       Number.isFinite(year) ? year : undefined,
     );
   },
   "reports.getSalesBudgetWeeklyCrosstab": async (args, ctx) => {
     const year =
       typeof args[1] === "number" ? args[1] : Number(args[1] ?? NaN);
-    return reportShells.emptySalesBudgetWeeklyCrosstab(
-      ctx,
+    return getSalesBudgetWeeklyCrosstabReport(
+      ctx.userId,
       Number.isFinite(year) ? year : undefined,
     );
   },
   "reports.getSalesBudgetMonthlyRevenueCrosstab": async (args, ctx) => {
     const year =
       typeof args[1] === "number" ? args[1] : Number(args[1] ?? NaN);
-    return reportShells.emptySalesBudgetMonthlyRevenueCrosstab(
-      ctx,
+    return getSalesBudgetMonthlyRevenueCrosstabReport(
+      ctx.userId,
       Number.isFinite(year) ? year : undefined,
     );
   },
   "reports.getSalesBudgetWeeklyRevenueCrosstab": async (args, ctx) => {
     const year =
       typeof args[1] === "number" ? args[1] : Number(args[1] ?? NaN);
-    return reportShells.emptySalesBudgetWeeklyRevenueCrosstab(
-      ctx,
+    return getSalesBudgetWeeklyRevenueCrosstabReport(
+      ctx.userId,
       Number.isFinite(year) ? year : undefined,
     );
   },
@@ -558,7 +570,11 @@ const handlers: Record<string, Handler> = {
       args[2] === null || args[2] === undefined
         ? null
         : Number(args[2]);
-    return reportShells.emptyDailySales(ctx, reportDateIso, salesPointId);
+    return getDailySalesReport(
+      ctx.userId,
+      reportDateIso,
+      Number.isFinite(salesPointId as number) ? (salesPointId as number) : null,
+    );
   },
   "reports.getDailySalesMatrix": async (args, ctx) => {
     const salesPointId =
@@ -569,7 +585,11 @@ const handlers: Record<string, Handler> = {
       args[2] === null || args[2] === undefined
         ? null
         : Number(args[2]);
-    return reportShells.emptyDailySalesMatrix(ctx, salesPointId, productId);
+    return getDailySalesMatrixReport(
+      ctx.userId,
+      Number.isFinite(salesPointId as number) ? (salesPointId as number) : null,
+      Number.isFinite(productId as number) ? (productId as number) : null,
+    );
   },
   "reports.saveReportComments": async (args) => {
     const input = (args[1] ?? args[0] ?? {}) as {

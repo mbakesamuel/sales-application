@@ -1459,12 +1459,14 @@ export async function createSale(input: CreateSaleInput): Promise<SaveSaleResult
   let saleId = newSaleId();
   const soldAt = input.dateIssued || nowIso().slice(0, 10);
 
+  // Head office (null): central open month. Sales-point user: their own open month.
+  const actorSalesPointId = getUserCollectionPointId(input.userId);
+  const postingScope =
+    actorSalesPointId == null ? null : actorSalesPointId;
+
   let postingPeriod;
   try {
-    postingPeriod = assertDateInOpenMonth(
-      soldAt,
-      input.salesPointId ?? null,
-    );
+    postingPeriod = assertDateInOpenMonth(soldAt, postingScope);
   } catch (periodError) {
     return {
       ok: false,

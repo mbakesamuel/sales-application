@@ -78,7 +78,32 @@ function clampDateToPeriod(isoDate: string, period: OpenPostingPeriod | null): s
 }
 
 function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** Label for the document-number field: Bottle Oil stays Receipt No.; loose varies by disposition. */
+function documentNumberLabel(
+  variant: SalesModuleVariant,
+  disposition: SaleDisposition,
+  dispositionChosen: boolean,
+): string {
+  if (variant === "bottled") {
+    return "Receipt No.";
+  }
+  if (!dispositionChosen) {
+    return "Invoice No.";
+  }
+  if (disposition === "RATION") {
+    return "Consignment No";
+  }
+  if (disposition === "RETAIL") {
+    return "Receipt No.";
+  }
+  return "Invoice No.";
 }
 
 function dispositionPaymentMethodName(
@@ -388,7 +413,7 @@ export function SalesClient({
     !isBottleVariant,
   );
   const [salesPointId, setSalesPointId] = useState("");
-  const [saleProductMode, setSaleProductMode] =
+  const [, setSaleProductMode] =
     useState<SaleProductMode>(defaultProductMode);
   const [saleDisposition, setSaleDisposition] =
     useState<SaleDisposition>("NORMAL");
@@ -422,6 +447,11 @@ export function SalesClient({
   } | null>(null);
 
   const isReadOnly = saleId != null;
+  const docNoLabel = documentNumberLabel(
+    variant,
+    saleDisposition,
+    dispositionChosen,
+  );
   const autoGenerateInvoiceNo = options?.autoGenerateSalesInvoiceNo === true;
   const invoiceReady =
     saleId != null ||
@@ -672,15 +702,8 @@ export function SalesClient({
   useEffect(() => {
     async function bootstrap() {
       try {
-        const [formOptions, period] = await Promise.all([
-          getElectronApi().sales.getFormOptions(user.id),
-          getAuthenticatedFinancialYears().getOpenPostingPeriod(
-            user.salesPointId,
-          ),
-        ]);
+        const formOptions = await getElectronApi().sales.getFormOptions(user.id);
         setOptions(formOptions);
-        setPostingPeriod(period);
-        setTransactionDate((current) => clampDateToPeriod(current, period));
 
         // Opening an existing invoice: keep draft empty until loadSale fills it.
         // Resetting here races with loadSale and wipes customer/lines/payments.
@@ -713,6 +736,29 @@ export function SalesClient({
 
     void bootstrap();
   }, [user.id, user.salesPointId, isBottleVariant, initialInvoiceNo]);
+
+  // Head office (null): central open month. Sales-point user: their own open month.
+  useEffect(() => {
+    let cancelled = false;
+    const scope = user.salesPointId == null ? null : user.salesPointId;
+
+    void getAuthenticatedFinancialYears()
+      .getOpenPostingPeriod(scope)
+      .then((period) => {
+        if (cancelled) return;
+        setPostingPeriod(period);
+        setTransactionDate((current) => clampDateToPeriod(current, period));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPostingPeriod(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user.salesPointId]);
 
   useEffect(() => {
     // Wait for form options so product/payment dropdowns can resolve loaded ids.
@@ -1857,7 +1903,7 @@ export function SalesClient({
         </fieldset>
         {!dispositionChosen && !isReadOnly ? (
           <p class="sales-hint">
-            Select disposition before entering the Receipt No.
+            Select disposition before entering the {docNoLabel}.
           </p>
         ) : null}
         {!isBottleVariant && isSpecialDisposition ? (
@@ -1872,7 +1918,7 @@ export function SalesClient({
 
         <div class="sales-doc-identity-row sales-receipt-no-row">
           <label class="sales-field sales-invoice-no-field">
-            <span>Receipt No.</span>
+            <span>{docNoLabel}</span>
             {saleId ? (
               <div class="sales-doc-invoice-value">{invoiceNo || "—"}</div>
             ) : (
@@ -1886,8 +1932,8 @@ export function SalesClient({
                   !dispositionChosen
                     ? "Select disposition first"
                     : autoGenerateInvoiceNo
-                      ? "Receipt No. (or leave blank)"
-                      : "Receipt No."
+                      ? `${docNoLabel} (or leave blank)`
+                      : docNoLabel
                 }
                 disabled={!canEnterInvoiceNo}
                 onInput={(event) =>
@@ -1934,6 +1980,20 @@ export function SalesClient({
                 )
               }
             />
+            {postingPeriod ? (
+              <span class="sales-hint">
+                {user.salesPointId == null
+                  ? "Open month (head office)"
+                  : "Open month"}
+                : {postingPeriod.monthName} {postingPeriod.financialYear}
+              </span>
+            ) : (
+              <span class="sales-hint sales-hint-error">
+                {user.salesPointId == null
+                  ? "No central open month."
+                  : "No open month for your collection point."}
+              </span>
+            )}
           </label>
 
           <label class="sales-field">
@@ -2166,9 +2226,9 @@ export function SalesClient({
                       {isReadOnly
                         ? "This invoice has no line items."
                         : !dispositionChosen
-                          ? "Select disposition first, then enter the Receipt No."
+                          ? `Select disposition first, then enter the ${docNoLabel}.`
                           : isAwaitingInvoice
-                            ? "Enter Receipt No. and press Enter to add items."
+                            ? `Enter ${docNoLabel} and press Enter to add items.`
                             : "Use Add line to enter products for this sale."}
                     </span>
                   </td>

@@ -114,8 +114,11 @@ export async function createSaleCommand(
   const isSpecialDisposition =
     saleDisposition === "RATION" || saleDisposition === "PUBLIC_RELATION";
 
+  // Head office (null): central open month. Sales-point user: their own open month.
+  let postingScope: number | null = null;
   try {
     const actor = await loadRpcActor(input.userId);
+    postingScope = actor.salesPointId == null ? null : actor.salesPointId;
     assertRouteWrite(actor, saleRouteIdForMode(input.saleProductMode ?? "LOOSE"));
     if (input.validateImmediately) {
       assertAction(
@@ -345,7 +348,7 @@ export async function createSaleCommand(
   try {
     const period = await assertDateInOpenMonth(
       input.dateIssued.trim().slice(0, 10),
-      salesPointId,
+      postingScope,
     );
     financialYear = period.financialYear;
     financialMonth = period.calendarMonth;
@@ -388,6 +391,8 @@ export async function createSaleCommand(
     const status = validateImmediately ? "VALIDATED" : "PENDING";
     const now = new Date();
     const dateIssued = input.dateIssued.trim().slice(0, 10);
+    // Match Electron: sold_at is the posting/sale date, not wall-clock create time.
+    const soldAt = new Date(`${dateIssued}T12:00:00.000Z`);
     const vatRateSnapshot =
       input.vatRateSnapshot?.trim() || formatTaxRateSnapshot(vatRate);
 
@@ -396,7 +401,7 @@ export async function createSaleCommand(
         data: {
           id: saleId,
           invoice_no: invoiceNo,
-          sold_at: now,
+          sold_at: soldAt,
           customer_id: customerId,
           created_by_user_id: input.userId,
           customer_name_snapshot: customerNameSnapshot,

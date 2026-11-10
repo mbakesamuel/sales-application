@@ -147,11 +147,6 @@ export function TransfersTab(props: TransfersTabProps) {
     transferReceiveUsesDocumentDate,
     loosePalmOilAllowInterSalesPointTransfer,
   } = props;
-  const receiveOnlyMode =
-    !props.canDraft &&
-    !props.canDirectPost &&
-    !props.canDispatch &&
-    props.canReceive;
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [formMode, setFormMode] = useState<FormTransferMode>("inter");

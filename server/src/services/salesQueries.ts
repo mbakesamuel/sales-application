@@ -9,9 +9,76 @@ import {
   canPerformAction,
   loadRpcActor,
 } from "./rpcActor.js";
+import { getOpenPostingPeriod } from "./financialYearsService.js";
 
 const SALES_ROUTE_ID = "sales";
 const BOTTLE_OIL_SALES_ROUTE_ID = "bottle-oil-sales";
+
+function localTodayIso(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+async function resolveListDateRange(
+  period: string,
+  salesPointId?: number | null,
+): Promise<{
+  fromIso: string | null;
+  toIso: string | null;
+  periodLabel: string;
+}> {
+  if (period === "all") {
+    return { fromIso: null, toIso: null, periodLabel: "All time" };
+  }
+
+  const open = await getOpenPostingPeriod(salesPointId);
+  if (!open) {
+    throw new Error("Open a financial month before listing documents.");
+  }
+
+  const today = localTodayIso();
+  const asAtIso = today < open.endDate ? today : open.endDate;
+
+  if (period === "year") {
+    const yearStart = `${open.financialYear}-01-01`;
+    const yearEnd = `${open.financialYear}-12-31`;
+    const toIso = asAtIso < yearEnd ? asAtIso : yearEnd;
+    return {
+      fromIso: yearStart,
+      toIso,
+      periodLabel: `FY ${open.financialYear} (through ${toIso})`,
+    };
+  }
+
+  return {
+    fromIso: open.startDate,
+    toIso: asAtIso,
+    periodLabel: `${open.monthName} ${open.financialYear}`,
+  };
+}
+
+function formatProductSummary(
+  lines: Array<{ productName: string }>,
+): string {
+  if (lines.length === 0) return "";
+  if (lines.length === 1) return lines[0].productName;
+  return `${lines[0].productName} +${lines.length - 1} more`;
+}
+
+function formatMoneyLabel(value: string | number): string {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return String(value);
+  return `${Math.round(amount).toLocaleString("en-US")} XAF`;
+}
+
+function trimQtyLabel(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  const rounded = Math.round(value * 1000) / 1000;
+  return String(rounded);
+}
 
 function saleRouteIdForMode(saleProductMode: string | null | undefined): string {
   return String(saleProductMode ?? "LOOSE").toUpperCase() === "BOTTLE"
@@ -63,7 +130,7 @@ export async function listSalesValidationQueue(input: {
     rows: rows.map((row) => ({
       id: row.id,
       invoiceNo: row.invoice_no,
-      soldAtIso: row.sold_at.toISOString(),
+      soldAtIso: String(row.date_issued).slice(0, 10),
       dateIssuedIso: row.date_issued,
       customerName: row.customer_name_snapshot,
       salesPointName: row.sales_points?.name ?? null,
@@ -78,9 +145,18 @@ export async function listSalesValidationQueue(input: {
 export async function listSales(filters: {
   userId?: string;
   q?: string;
+  period?: string;
   productMode?: string;
   salesPointId?: number | null;
 }) {
+  const periodRaw = String(filters.period ?? "month");
+  const period =
+    periodRaw === "year" || periodRaw === "all" ? periodRaw : "month";
+  const { fromIso, toIso, periodLabel } = await resolveListDateRange(
+    period,
+    filters.salesPointId,
+  );
+
   const where: Record<string, unknown> = {};
   if (filters.salesPointId != null && Number.isFinite(filters.salesPointId)) {
     where.sales_point_id = filters.salesPointId;
@@ -95,10 +171,13 @@ export async function listSales(filters: {
       { customer_name_snapshot: { contains: q, mode: "insensitive" } },
     ];
   }
+  if (fromIso && toIso) {
+    where.date_issued = { gte: fromIso, lte: toIso };
+  }
 
   const rows = await prisma.sales.findMany({
     where,
-    orderBy: { sold_at: "desc" },
+    orderBy: [{ date_issued: "desc" }, { invoice_no: "desc" }],
     take: 300,
     include: {
       sale_lines: true,
@@ -106,29 +185,67 @@ export async function listSales(filters: {
     },
   });
 
-  const mapped = rows.map((row) => ({
-    id: row.id,
-    invoiceNo: row.invoice_no,
-    soldAtIso: row.sold_at.toISOString(),
-    salesPointName: row.sales_points?.name ?? "",
-    deliveryOrderNo: row.delivery_order_no,
-    customerName: row.customer_name_snapshot,
-    productSummary: `${row.sale_lines.length} line(s)`,
-    status: row.status,
-    totalQtyLabel: "",
-    totalAmountXaf: String(row.gross_amount),
-  }));
+  const productIds = [
+    ...new Set(rows.flatMap((row) => row.sale_lines.map((line) => line.product_id))),
+  ];
+  const products = productIds.length
+    ? await prisma.products.findMany({
+        where: { product_id: { in: productIds } },
+        select: { product_id: true, product_name: true },
+      })
+    : [];
+  const productName = new Map(
+    products.map((product) => [product.product_id, product.product_name]),
+  );
+
+  const isBottledList = String(filters.productMode ?? "").toUpperCase() === "BOTTLE";
+  let totalAmount = 0;
+  let totalQty = 0;
+
+  const mapped = rows.map((row) => {
+    const gross = Number(row.gross_amount);
+    let rowQty = 0;
+    const lineSummaries = row.sale_lines.map((line) => {
+      if (isBottledList) {
+        rowQty += Number(line.qty_units ?? line.qty_kg) || 0;
+      } else {
+        rowQty += Number(line.qty_kg) || 0;
+      }
+      return {
+        productName:
+          productName.get(line.product_id) ?? `Product ${line.product_id}`,
+      };
+    });
+    totalAmount += Number.isFinite(gross) ? gross : 0;
+    totalQty += rowQty;
+
+    return {
+      id: row.id,
+      invoiceNo: row.invoice_no,
+      // UI Date column reads soldAtIso; show the posting/sale date, not created-at.
+      soldAtIso: String(row.date_issued).slice(0, 10),
+      salesPointName: row.sales_points?.name ?? "",
+      deliveryOrderNo: row.delivery_order_no,
+      customerName: row.customer_name_snapshot,
+      productSummary: formatProductSummary(lineSummaries),
+      status: row.status,
+      totalQtyLabel: isBottledList
+        ? `${trimQtyLabel(rowQty)} units`
+        : `${trimQtyLabel(rowQty)} kg`,
+      totalAmountXaf: formatMoneyLabel(row.gross_amount),
+    };
+  });
 
   return {
     rows: mapped,
     totals: {
       count: mapped.length,
-      totalQtyLabel: "",
-      totalAmountXaf: String(
-        mapped.reduce((sum, r) => sum + Number(r.totalAmountXaf || 0), 0),
-      ),
+      totalQtyLabel: isBottledList
+        ? `${trimQtyLabel(totalQty)} units`
+        : `${trimQtyLabel(totalQty)} kg`,
+      totalAmountXaf: formatMoneyLabel(totalAmount),
     },
-    periodLabel: "All",
+    periodLabel,
   };
 }
 

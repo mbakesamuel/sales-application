@@ -57,6 +57,7 @@ export interface DeliveryOrderLineInput {
   productId: number;
   orderQty: string;
   orderUnit?: string;
+  unitPrice?: string;
 }
 
 export interface DeliveryOrderPaymentInput {
@@ -372,7 +373,9 @@ export interface DeliveryOrdersApi {
     deliveryOrderNo: string,
     userId?: string,
   ): Promise<LoadedDeliveryOrderView | null>;
-  loadPrintById(orderId: number): Promise<DeliveryOrderPrintPayload | null>;
+  loadPrintById(
+    orderId: number | string,
+  ): Promise<DeliveryOrderPrintPayload | null>;
   trackByNo(deliveryOrderNo: string): Promise<DeliveryOrderTrackPayload | null>;
   transferBalance(
     input: TransferDeliveryOrderBalanceInput,
@@ -381,12 +384,15 @@ export interface DeliveryOrdersApi {
   listOrders(filters?: DeliveryOrdersListFilters): Promise<DeliveryOrdersListResult>;
   save(input: SaveDeliveryOrderInput): Promise<SaveDeliveryOrderResult>;
   deleteOrder(payload: {
-    orderId: number;
+    orderId: number | string;
     userId: string;
   }): Promise<DeliveryOrderMutationResult>;
-  validateOrder(payload: { orderId: number; userId: string }): Promise<DeliveryOrderMutationResult>;
+  validateOrder(payload: {
+    orderId: number | string;
+    userId: string;
+  }): Promise<DeliveryOrderMutationResult>;
   cancelValidated(payload: {
-    orderId: number;
+    orderId: number | string;
     userId: string;
     reason: string;
   }): Promise<DeliveryOrderMutationResult>;

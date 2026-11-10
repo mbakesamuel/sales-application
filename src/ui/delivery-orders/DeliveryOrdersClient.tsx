@@ -100,7 +100,11 @@ function emptyPaymentExtras(): Pick<
 }
 
 function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function emptyPayment(): PaymentRow {
@@ -685,7 +689,7 @@ export function DeliveryOrdersClient({
           .filter((line) => line.productId)
           .map((line) => ({
             productId: Number.parseInt(line.productId, 10),
-            orderQty: Number.parseInt(line.orderQty, 10) || 0,
+            orderQty: String(Number.parseInt(line.orderQty, 10) || 0),
             orderUnit: line.orderUnit,
             unitPrice: line.unitPrice || undefined,
           })),
