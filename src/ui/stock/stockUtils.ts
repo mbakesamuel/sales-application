@@ -109,12 +109,19 @@ function hasPositiveQty(qty: string): boolean {
   return Number.isFinite(n) && Math.abs(n) > QTY_EPS;
 }
 
-/** Locations that already hold this product, or have no on-hand of any product. */
+/**
+ * Locations eligible for receiving this product.
+ * Mirrors backend assertStorageLocationProductRules:
+ * - Bottled products may share a location with other bottled products.
+ * - Bulk products: empty, same product, or allowsMultiProduct only.
+ * - Bottled and bulk must never share a location.
+ */
 export function receiptLocationOptionsForProduct(
   locationOptions: StorageLocationOption[],
   onHand: StockBalanceRow[],
   salesPointId: string | number,
   productId: string,
+  products: Array<{ productId: number; isBottled: boolean }> = [],
 ): StorageLocationOption[] {
   if (!productId) {
     return locationOptions;
@@ -126,8 +133,14 @@ export function receiptLocationOptionsForProduct(
     return locationOptions;
   }
 
-  const occupiedIds = new Set<number>();
-  const holdingProductIds = new Set<number>();
+  const bottledByProductId = new Map<number, boolean>();
+  for (const product of products) {
+    bottledByProductId.set(product.productId, product.isBottled);
+  }
+  const incomingBottled = bottledByProductId.get(productIdNum) === true;
+
+  /** locationId → productIds with positive on-hand */
+  const occupantsByLocation = new Map<number, Set<number>>();
   for (const row of onHand) {
     if (
       row.salesPointId !== spId ||
@@ -136,18 +149,43 @@ export function receiptLocationOptionsForProduct(
     ) {
       continue;
     }
-    occupiedIds.add(row.storageLocationId);
-    if (row.productId === productIdNum) {
-      holdingProductIds.add(row.storageLocationId);
+    let set = occupantsByLocation.get(row.storageLocationId);
+    if (!set) {
+      set = new Set();
+      occupantsByLocation.set(row.storageLocationId, set);
     }
+    set.add(row.productId);
   }
 
-  return locationOptions.filter(
-    (loc) =>
-      holdingProductIds.has(loc.id) ||
-      !occupiedIds.has(loc.id) ||
-      loc.allowsMultiProduct,
-  );
+  return locationOptions.filter((loc) => {
+    const occupants = occupantsByLocation.get(loc.id);
+    if (!occupants || occupants.size === 0) {
+      return true;
+    }
+    if (occupants.has(productIdNum)) {
+      return true;
+    }
+
+    const otherProductIds = [...occupants].filter((id) => id !== productIdNum);
+    if (otherProductIds.length === 0) {
+      return true;
+    }
+
+    const kindMismatch = otherProductIds.some((id) => {
+      const otherBottled = bottledByProductId.get(id) === true;
+      return otherBottled !== incomingBottled;
+    });
+    if (kindMismatch) {
+      return false;
+    }
+
+    // Bottled products may co-mingle with other bottled products.
+    if (incomingBottled) {
+      return true;
+    }
+
+    return loc.allowsMultiProduct === true;
+  });
 }
 
 export function utcIsoDateToday(): string {

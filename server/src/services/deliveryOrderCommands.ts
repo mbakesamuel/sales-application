@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../db/prisma.js";
-import { assertDateInOpenMonth } from "./financialYearsService.js";
+import { assertDateInOpenMonthForActor } from "./financialYearsService.js";
 import { allocateDocumentSequence } from "./sequences.js";
 import { getTaxRatesAsOf } from "./salesRpcExtras.js";
 
@@ -122,7 +122,7 @@ async function resolvePostingPeriod(input: {
       typeof input.dateIssued === "string" && input.dateIssued.trim()
         ? input.dateIssued.trim().slice(0, 10)
         : new Date().toISOString().slice(0, 10);
-    const period = await assertDateInOpenMonth(date, input.salesPointId ?? null);
+    const period = await assertDateInOpenMonthForActor(date, input.userId);
     return {
       ok: true,
       financialYear: period.financialYear,

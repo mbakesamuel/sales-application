@@ -8,10 +8,7 @@ import {
   nowIso,
   todayIso,
 } from "../reportCompany.js";
-import {
-  getOpenPostingPeriod,
-  postingScopeForUser,
-} from "../financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "../financialYearsService.js";
 import {
   loadProducts,
   loadSalesPointsForUser,
@@ -119,8 +116,7 @@ export async function getDailySalesMatrixReport(
   salesPointId?: number | null,
   productId?: number | null,
 ) {
-  const scope = await postingScopeForUser(userId);
-  const period = await getOpenPostingPeriod(scope);
+  const period = await getOpenPostingPeriodForActor(userId);
   if (!period) {
     throw new Error("Open a financial month before running reports.");
   }

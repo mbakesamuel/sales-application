@@ -308,6 +308,82 @@ async function upsertOpenPostingMonth(
   });
 }
 
+async function listUnscopedUserIds(): Promise<string[]> {
+  const rows = await prisma.users.findMany({
+    where: { sales_point_id: null },
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+  return rows.map((row) => row.id);
+}
+
+async function closeOpenPostingForUser(
+  tx: typeof prisma,
+  userId: string,
+): Promise<void> {
+  await tx.user_posting_months.updateMany({
+    where: { user_id: userId, status: "OPEN" },
+    data: { status: "CLOSED", closed_at: nowDate() },
+  });
+}
+
+async function upsertOpenPostingMonthForUser(
+  tx: typeof prisma,
+  periodId: string,
+  calendarMonth: number,
+  userId: string,
+): Promise<void> {
+  const timestamp = nowDate();
+  await closeOpenPostingForUser(tx, userId);
+
+  const existing = await tx.user_posting_months.findFirst({
+    where: {
+      user_id: userId,
+      financial_year_period_id: periodId,
+      calendar_month: calendarMonth,
+    },
+  });
+
+  if (existing) {
+    await tx.user_posting_months.update({
+      where: { id: existing.id },
+      data: {
+        status: "OPEN",
+        opened_at: existing.opened_at ?? timestamp,
+        closed_at: null,
+      },
+    });
+  } else {
+    await tx.user_posting_months.create({
+      data: {
+        id: createTextPrimaryKey(),
+        user_id: userId,
+        financial_year_period_id: periodId,
+        calendar_month: calendarMonth,
+        status: "OPEN",
+        opened_at: timestamp,
+        closed_at: null,
+      },
+    });
+  }
+
+  await tx.financial_months.updateMany({
+    where: {
+      financial_year_period_id: periodId,
+      status: "OPEN",
+      calendar_month: { not: calendarMonth },
+    },
+    data: { status: "CLOSED", closed_at: timestamp },
+  });
+  await tx.financial_months.updateMany({
+    where: {
+      financial_year_period_id: periodId,
+      calendar_month: calendarMonth,
+    },
+    data: { status: "OPEN", closed_at: null },
+  });
+}
+
 async function seedOpenMonthForAllScopes(
   tx: typeof prisma,
   periodId: string,
@@ -316,6 +392,9 @@ async function seedOpenMonthForAllScopes(
   await upsertOpenPostingMonth(tx, periodId, calendarMonth, null);
   for (const salesPointId of await listActiveSalesPointIds()) {
     await upsertOpenPostingMonth(tx, periodId, calendarMonth, salesPointId);
+  }
+  for (const userId of await listUnscopedUserIds()) {
+    await upsertOpenPostingMonthForUser(tx, periodId, calendarMonth, userId);
   }
 }
 
@@ -471,6 +550,10 @@ export async function openYear(financialYear: number): Promise<OpenYearResult> {
       where: { status: "OPEN" },
       data: { status: "CLOSED", closed_at: timestamp },
     });
+    await tx.user_posting_months.updateMany({
+      where: { status: "OPEN" },
+      data: { status: "CLOSED", closed_at: timestamp },
+    });
 
     const existing = await tx.financial_year_periods.findUnique({
       where: { financial_year: financialYear },
@@ -551,6 +634,10 @@ export async function closeYear(periodId: string): Promise<FinancialYearRow> {
       where: { financial_year_period_id: periodId, status: "OPEN" },
       data: { status: "CLOSED", closed_at: timestamp },
     }),
+    prisma.user_posting_months.updateMany({
+      where: { financial_year_period_id: periodId, status: "OPEN" },
+      data: { status: "CLOSED", closed_at: timestamp },
+    }),
     prisma.financial_months.updateMany({
       where: { financial_year_period_id: periodId, status: "OPEN" },
       data: { status: "CLOSED", closed_at: timestamp },
@@ -622,4 +709,176 @@ export async function setMonthStatus(
     throw new Error("Financial month not found.");
   }
   return updated;
+}
+
+async function listMonthsForPeriodForUser(
+  periodId: string,
+  userId: string,
+): Promise<FinancialMonthRow[]> {
+  const catalog = await prisma.financial_months.findMany({
+    where: { financial_year_period_id: periodId },
+    orderBy: { calendar_month: "asc" },
+  });
+  const posting = await prisma.user_posting_months.findMany({
+    where: { financial_year_period_id: periodId, user_id: userId },
+  });
+  const byMonth = new Map(
+    posting.map((row) => [row.calendar_month, row] as const),
+  );
+  return catalog.map((row) => {
+    const live = byMonth.get(row.calendar_month);
+    return mapMonthRow({
+      ...row,
+      status: live?.status ?? "CLOSED",
+      opened_at: live?.opened_at ?? null,
+      closed_at: live?.closed_at ?? null,
+    });
+  });
+}
+
+export async function getOpenPostingPeriodForUser(
+  userId: string,
+): Promise<OpenPostingPeriod | null> {
+  const posting = await prisma.user_posting_months.findFirst({
+    where: {
+      status: "OPEN",
+      user_id: userId,
+      period: { status: "OPEN" },
+    },
+    orderBy: [{ calendar_month: "desc" }],
+    include: { period: true },
+  });
+  if (!posting) return null;
+
+  const catalog = await prisma.financial_months.findFirst({
+    where: {
+      financial_year_period_id: posting.financial_year_period_id,
+      calendar_month: posting.calendar_month,
+    },
+  });
+  if (!catalog) return null;
+
+  return {
+    financialYearPeriodId: posting.financial_year_period_id,
+    financialYear: posting.period.financial_year,
+    monthId: catalog.id,
+    calendarMonth: posting.calendar_month,
+    monthName: catalog.name,
+    startDate: monthStartDate(
+      posting.period.financial_year,
+      posting.calendar_month,
+    ),
+    endDate: monthEndDate(
+      posting.period.financial_year,
+      posting.calendar_month,
+    ),
+  };
+}
+
+export async function getOpenPostingPeriodForActor(
+  userId: string,
+): Promise<OpenPostingPeriod | null> {
+  const salesPointId = await postingScopeForUser(userId);
+  if (salesPointId != null) {
+    return getOpenPostingPeriod(salesPointId);
+  }
+  return getOpenPostingPeriodForUser(userId);
+}
+
+export async function listMonthsForOpenYearForActor(userId: string): Promise<{
+  year: FinancialYearRow | null;
+  months: FinancialMonthRow[];
+}> {
+  const salesPointId = await postingScopeForUser(userId);
+  if (salesPointId != null) {
+    return listMonthsForOpenYear(salesPointId);
+  }
+
+  const openYear = await prisma.financial_year_periods.findFirst({
+    where: { status: "OPEN" },
+    orderBy: { financial_year: "desc" },
+  });
+  if (!openYear) {
+    return { year: null, months: [] };
+  }
+  await ensureTwelveMonths(openYear.id, openYear.financial_year);
+  const year = await getYearById(openYear.id);
+  return {
+    year,
+    months: await listMonthsForPeriodForUser(openYear.id, userId),
+  };
+}
+
+export async function setMonthStatusForActor(
+  userId: string,
+  monthId: string,
+  status: FinancialPeriodStatus,
+): Promise<FinancialMonthRow> {
+  const salesPointId = await postingScopeForUser(userId);
+  if (salesPointId != null) {
+    return setMonthStatus(monthId, status, salesPointId);
+  }
+
+  const month = await prisma.financial_months.findUnique({
+    where: { id: monthId },
+  });
+  if (!month) {
+    throw new Error("Financial month not found.");
+  }
+  const year = await prisma.financial_year_periods.findUnique({
+    where: { id: month.financial_year_period_id },
+  });
+  if (!year || year.status !== "OPEN") {
+    throw new Error("Open the financial year before changing month status.");
+  }
+
+  if (status === "OPEN") {
+    await prisma.$transaction(async (tx) => {
+      await upsertOpenPostingMonthForUser(
+        tx as unknown as typeof prisma,
+        month.financial_year_period_id,
+        month.calendar_month,
+        userId,
+      );
+    });
+  } else {
+    await prisma.user_posting_months.updateMany({
+      where: {
+        user_id: userId,
+        financial_year_period_id: month.financial_year_period_id,
+        calendar_month: month.calendar_month,
+      },
+      data: { status: "CLOSED", closed_at: nowDate() },
+    });
+  }
+
+  const rows = await listMonthsForPeriodForUser(
+    month.financial_year_period_id,
+    userId,
+  );
+  const updated = rows.find((row) => row.id === monthId);
+  if (!updated) {
+    throw new Error("Financial month not found.");
+  }
+  return updated;
+}
+
+export async function assertDateInOpenMonthForActor(
+  isoDate: string,
+  userId: string,
+): Promise<OpenPostingPeriod> {
+  const period = await getOpenPostingPeriodForActor(userId);
+  if (!period) {
+    throw new Error("Open a financial month before posting.");
+  }
+  const date = isoDate.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error("Invalid transaction date.");
+  }
+  if (date < period.startDate || date > period.endDate) {
+    throw new Error(
+      `Transaction date must fall in the open financial month (${period.monthName} ${period.financialYear}).`,
+    );
+  }
+  return period;
 }

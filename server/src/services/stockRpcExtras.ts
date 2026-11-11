@@ -1644,6 +1644,41 @@ export async function findReceiptByNumber(
   }
 }
 
+export async function findReceiptByConsignmentNoteNo(
+  userId: string,
+  consignmentNoteNo: string,
+): Promise<ReceiptReviewResult> {
+  try {
+    const actor = await loadRpcActor(userId);
+    if (!canViewDocs(actor, "stock-receipts")) {
+      throw new Error("You do not have permission to view receipts.");
+    }
+    const trimmed = String(consignmentNoteNo ?? "").trim();
+    if (!trimmed) return { ok: false, error: "Enter a consignment number." };
+    const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM stock_receipts
+      WHERE consignment_note_no IS NOT NULL
+        AND lower(btrim(consignment_note_no)) = lower(btrim(${trimmed}))
+      LIMIT 1
+    `;
+    const row = rows[0];
+    if (!row) {
+      return { ok: false, error: `Consignment # "${trimmed}" not found.` };
+    }
+    const detail = await loadReceiptDetailFor(actor, row.id);
+    if (!detail) {
+      return {
+        ok: false,
+        error: `Consignment # "${trimmed}" is not visible to your collection point.`,
+      };
+    }
+    return { ok: true, detail };
+  } catch (err) {
+    return { ok: false, error: describeError(err, "Could not load receipt.") };
+  }
+}
+
 export async function loadReceiptForReview(
   userId: string,
   receiptId: string,

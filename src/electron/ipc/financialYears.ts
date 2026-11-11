@@ -10,24 +10,30 @@ import { requireAuthUser } from "../auth/requireUser.js";
 import {
   closeYear,
   getOpenPostingPeriod,
+  getOpenPostingPeriodForActor,
   listMonthsForOpenYear,
+  listMonthsForOpenYearForActor,
   listMonthsForPeriod,
   listYears,
   openYear,
   postingScopeForUser,
   setMonthStatus,
+  setMonthStatusForActor,
 } from "../financialYears/service.js";
 
-/** Omit/undefined → actor collection point; null → central/head office. */
-function resolvePostingScope(
-  authToken: string,
-  salesPointId?: number | null,
-): number | null {
+/**
+ * Collection-point actors always use their SP scope.
+ * Head-office actors use personal UserPostingMonth (ignore client central/null).
+ */
+function resolveActorMonthAccess(authToken: string): {
+  userId: string;
+  salesPointId: number | null;
+} {
   const user = requireAuthUser(authToken);
-  if (salesPointId !== undefined) {
-    return salesPointId;
-  }
-  return postingScopeForUser(user.id);
+  return {
+    userId: user.id,
+    salesPointId: postingScopeForUser(user.id),
+  };
 }
 
 export function registerFinancialYearsHandlers(): void {
@@ -60,9 +66,13 @@ export function registerFinancialYearsHandlers(): void {
     (
       _event,
       authToken: string,
-      salesPointId?: number | null,
+      _salesPointId?: number | null,
     ): { year: FinancialYearRow | null; months: FinancialMonthRow[] } => {
-      return listMonthsForOpenYear(resolvePostingScope(authToken, salesPointId));
+      const { userId, salesPointId } = resolveActorMonthAccess(authToken);
+      if (salesPointId != null) {
+        return listMonthsForOpenYear(salesPointId);
+      }
+      return listMonthsForOpenYearForActor(userId);
     },
   );
 
@@ -72,12 +82,18 @@ export function registerFinancialYearsHandlers(): void {
       _event,
       authToken: string,
       periodId: string,
-      salesPointId?: number | null,
+      _salesPointId?: number | null,
     ): FinancialMonthRow[] => {
-      return listMonthsForPeriod(
-        periodId,
-        resolvePostingScope(authToken, salesPointId),
-      );
+      const { userId, salesPointId } = resolveActorMonthAccess(authToken);
+      if (salesPointId != null) {
+        return listMonthsForPeriod(periodId, salesPointId);
+      }
+      // HO: reuse open-year actor list filtered by period via set/list helpers.
+      const { year, months } = listMonthsForOpenYearForActor(userId);
+      if (!year || year.id !== periodId) {
+        return [];
+      }
+      return months;
     },
   );
 
@@ -88,13 +104,13 @@ export function registerFinancialYearsHandlers(): void {
       authToken: string,
       monthId: string,
       status: FinancialPeriodStatus,
-      salesPointId?: number | null,
+      _salesPointId?: number | null,
     ): FinancialMonthRow => {
-      return setMonthStatus(
-        monthId,
-        status,
-        resolvePostingScope(authToken, salesPointId),
-      );
+      const { userId, salesPointId } = resolveActorMonthAccess(authToken);
+      if (salesPointId != null) {
+        return setMonthStatus(monthId, status, salesPointId);
+      }
+      return setMonthStatusForActor(userId, monthId, status);
     },
   );
 
@@ -103,9 +119,13 @@ export function registerFinancialYearsHandlers(): void {
     (
       _event,
       authToken: string,
-      salesPointId?: number | null,
+      _salesPointId?: number | null,
     ): OpenPostingPeriod | null => {
-      return getOpenPostingPeriod(resolvePostingScope(authToken, salesPointId));
+      const { userId, salesPointId } = resolveActorMonthAccess(authToken);
+      if (salesPointId != null) {
+        return getOpenPostingPeriod(salesPointId);
+      }
+      return getOpenPostingPeriodForActor(userId);
     },
   );
 }

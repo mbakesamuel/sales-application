@@ -26,6 +26,7 @@ import {
   cancelTransfer,
   dispatchTransfer,
   findAdjustmentByNumber,
+  findReceiptByConsignmentNoteNo,
   findReceiptByNumber,
   findTransferByNumber,
   applyStockIntakeOilGrouping,
@@ -143,6 +144,19 @@ export function registerStockHandlers(): void {
         return { ok: false, error: "Login required." };
       }
       return findReceiptByNumber(payload.userId, payload.receiptNo);
+    },
+  );
+
+  ipcMain.handle(
+    "stock:findReceiptByConsignmentNoteNo",
+    (_event, payload: { userId: string; consignmentNoteNo: string }) => {
+      if (!payload?.userId) {
+        return { ok: false, error: "Login required." };
+      }
+      return findReceiptByConsignmentNoteNo(
+        payload.userId,
+        payload.consignmentNoteNo,
+      );
     },
   );
 

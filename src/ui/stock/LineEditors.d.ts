@@ -19,6 +19,8 @@ export type AdjustmentLineDraft = {
 };
 interface ReceiptLineEditorProps {
     products: ProductOption[];
+    /** Full catalog for occupancy / bottled co-mingling checks (defaults to products). */
+    locationProducts?: ProductOption[];
     lines: ReceiptLineDraft[];
     onChange: (next: ReceiptLineDraft[]) => void;
     locationOptions: StorageLocationOption[];
@@ -27,7 +29,7 @@ interface ReceiptLineEditorProps {
     salesPointId: string;
     stockIntakeOilGrouping?: boolean;
 }
-export declare function ReceiptLineEditor({ products, lines, onChange, locationOptions, defaultLocationId: defLoc, onHand, salesPointId, stockIntakeOilGrouping, }: ReceiptLineEditorProps): import("preact").JSX.Element;
+export declare function ReceiptLineEditor({ products, locationProducts, lines, onChange, locationOptions, defaultLocationId: defLoc, onHand, salesPointId, stockIntakeOilGrouping, }: ReceiptLineEditorProps): import("preact").JSX.Element;
 interface TransferLineEditorProps {
     products: ProductOption[];
     lines: TransferLineDraft[];

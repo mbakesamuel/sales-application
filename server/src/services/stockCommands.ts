@@ -139,7 +139,7 @@ async function assertBottledReceiptConsignmentFields(
     return null;
   }
   if (!normalizeOptionalText(input.consignmentNoteNo)) {
-    return "Consignment Note # is required for Bottle Oil receipts.";
+    return "Consignment # is required for Bottle Oil receipts.";
   }
   if (!normalizeOptionalText(input.consignedBy)) {
     return "Consigned by is required for Bottle Oil receipts.";
@@ -192,6 +192,24 @@ export async function createReceiptCommand(
     const postImmediately = Boolean(input.postImmediately);
     const status = postImmediately ? "POSTED" : "DRAFT";
     const now = new Date();
+    const consignmentNoteNo = normalizeOptionalText(input.consignmentNoteNo);
+    if (consignmentNoteNo) {
+      const duplicate = await prisma.$queryRaw<
+        Array<{ id: string; receipt_no: string }>
+      >`
+        SELECT id, receipt_no
+        FROM stock_receipts
+        WHERE consignment_note_no IS NOT NULL
+          AND lower(btrim(consignment_note_no)) = lower(btrim(${consignmentNoteNo}))
+        LIMIT 1
+      `;
+      if (duplicate[0]) {
+        return {
+          ok: false,
+          error: `Consignment # "${consignmentNoteNo}" is already used on receipt ${duplicate[0].receipt_no}.`,
+        };
+      }
+    }
 
     if (receiptNo) {
       const existing = await prisma.stock_receipts.findUnique({
@@ -220,7 +238,7 @@ export async function createReceiptCommand(
           supplier_label: input.supplierLabel.trim(),
           status,
           notes: input.notes?.trim() || null,
-          consignment_note_no: normalizeOptionalText(input.consignmentNoteNo),
+          consignment_note_no: consignmentNoteNo,
           consigned_by: normalizeOptionalText(input.consignedBy),
           cons_design: normalizeOptionalText(input.consDesign),
           cons_date: normalizeOptionalText(input.consDate),

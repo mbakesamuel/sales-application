@@ -254,6 +254,8 @@ contextBridge.exposeInMainWorld("api", {
     cancelReceipt: (payload) => ipcRenderer.invoke("stock:cancelReceipt", payload),
     findReceiptByNumber: (payload) =>
       ipcRenderer.invoke("stock:findReceiptByNumber", payload),
+    findReceiptByConsignmentNoteNo: (payload) =>
+      ipcRenderer.invoke("stock:findReceiptByConsignmentNoteNo", payload),
     loadReceiptForReview: (payload) =>
       ipcRenderer.invoke("stock:loadReceiptForReview", payload),
     loadReceiptPrintById: (payload) =>

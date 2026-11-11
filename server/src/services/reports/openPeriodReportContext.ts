@@ -1,6 +1,5 @@
 import {
-  getOpenPostingPeriod,
-  postingScopeForUser,
+  getOpenPostingPeriodForActor,
   type OpenPostingPeriod,
 } from "../financialYearsService.js";
 import { todayIso } from "../reportCompany.js";
@@ -14,8 +13,10 @@ export type OpenPeriodReportContext = {
 export async function resolveOpenPeriodReportContext(
   userId?: string | null,
 ): Promise<OpenPeriodReportContext> {
-  const scope = await postingScopeForUser(userId);
-  const period = await getOpenPostingPeriod(scope);
+  if (!userId) {
+    throw new Error("Open a financial month before running reports.");
+  }
+  const period = await getOpenPostingPeriodForActor(userId);
   if (!period) {
     throw new Error("Open a financial month before running reports.");
   }

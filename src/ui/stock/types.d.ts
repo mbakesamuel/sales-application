@@ -28,6 +28,16 @@ export interface StockApi {
         ok: false;
         error: string;
     }>;
+    findReceiptByConsignmentNoteNo(payload: {
+        userId: string;
+        consignmentNoteNo: string;
+    }): Promise<{
+        ok: true;
+        detail: import("../../shared/stock.types.ts").ReceiptDetail;
+    } | {
+        ok: false;
+        error: string;
+    }>;
     loadReceiptForReview(payload: {
         userId: string;
         receiptId: string;

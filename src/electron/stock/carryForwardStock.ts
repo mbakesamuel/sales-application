@@ -14,7 +14,10 @@ import {
 } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
 import { listActiveSalesPoints, requireActiveSalesPoint } from "../salesPoints/active.js";
-import { getOpenPostingPeriod, assertDateInOpenMonth } from "../financialYears/service.js";
+import {
+  getOpenPostingPeriodForActor,
+  assertDateInOpenMonthForActor,
+} from "../financialYears/service.js";
 import { formatQty, parseQty } from "./decimal.js";
 import { applyMovement } from "./post.js";
 import {
@@ -352,14 +355,14 @@ export function upsertCarryForwardStockBatch(
     return write;
   }
 
-  const period = getOpenPostingPeriod();
+  const period = getOpenPostingPeriodForActor(input.userId);
   if (!period) {
     return { ok: false, error: "Open a financial month before posting carry-forward stock." };
   }
 
   let occurredDate: string;
   try {
-    assertDateInOpenMonth(String(input.occurredAt ?? ""));
+    assertDateInOpenMonthForActor(String(input.occurredAt ?? ""), input.userId);
     occurredDate = String(input.occurredAt).trim().slice(0, 10);
   } catch (error) {
     return {

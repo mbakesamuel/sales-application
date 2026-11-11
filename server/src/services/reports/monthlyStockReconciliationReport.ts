@@ -1,4 +1,4 @@
-import { getOpenPostingPeriod, postingScopeForUser } from "../financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "../financialYearsService.js";
 import {
   loadReportComments,
   loadReportCompanySettings,
@@ -319,7 +319,7 @@ export async function getMonthlyStockReconciliationReport(
   hideZeroArg?: boolean | null,
 ) {
   const asAtIso = await resolveReportAsAt(undefined, userId);
-  const period = await getOpenPostingPeriod(await postingScopeForUser(userId));
+  const period = await getOpenPostingPeriodForActor(userId);
   if (!period) {
     throw new Error("No open posting period. Open a financial month first.");
   }

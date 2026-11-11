@@ -4,7 +4,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { prisma } from "../db/prisma.js";
-import { getOpenPostingPeriod } from "./financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "./financialYearsService.js";
 import {
   assertRouteWrite,
   canPerformAction,
@@ -428,7 +428,7 @@ export async function upsertBatch(
     const actor = await loadRpcActor(input.userId);
     assertRouteWrite(actor, ROUTE_ID);
 
-    const period = await getOpenPostingPeriod();
+    const period = await getOpenPostingPeriodForActor(input.userId);
     if (!period) {
       return {
         ok: false,

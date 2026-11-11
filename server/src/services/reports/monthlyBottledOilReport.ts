@@ -1,5 +1,5 @@
 import { prisma } from "../../db/prisma.js";
-import { getOpenPostingPeriod, postingScopeForUser } from "../financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "../financialYearsService.js";
 import {
   loadReportComments,
   loadReportCompanySettings,
@@ -26,7 +26,7 @@ function emptyTotals() {
 
 export async function getMonthlyBottledOilReport(userId: string) {
   const asAtIso = await resolveReportAsAt(undefined, userId);
-  const period = await getOpenPostingPeriod(await postingScopeForUser(userId));
+  const period = await getOpenPostingPeriodForActor(userId);
   if (!period) {
     throw new Error("No open posting period. Open a financial month first.");
   }

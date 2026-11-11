@@ -114,6 +114,10 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
   const [busy, setBusy] = useState(false);
   const [lookupNo, setLookupNo] = useState("");
   const [lookupBusy, setLookupBusy] = useState(false);
+  const [consignmentLookupBusy, setConsignmentLookupBusy] = useState(false);
+  const [confirmedConsignmentNoteNo, setConfirmedConsignmentNoteNo] = useState<
+    string | null
+  >(null);
   const [reviewDetail, setReviewDetail] = useState<ReceiptDetail | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
@@ -200,6 +204,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     setBottledProducts(nextBottled);
     setReceiptNo("");
     setConsignmentNoteNo("");
+    setConfirmedConsignmentNoteNo(null);
     setConsignedBy("");
     setConsDesign("");
     setConsDate("");
@@ -315,7 +320,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     const showConsignment = bottledProducts;
     if (showConsignment) {
       if (!consignmentNoteNo.trim()) {
-        showModalErr("Consignment Note # is required for Bottle Oil receipts.");
+        showModalErr("Consignment # is required for Bottle Oil receipts.");
         return;
       }
       if (!consignedBy.trim()) {
@@ -480,6 +485,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     setSupplierLabel(detail.supplierLabel);
     setReceiptNo(detail.receiptNo);
     setConsignmentNoteNo(detail.consignmentNoteNo ?? "");
+    setConfirmedConsignmentNoteNo((detail.consignmentNoteNo ?? "").trim() || null);
     setConsignedBy(detail.consignedBy ?? "");
     setConsDesign(detail.consDesign ?? "");
     setConsDate(detail.consDate ?? "");
@@ -514,6 +520,53 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
           ],
     );
     setOpen(true);
+  }
+
+  async function tryLoadByConsignmentNoteNo() {
+    if (!bottledProducts || consignmentLookupBusy || busy) {
+      return;
+    }
+    const trimmed = consignmentNoteNo.trim();
+    if (!trimmed) {
+      return;
+    }
+    if (
+      confirmedConsignmentNoteNo != null &&
+      confirmedConsignmentNoteNo.toLowerCase() === trimmed.toLowerCase() &&
+      editingId
+    ) {
+      return;
+    }
+
+    setConsignmentLookupBusy(true);
+    clearModalMessage();
+    try {
+      const res = await getElectronApi().stock.findReceiptByConsignmentNoteNo({
+        userId,
+        consignmentNoteNo: trimmed,
+      });
+      if (res.ok === false) {
+        // New consignment number — keep create/edit form as-is.
+        setConfirmedConsignmentNoteNo(null);
+        return;
+      }
+      if (editingId && res.detail.id === editingId) {
+        setConfirmedConsignmentNoteNo(trimmed);
+        return;
+      }
+      if (res.detail.status === "DRAFT") {
+        populateFormFromDetail(res.detail);
+        setModalMessage({
+          type: "ok",
+          text: `Loaded draft receipt ${res.detail.receiptNo}.`,
+        });
+        return;
+      }
+      closeFormModal();
+      setReviewDetail(res.detail);
+    } finally {
+      setConsignmentLookupBusy(false);
+    }
   }
 
   async function openEditById(id: string) {
@@ -849,16 +902,25 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
           >
             {bottledProducts ? (
               <label class="stock-form-row">
-                <span class="stock-form-label">Consignment Note #</span>
+                <span class="stock-form-label">Consignment #</span>
                 <input
                   class="stock-form-control stock-mono"
                   value={consignmentNoteNo}
-                  onInput={(event) =>
+                  disabled={consignmentLookupBusy || busy}
+                  onInput={(event) => {
+                    setConfirmedConsignmentNoteNo(null);
                     setConsignmentNoteNo(
                       (event.currentTarget as HTMLInputElement).value,
-                    )
-                  }
-                  placeholder="Mill consignment note number"
+                    );
+                  }}
+                  onBlur={() => void tryLoadByConsignmentNoteNo()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void tryLoadByConsignmentNoteNo();
+                    }
+                  }}
+                  placeholder="Mill consignment number"
                   required
                 />
               </label>
@@ -1109,6 +1171,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
 
             <ReceiptLineEditor
               products={modalProducts}
+              locationProducts={products}
               lines={lines}
               onChange={setLines}
               locationOptions={locationsForReceiptAtSalesPoint(

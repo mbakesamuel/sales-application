@@ -1,5 +1,5 @@
 import { prisma } from "../../db/prisma.js";
-import { getOpenPostingPeriod, postingScopeForUser } from "../financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "../financialYearsService.js";
 import {
   loadReportComments,
   loadReportCompanySettings,
@@ -454,7 +454,7 @@ export async function getStockReport(
   asAtIsoArg?: string | null,
 ) {
   const defaultAsAt = await resolveReportAsAt(undefined, userId);
-  const period = await getOpenPostingPeriod(await postingScopeForUser(userId));
+  const period = await getOpenPostingPeriodForActor(userId);
   let asAtIso = defaultAsAt;
   if (
     typeof asAtIsoArg === "string" &&

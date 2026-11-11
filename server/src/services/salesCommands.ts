@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "../db/prisma.js";
-import { assertDateInOpenMonth } from "./financialYearsService.js";
+import { assertDateInOpenMonthForActor } from "./financialYearsService.js";
 import { allocateDocumentSequence } from "./sequences.js";
 import { getTaxRatesAsOf } from "./salesRpcExtras.js";
 import { applyMovement } from "./stockMovements.js";
@@ -118,11 +118,8 @@ export async function createSaleCommand(
   const isSpecialDisposition =
     saleDisposition === "RATION" || saleDisposition === "PUBLIC_RELATION";
 
-  // Head office (null): central open month. Sales-point user: their own open month.
-  let postingScope: number | null = null;
   try {
     const actor = await loadRpcActor(input.userId);
-    postingScope = actor.salesPointId == null ? null : actor.salesPointId;
     assertRouteWrite(actor, saleRouteIdForMode(input.saleProductMode ?? "LOOSE"));
     if (input.validateImmediately) {
       assertAction(
@@ -350,9 +347,9 @@ export async function createSaleCommand(
   let financialYear: number;
   let financialMonth: number;
   try {
-    const period = await assertDateInOpenMonth(
+    const period = await assertDateInOpenMonthForActor(
       input.dateIssued.trim().slice(0, 10),
-      postingScope,
+      input.userId,
     );
     financialYear = period.financialYear;
     financialMonth = period.calendarMonth;

@@ -75,7 +75,10 @@ import {
 import { isInsufficientStockError } from "../stock/errors.js";
 import { parseQty } from "../stock/decimal.js";
 import { formatTaxRateSnapshot, formatXaf, parseAmount, roundMoney, trimQty } from "./money.js";
-import { assertDateInOpenMonth, resolveListDateRange } from "../financialYears/service.js";
+import {
+  assertDateInOpenMonthForActor,
+  resolveListDateRange,
+} from "../financialYears/service.js";
 
 const QTY_EPS = 0.000001;
 
@@ -1459,14 +1462,10 @@ export async function createSale(input: CreateSaleInput): Promise<SaveSaleResult
   let saleId = newSaleId();
   const soldAt = input.dateIssued || nowIso().slice(0, 10);
 
-  // Head office (null): central open month. Sales-point user: their own open month.
-  const actorSalesPointId = getUserCollectionPointId(input.userId);
-  const postingScope =
-    actorSalesPointId == null ? null : actorSalesPointId;
-
+  // HO: personal UserPostingMonth. CP user: their collection-point open month.
   let postingPeriod;
   try {
-    postingPeriod = assertDateInOpenMonth(soldAt, postingScope);
+    postingPeriod = assertDateInOpenMonthForActor(soldAt, input.userId);
   } catch (periodError) {
     return {
       ok: false,

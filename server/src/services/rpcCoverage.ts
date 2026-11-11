@@ -361,6 +361,10 @@ export const coverageHandlers: Record<string, Handler> = {
     ok: false,
     error: "Receipt not found.",
   }),
+  "stock.findReceiptByConsignmentNoteNo": async () => ({
+    ok: false,
+    error: "Receipt not found.",
+  }),
   "stock.loadReceiptForReview": async () => ({
     ok: false,
     error: "Receipt not found.",

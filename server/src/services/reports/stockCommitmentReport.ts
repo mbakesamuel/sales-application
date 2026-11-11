@@ -7,8 +7,7 @@ import { prisma } from "../../db/prisma.js";
 const LOOSE_PALM_OIL_PRODUCT_NAME = "Loose Palm Oil";
 const PALM_SLUDGE_OIL_REPORT_BUCKET_NAME = "Palm Sludge Oil";
 import {
-  getOpenPostingPeriod,
-  postingScopeForUser,
+  getOpenPostingPeriodForActor,
 } from "../financialYearsService.js";
 import {
   loadReportComments,
@@ -394,7 +393,7 @@ export async function getStockCommitmentReport(
   asAtIsoArg?: string | null,
 ) {
   const defaultAsAt = await resolveReportAsAt(asAtIsoArg, userId);
-  const period = await getOpenPostingPeriod(await postingScopeForUser(userId));
+  const period = await getOpenPostingPeriodForActor(userId);
   let asAtIso = defaultAsAt;
   if (period && typeof asAtIsoArg === "string" && /^\d{4}-\d{2}-\d{2}$/.test(asAtIsoArg.trim())) {
     const raw = asAtIsoArg.trim().slice(0, 10);

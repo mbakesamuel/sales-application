@@ -2000,7 +2000,7 @@ export function SalesClient({
             {!postingPeriod ? (
               <span class="sales-hint sales-hint-error">
                 {user.salesPointId == null
-                  ? "No central open month."
+                  ? "No open month for your account. Open one under Financial months."
                   : "No open month for your collection point."}
               </span>
             ) : null}

@@ -99,6 +99,12 @@ function repairLiteralSqlTimestamps(): void {
   db.prepare(
     `UPDATE SalesPointPostingMonth SET closedAt = ? WHERE ${badClosed}`,
   ).run(timestamp);
+  db.prepare(`UPDATE UserPostingMonth SET openedAt = ? WHERE ${bad}`).run(
+    timestamp,
+  );
+  db.prepare(`UPDATE UserPostingMonth SET closedAt = ? WHERE ${badClosed}`).run(
+    timestamp,
+  );
 }
 
 function mapYearRow(row: Record<string, unknown>): FinancialYearRow {
@@ -135,10 +141,124 @@ function normalizeScope(salesPointId?: number | null): PostingScopeId {
   return Number(salesPointId);
 }
 
-/** Actor's posting scope: attached collection point, or central when unscoped. */
+/** Actor's sales-point posting scope: attached collection point, or null when unscoped (HO). */
 export function postingScopeForUser(userId?: string | null): PostingScopeId {
   if (!userId) return null;
   return getUserCollectionPointId(userId);
+}
+
+function listUnscopedUserIds(): string[] {
+  return (
+    getDatabase()
+      .prepare(
+        `SELECT id FROM User WHERE salesPointId IS NULL ORDER BY id ASC`,
+      )
+      .all() as Array<{ id: string }>
+  ).map((row) => row.id);
+}
+
+function closeOpenPostingForUser(userId: string): void {
+  const timestamp = nowIso();
+  getDatabase()
+    .prepare(
+      `UPDATE UserPostingMonth
+       SET status = 'CLOSED', closedAt = ?
+       WHERE userId = ? AND status = 'OPEN'`,
+    )
+    .run(timestamp, userId);
+}
+
+function upsertOpenPostingMonthForUser(
+  periodId: string,
+  calendarMonth: number,
+  userId: string,
+): void {
+  const db = getDatabase();
+  const timestamp = nowIso();
+  closeOpenPostingForUser(userId);
+
+  const existing = db
+    .prepare(
+      `SELECT id, openedAt FROM UserPostingMonth
+       WHERE userId = ?
+         AND financialYearPeriodId = ?
+         AND calendarMonth = ?`,
+    )
+    .get(userId, periodId, calendarMonth) as
+    | { id: string; openedAt: string | null }
+    | undefined;
+  if (existing) {
+    db.prepare(
+      `UPDATE UserPostingMonth
+       SET status = 'OPEN',
+           openedAt = COALESCE(?, openedAt, ?),
+           closedAt = NULL
+       WHERE id = ?`,
+    ).run(
+      sanitizeStoredTimestamp(existing.openedAt),
+      timestamp,
+      existing.id,
+    );
+  } else {
+    db.prepare(
+      `INSERT INTO UserPostingMonth (
+        id, userId, financialYearPeriodId, calendarMonth, status, openedAt, closedAt
+      ) VALUES (?, ?, ?, ?, 'OPEN', ?, NULL)`,
+    ).run(createTextPrimaryKey(), userId, periodId, calendarMonth, timestamp);
+  }
+
+  // Keep catalog row in sync for legacy readers.
+  db.prepare(
+    `UPDATE FinancialMonth
+     SET status = 'CLOSED', closedAt = ?
+     WHERE financialYearPeriodId = ? AND status = 'OPEN' AND calendarMonth != ?`,
+  ).run(timestamp, periodId, calendarMonth);
+  db.prepare(
+    `UPDATE FinancialMonth
+     SET status = 'OPEN', openedAt = COALESCE(openedAt, ?), closedAt = NULL
+     WHERE financialYearPeriodId = ? AND calendarMonth = ?`,
+  ).run(timestamp, periodId, calendarMonth);
+}
+
+function listMonthsForPeriodForUser(
+  periodId: string,
+  userId: string,
+): FinancialMonthRow[] {
+  const db = getDatabase();
+  const catalog = db
+    .prepare(
+      `SELECT * FROM FinancialMonth
+       WHERE financialYearPeriodId = ?
+       ORDER BY calendarMonth ASC`,
+    )
+    .all(periodId) as Array<Record<string, unknown>>;
+
+  const postingRows = db
+    .prepare(
+      `SELECT calendarMonth, status, openedAt, closedAt
+       FROM UserPostingMonth
+       WHERE financialYearPeriodId = ? AND userId = ?`,
+    )
+    .all(periodId, userId) as Array<{
+    calendarMonth: number;
+    status: string;
+    openedAt: string | null;
+    closedAt: string | null;
+  }>;
+
+  const byMonth = new Map(
+    postingRows.map((row) => [row.calendarMonth, row] as const),
+  );
+
+  return catalog.map((row) => {
+    const posting = byMonth.get(Number(row.calendarMonth));
+    return mapMonthRow({
+      ...row,
+      status: posting?.status ?? "CLOSED",
+      openedAt: posting?.openedAt ?? null,
+      closedAt: posting?.closedAt ?? null,
+    });
+  });
 }
 
 function ensureTwelveMonths(periodId: string, financialYear: number): void {
@@ -192,6 +312,11 @@ function closeAllOpenYearsAndPostingMonths(): void {
   ).run(timestamp);
   db.prepare(
     `UPDATE SalesPointPostingMonth
+     SET status = 'CLOSED', closedAt = ?
+     WHERE status = 'OPEN'`,
+  ).run(timestamp);
+  db.prepare(
+    `UPDATE UserPostingMonth
      SET status = 'CLOSED', closedAt = ?
      WHERE status = 'OPEN'`,
   ).run(timestamp);
@@ -309,9 +434,13 @@ function seedOpenMonthForAllScopes(
   periodId: string,
   calendarMonth: number,
 ): void {
+  // Keep central row for legacy/backfill; HO posting uses UserPostingMonth.
   upsertOpenPostingMonth(periodId, calendarMonth, null);
   for (const salesPointId of listActiveSalesPointIds()) {
     upsertOpenPostingMonth(periodId, calendarMonth, salesPointId);
+  }
+  for (const userId of listUnscopedUserIds()) {
+    upsertOpenPostingMonthForUser(periodId, calendarMonth, userId);
   }
 }
 
@@ -445,8 +574,29 @@ export function listMonthsForOpenYear(salesPointId?: number | null): {
   return { year, months: listMonthsForPeriodScoped(year.id, scope) };
 }
 
+type OpenPeriodRow = {
+  financialYearPeriodId: string;
+  financialYear: number;
+  monthId: string;
+  calendarMonth: number;
+  monthName: string;
+};
+
+function mapOpenPeriodRow(row: OpenPeriodRow): OpenPostingPeriod {
+  return {
+    financialYearPeriodId: row.financialYearPeriodId,
+    financialYear: row.financialYear,
+    monthId: row.monthId,
+    calendarMonth: row.calendarMonth,
+    monthName: row.monthName,
+    startDate: monthStartDate(row.financialYear, row.calendarMonth),
+    endDate: monthEndDate(row.financialYear, row.calendarMonth),
+  };
+}
+
 /**
  * Open posting period for a collection point, or central when salesPointId is null.
+ * Prefer getOpenPostingPeriodForActor for document posting by a logged-in user.
  */
 export function getOpenPostingPeriod(
   salesPointId?: number | null,
@@ -472,15 +622,7 @@ export function getOpenPostingPeriod(
              ORDER BY y.financialYear DESC, spm.calendarMonth DESC
              LIMIT 1`,
           )
-          .get() as
-          | {
-              financialYearPeriodId: string;
-              financialYear: number;
-              monthId: string;
-              calendarMonth: number;
-              monthName: string;
-            }
-          | undefined)
+          .get() as OpenPeriodRow | undefined)
       : (db
           .prepare(
             `SELECT y.id AS financialYearPeriodId, y.financialYear,
@@ -497,27 +639,125 @@ export function getOpenPostingPeriod(
              ORDER BY y.financialYear DESC, spm.calendarMonth DESC
              LIMIT 1`,
           )
-          .get(scope) as
-          | {
-              financialYearPeriodId: string;
-              financialYear: number;
-              monthId: string;
-              calendarMonth: number;
-              monthName: string;
-            }
-          | undefined);
+          .get(scope) as OpenPeriodRow | undefined);
 
-  if (!row) return null;
+  return row ? mapOpenPeriodRow(row) : null;
+}
 
-  return {
-    financialYearPeriodId: row.financialYearPeriodId,
-    financialYear: row.financialYear,
-    monthId: row.monthId,
-    calendarMonth: row.calendarMonth,
-    monthName: row.monthName,
-    startDate: monthStartDate(row.financialYear, row.calendarMonth),
-    endDate: monthEndDate(row.financialYear, row.calendarMonth),
-  };
+/** Open posting period for a head-office (unscoped) user. */
+export function getOpenPostingPeriodForUser(
+  userId: string,
+): OpenPostingPeriod | null {
+  const row = getDatabase()
+    .prepare(
+      `SELECT y.id AS financialYearPeriodId, y.financialYear,
+              m.id AS monthId, upm.calendarMonth, m.name AS monthName
+       FROM FinancialYearPeriod y
+       INNER JOIN UserPostingMonth upm
+         ON upm.financialYearPeriodId = y.id
+        AND upm.userId = ?
+        AND upm.status = 'OPEN'
+       INNER JOIN FinancialMonth m
+         ON m.financialYearPeriodId = y.id
+        AND m.calendarMonth = upm.calendarMonth
+       WHERE y.status = 'OPEN'
+       ORDER BY y.financialYear DESC, upm.calendarMonth DESC
+       LIMIT 1`,
+    )
+    .get(userId) as OpenPeriodRow | undefined;
+  return row ? mapOpenPeriodRow(row) : null;
+}
+
+/**
+ * Open posting period for the acting user:
+ * - Collection-point user → that point's SalesPointPostingMonth
+ * - Head-office user → that user's UserPostingMonth
+ */
+export function getOpenPostingPeriodForActor(
+  userId: string,
+): OpenPostingPeriod | null {
+  const salesPointId = postingScopeForUser(userId);
+  if (salesPointId != null) {
+    return getOpenPostingPeriod(salesPointId);
+  }
+  return getOpenPostingPeriodForUser(userId);
+}
+
+export function listMonthsForOpenYearForActor(userId: string): {
+  year: FinancialYearRow | null;
+  months: FinancialMonthRow[];
+} {
+  const salesPointId = postingScopeForUser(userId);
+  if (salesPointId != null) {
+    return listMonthsForOpenYear(salesPointId);
+  }
+
+  const openYear = getDatabase()
+    .prepare(
+      `SELECT y.*,
+              (SELECT COUNT(*) FROM FinancialMonth m WHERE m.financialYearPeriodId = y.id) AS monthCount,
+              (SELECT COUNT(*) FROM UserPostingMonth upm
+               WHERE upm.financialYearPeriodId = y.id AND upm.status = 'OPEN') AS openMonthCount
+       FROM FinancialYearPeriod y
+       WHERE y.status = 'OPEN'
+       ORDER BY y.financialYear DESC
+       LIMIT 1`,
+    )
+    .get() as Record<string, unknown> | undefined;
+
+  if (!openYear) {
+    return { year: null, months: [] };
+  }
+
+  const year = mapYearRow(openYear);
+  ensureTwelveMonths(year.id, year.financialYear);
+  return { year, months: listMonthsForPeriodForUser(year.id, userId) };
+}
+
+export function setMonthStatusForActor(
+  userId: string,
+  monthId: string,
+  status: FinancialPeriodStatus,
+): FinancialMonthRow {
+  const salesPointId = postingScopeForUser(userId);
+  if (salesPointId != null) {
+    return setMonthStatus(monthId, status, salesPointId);
+  }
+
+  const db = getDatabase();
+  const month = db
+    .prepare(`SELECT * FROM FinancialMonth WHERE id = ?`)
+    .get(monthId) as Record<string, unknown> | undefined;
+  if (!month) {
+    throw new Error("Financial month not found.");
+  }
+
+  const year = db
+    .prepare(`SELECT status FROM FinancialYearPeriod WHERE id = ?`)
+    .get(String(month.financialYearPeriodId)) as { status: string } | undefined;
+  if (!year || year.status !== "OPEN") {
+    throw new Error("Open the financial year before changing month status.");
+  }
+
+  const periodId = String(month.financialYearPeriodId);
+  const calendarMonth = Number(month.calendarMonth);
+
+  if (status === "OPEN") {
+    upsertOpenPostingMonthForUser(periodId, calendarMonth, userId);
+  } else {
+    const timestamp = nowIso();
+    db.prepare(
+      `UPDATE UserPostingMonth
+       SET status = 'CLOSED', closedAt = ?
+       WHERE userId = ?
+         AND financialYearPeriodId = ?
+         AND calendarMonth = ?`,
+    ).run(timestamp, userId, periodId, calendarMonth);
+  }
+
+  return listMonthsForPeriodForUser(periodId, userId).find(
+    (row) => row.id === monthId,
+  )!;
 }
 
 export function assertDateInOpenMonth(
@@ -525,6 +765,27 @@ export function assertDateInOpenMonth(
   salesPointId?: number | null,
 ): OpenPostingPeriod {
   const period = getOpenPostingPeriod(normalizeScope(salesPointId));
+  if (!period) {
+    throw new Error("Open a financial month before posting.");
+  }
+  const date = isoDate.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error("Invalid transaction date.");
+  }
+  if (date < period.startDate || date > period.endDate) {
+    throw new Error(
+      `Transaction date must fall in the open financial month (${period.monthName} ${period.financialYear}).`,
+    );
+  }
+  return period;
+}
+
+/** Date check against the acting user's open month (HO personal or CP scope). */
+export function assertDateInOpenMonthForActor(
+  isoDate: string,
+  userId: string,
+): OpenPostingPeriod {
+  const period = getOpenPostingPeriodForActor(userId);
   if (!period) {
     throw new Error("Open a financial month before posting.");
   }
@@ -560,21 +821,22 @@ export function assertBudgetYear(financialYear: unknown): void {
 }
 
 /**
- * As-at for reports: viewer scope (user → point or central).
- * Pass userId when available; otherwise salesPointId; otherwise central.
+ * As-at for reports: viewer scope (user → personal HO month or collection point).
+ * Pass userId when available; otherwise salesPointId; otherwise central fallback.
  */
 export function resolveReportAsAt(userIdOrScope?: string | number | null): {
   asAtIso: string;
   period: OpenPostingPeriod;
 } {
-  let scope: PostingScopeId = null;
+  let period: OpenPostingPeriod | null = null;
   if (typeof userIdOrScope === "number") {
-    scope = normalizeScope(userIdOrScope);
+    period = getOpenPostingPeriod(normalizeScope(userIdOrScope));
   } else if (typeof userIdOrScope === "string" && userIdOrScope) {
-    scope = postingScopeForUser(userIdOrScope);
+    period = getOpenPostingPeriodForActor(userIdOrScope);
+  } else {
+    period = getOpenPostingPeriod(null);
   }
 
-  const period = getOpenPostingPeriod(scope);
   if (!period) {
     throw new Error("Open a financial month before running reports.");
   }
@@ -704,6 +966,11 @@ export function closeYear(periodId: string): FinancialYearRow {
   const tx = db.transaction(() => {
     db.prepare(
       `UPDATE SalesPointPostingMonth
+       SET status = 'CLOSED', closedAt = ?
+       WHERE financialYearPeriodId = ? AND status = 'OPEN'`,
+    ).run(timestamp, periodId);
+    db.prepare(
+      `UPDATE UserPostingMonth
        SET status = 'CLOSED', closedAt = ?
        WHERE financialYearPeriodId = ? AND status = 'OPEN'`,
     ).run(timestamp, periodId);

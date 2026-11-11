@@ -86,7 +86,7 @@ import {
   allocateReceiptNo,
   allocateTransferNo,
 } from "./sequences.js";
-import { assertDateInOpenMonth } from "../financialYears/service.js";
+import { assertDateInOpenMonthForActor } from "../financialYears/service.js";
 import {
   loadStockDocumentNumberSettings,
   loadStockTransferReceiveUsesDocumentDate,
@@ -137,6 +137,7 @@ function noonUtcIsoDate(isoDate: string): string {
  */
 function resolveTransferReceiveOccurredAt(
   receiveDateRaw: string | null | undefined,
+  userId: string,
 ): { receivedAt: string; receiveDate: string | null } {
   const usesDocumentDate = loadStockTransferReceiveUsesDocumentDate();
   if (!usesDocumentDate) {
@@ -150,7 +151,7 @@ function resolveTransferReceiveOccurredAt(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     throw new Error("Receive date is required.");
   }
-  assertDateInOpenMonth(trimmed);
+  assertDateInOpenMonthForActor(trimmed, userId);
   return {
     receivedAt: noonUtcIsoDate(trimmed),
     receiveDate: trimmed,
@@ -1895,6 +1896,7 @@ function finalizeTransferReceiveFromStoredLines(
 
   const { receivedAt, receiveDate } = resolveTransferReceiveOccurredAt(
     existing.receiveDate != null ? String(existing.receiveDate) : null,
+    userId,
   );
   for (const line of lines) {
     applyMovement(db, {
@@ -1961,7 +1963,7 @@ export async function saveReceipt(
     const db = getDatabase();
 
     const receivedAtDate = normalizeIsoDateInput(input.receivedAt);
-    assertDateInOpenMonth(receivedAtDate, input.salesPointId);
+    assertDateInOpenMonthForActor(receivedAtDate, input.userId);
     const receivedAt = noonUtcIsoDate(receivedAtDate);
     const lines = input.lines.map((line) => {
       if (!isPositiveQty(line.qty)) {
@@ -2004,7 +2006,7 @@ export async function saveReceipt(
       if (!consignmentNoteNo) {
         return {
           ok: false,
-          error: "Consignment Note # is required for Bottle Oil receipts.",
+          error: "Consignment # is required for Bottle Oil receipts.",
         };
       }
       if (!consignedBy) {
@@ -2017,6 +2019,23 @@ export async function saveReceipt(
         return {
           ok: false,
           error: "Received by is required for Bottle Oil receipts.",
+        };
+      }
+      const duplicateConsignment = db
+        .prepare(
+          `SELECT id, receiptNo FROM StockReceipt
+           WHERE consignmentNoteNo IS NOT NULL
+             AND lower(trim(consignmentNoteNo)) = lower(?)
+             AND (? IS NULL OR id != ?)
+           LIMIT 1`,
+        )
+        .get(consignmentNoteNo, input.id ?? null, input.id ?? null) as
+        | { id: string; receiptNo: string }
+        | undefined;
+      if (duplicateConsignment) {
+        return {
+          ok: false,
+          error: `Consignment # "${consignmentNoteNo}" is already used on receipt ${duplicateConsignment.receiptNo}.`,
         };
       }
     } else {
@@ -2326,7 +2345,7 @@ export async function saveTransfer(
 
     const db = getDatabase();
     const dispatchedAtDate = normalizeIsoDateInput(input.dispatchedAt);
-    assertDateInOpenMonth(dispatchedAtDate, input.fromSalesPointId);
+    assertDateInOpenMonthForActor(dispatchedAtDate, input.userId);
     const dispatchedAt = noonUtcIsoDate(dispatchedAtDate);
     const consignedBy = normalizeOptionalTransferText(input.consignedBy);
     const consDesign = normalizeOptionalTransferText(input.consDesign);
@@ -2730,6 +2749,7 @@ export async function receiveTransfer(
       const receiveByDesign = normalizeOptionalTransferText(input.receiveByDesign);
       const { receivedAt, receiveDate } = resolveTransferReceiveOccurredAt(
         input.receiveDate,
+        input.userId,
       );
       for (const receiveLine of input.lines) {
         const line = lineById.get(receiveLine.lineId)!;
@@ -2818,7 +2838,7 @@ export async function saveAdjustment(
 
     const db = getDatabase();
     const occurredAtDate = normalizeIsoDateInput(input.occurredAt);
-    assertDateInOpenMonth(occurredAtDate, input.salesPointId);
+    assertDateInOpenMonthForActor(occurredAtDate, input.userId);
     const occurredAt = noonUtcIsoDate(occurredAtDate);
     const lines = input.lines.map((line) => {
       if (!isNonZeroQty(line.deltaQty)) {
@@ -3289,6 +3309,47 @@ export function findReceiptByNumber(userId: string, receiptNo: string): ReceiptR
     const detail = loadReceiptDetail(row.id, userId);
     if (!detail) {
       return { ok: false, error: `Receipt "${trimmed}" is not visible to your collection point.` };
+    }
+    return { ok: true, detail };
+  } catch (error) {
+    return { ok: false, error: describeError(error, "Could not load receipt.") };
+  }
+}
+
+export function findReceiptByConsignmentNoteNo(
+  userId: string,
+  consignmentNoteNo: string,
+): ReceiptReviewResult {
+  try {
+    const actor = getActor(userId);
+    if (
+      !canAccessRoute(actor.role, STOCK_MODULE_ROUTE_ID) &&
+      !canAccessRoute(actor.role, "stock-receipts") &&
+      !canAccessRoute(actor.role, BOTTLED_STOCK_ROUTE_ID)
+    ) {
+      throw new Error("You do not have permission to view receipts.");
+    }
+    const trimmed = String(consignmentNoteNo ?? "").trim();
+    if (!trimmed) {
+      return { ok: false, error: "Enter a consignment number." };
+    }
+    const row = getDatabase()
+      .prepare(
+        `SELECT id FROM StockReceipt
+         WHERE consignmentNoteNo IS NOT NULL
+           AND lower(trim(consignmentNoteNo)) = lower(?)
+         LIMIT 1`,
+      )
+      .get(trimmed) as { id: string } | undefined;
+    if (!row) {
+      return { ok: false, error: `Consignment # "${trimmed}" not found.` };
+    }
+    const detail = loadReceiptDetail(row.id, userId);
+    if (!detail) {
+      return {
+        ok: false,
+        error: `Consignment # "${trimmed}" is not visible to your collection point.`,
+      };
     }
     return { ok: true, detail };
   } catch (error) {

@@ -1,4 +1,4 @@
-import { getOpenPostingPeriod, postingScopeForUser } from "../financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "../financialYearsService.js";
 import { resolveReportAsAt } from "../reportCompany.js";
 
 export type ReportWeekChoice = {
@@ -110,7 +110,7 @@ export async function getOpenMonthWeekChoices(userId?: string | null): Promise<{
   defaultWeekMondayIso: string | null;
 }> {
   const asAtIso = await resolveReportAsAt(undefined, userId);
-  const period = await getOpenPostingPeriod(await postingScopeForUser(userId));
+  const period = await getOpenPostingPeriodForActor(userId);
   if (!period) {
     return { asAtIso, weekChoices: [], defaultWeekMondayIso: null };
   }

@@ -6,7 +6,7 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../db/prisma.js";
-import { getOpenPostingPeriod } from "./financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "./financialYearsService.js";
 import {
   assertRouteWrite,
   canAccessRoute,
@@ -885,7 +885,7 @@ export async function upsert(
     const actor = await loadRpcActor(input.userId);
     assertRouteWrite(actor, ROUTE_ID);
 
-    const openPeriod = await getOpenPostingPeriod();
+    const openPeriod = await getOpenPostingPeriodForActor(input.userId);
     if (!openPeriod) {
       return {
         ok: false,
@@ -1003,7 +1003,7 @@ export async function upsertBatch(
       return { ok: false, error: "Enter at least one outstanding quantity." };
     }
 
-    const openPeriod = await getOpenPostingPeriod();
+    const openPeriod = await getOpenPostingPeriodForActor(input.userId);
     if (!openPeriod) {
       return {
         ok: false,

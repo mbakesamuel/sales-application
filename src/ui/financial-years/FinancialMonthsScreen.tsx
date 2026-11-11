@@ -54,7 +54,7 @@ function IconChevronRight() {
 
 interface FinancialMonthsScreenProps {
   readOnly?: boolean;
-  /** Attached collection point, or null for central/head-office month. */
+  /** Attached collection point, or null for head-office personal month. */
   salesPointId?: number | null;
 }
 
@@ -65,7 +65,7 @@ export function FinancialMonthsScreen({
   const canWrite = !readOnly;
   const scopeId = salesPointId ?? null;
   const scopeLabel =
-    scopeId == null ? "company (head office)" : "this collection point";
+    scopeId == null ? "your head-office user account" : "this collection point";
   const [year, setYear] = useState<FinancialYearRow | null>(null);
   const [rows, setRows] = useState<FinancialMonthRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -195,7 +195,7 @@ export function FinancialMonthsScreen({
       {error ? <p class="customers-error">{error}</p> : null}
       {actionError ? <p class="customers-error">{actionError}</p> : null}
 
-      {!isLoading && !year ? (
+      {!isLoading && !year && !error ? (
         <p class="customers-error">
           No open financial year. Open a year under Financial years first.
         </p>

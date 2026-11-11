@@ -11,8 +11,17 @@ export declare function isBottleOilStoreLocation(name: string): boolean;
 export declare function locationsForIntraTransferDestination(storageLocations: StorageLocationOption[], salesPointId: string | number): StorageLocationOption[];
 export declare function defaultIntraToLocationId(storageLocations: StorageLocationOption[], salesPointId: string | number, excludeLocationId: string): string;
 export declare function defaultReceiptLocationId(storageLocations: StorageLocationOption[], salesPointId: string | number, forBottled?: boolean): string;
-/** Locations that already hold this product, or have no on-hand of any product. */
-export declare function receiptLocationOptionsForProduct(locationOptions: StorageLocationOption[], onHand: StockBalanceRow[], salesPointId: string | number, productId: string): StorageLocationOption[];
+/**
+ * Locations eligible for receiving this product.
+ * Mirrors backend assertStorageLocationProductRules:
+ * - Bottled products may share a location with other bottled products.
+ * - Bulk products: empty, same product, or allowsMultiProduct only.
+ * - Bottled and bulk must never share a location.
+ */
+export declare function receiptLocationOptionsForProduct(locationOptions: StorageLocationOption[], onHand: StockBalanceRow[], salesPointId: string | number, productId: string, products?: Array<{
+    productId: number;
+    isBottled: boolean;
+}>): StorageLocationOption[];
 export declare function utcIsoDateToday(): string;
 /** Clamp YYYY-MM-DD into [startDate, endDate] when a period is provided. */
 export declare function clampIsoDateToRange(isoDate: string, range: {

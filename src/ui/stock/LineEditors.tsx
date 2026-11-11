@@ -34,6 +34,8 @@ export type AdjustmentLineDraft = {
 
 interface ReceiptLineEditorProps {
   products: ProductOption[];
+  /** Full catalog for occupancy / bottled co-mingling checks (defaults to products). */
+  locationProducts?: ProductOption[];
   lines: ReceiptLineDraft[];
   onChange: (next: ReceiptLineDraft[]) => void;
   locationOptions: StorageLocationOption[];
@@ -45,6 +47,7 @@ interface ReceiptLineEditorProps {
 
 export function ReceiptLineEditor({
   products,
+  locationProducts,
   lines,
   onChange,
   locationOptions,
@@ -53,6 +56,7 @@ export function ReceiptLineEditor({
   salesPointId,
   stockIntakeOilGrouping = false,
 }: ReceiptLineEditorProps) {
+  const occupancyProducts = locationProducts ?? products;
   const pickerProducts = filterReceiptPickerProducts(products, stockIntakeOilGrouping);
   const intakeGroups =
     stockIntakeOilGrouping && pickerProducts.length > 0
@@ -64,6 +68,7 @@ export function ReceiptLineEditor({
       onHand,
       salesPointId,
       productId,
+      occupancyProducts,
     );
     if (!currentLocationId) {
       return eligible;
@@ -81,6 +86,7 @@ export function ReceiptLineEditor({
       onHand,
       salesPointId,
       productId,
+      occupancyProducts,
     );
     if (currentLocationId && eligible.some((loc) => String(loc.id) === currentLocationId)) {
       return currentLocationId;

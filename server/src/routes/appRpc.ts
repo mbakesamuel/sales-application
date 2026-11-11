@@ -34,13 +34,11 @@ import {
 import { getDashboardSummary } from "../services/dashboardSummary.js";
 import {
   closeYear,
-  getOpenPostingPeriod,
-  listMonthsForOpenYear,
-  listMonthsForPeriod,
+  getOpenPostingPeriodForActor,
+  listMonthsForOpenYearForActor,
   listYears,
   openYear,
-  postingScopeForUser,
-  setMonthStatus,
+  setMonthStatusForActor,
 } from "../services/financialYearsService.js";
 import { queryTable } from "../services/tableQuery.js";
 import {
@@ -293,6 +291,13 @@ const handlers: Record<string, Handler> = {
   "stock.findReceiptByNumber": async (args, ctx) => {
     const p = (args[0] ?? {}) as { receiptNo?: string };
     return stockExtras.findReceiptByNumber(ctx.userId, String(p.receiptNo ?? ""));
+  },
+  "stock.findReceiptByConsignmentNoteNo": async (args, ctx) => {
+    const p = (args[0] ?? {}) as { consignmentNoteNo?: string };
+    return stockExtras.findReceiptByConsignmentNoteNo(
+      ctx.userId,
+      String(p.consignmentNoteNo ?? ""),
+    );
   },
   "stock.loadReceiptForReview": async (args, ctx) => {
     const p = (args[0] ?? {}) as { receiptId?: string };
@@ -629,19 +634,9 @@ const handlers: Record<string, Handler> = {
     return deleteReportSignatory(ctx.userId, id);
   },
 
-  "financialYears.getOpenPostingPeriod": async (args, ctx) => {
-    // (authToken, salesPointId?) — omit/undefined → actor scope (null = central)
-    const explicit =
-      typeof args[1] === "number"
-        ? args[1]
-        : args[1] === null
-          ? null
-          : undefined;
-    const scope =
-      explicit !== undefined
-        ? explicit
-        : (await postingScopeForUser(ctx.userId));
-    return getOpenPostingPeriod(scope);
+  "financialYears.getOpenPostingPeriod": async (_args, ctx) => {
+    // Actor-scoped: HO → personal UserPostingMonth; CP → sales-point month.
+    return getOpenPostingPeriodForActor(ctx.userId);
   },
   "financialYears.listYears": async () => listYears(),
   "financialYears.openYear": async (args) => {
@@ -657,33 +652,17 @@ const handlers: Record<string, Handler> = {
       typeof args[1] === "string" ? args[1] : String(args[0] ?? "");
     return closeYear(periodId);
   },
-  "financialYears.listMonthsForOpenYear": async (args, ctx) => {
-    const explicit =
-      typeof args[1] === "number"
-        ? args[1]
-        : args[1] === null
-          ? null
-          : undefined;
-    const scope =
-      explicit !== undefined
-        ? explicit
-        : (await postingScopeForUser(ctx.userId));
-    return listMonthsForOpenYear(scope);
+  "financialYears.listMonthsForOpenYear": async (_args, ctx) => {
+    return listMonthsForOpenYearForActor(ctx.userId);
   },
   "financialYears.listMonthsForPeriod": async (args, ctx) => {
     const periodId =
       typeof args[1] === "string" ? args[1] : String(args[0] ?? "");
-    const explicit =
-      typeof args[2] === "number"
-        ? args[2]
-        : args[2] === null
-          ? null
-          : undefined;
-    const scope =
-      explicit !== undefined
-        ? explicit
-        : (await postingScopeForUser(ctx.userId));
-    return listMonthsForPeriod(periodId, scope);
+    const { year, months } = await listMonthsForOpenYearForActor(ctx.userId);
+    if (!year || year.id !== periodId) {
+      return [];
+    }
+    return months;
   },
   "financialYears.setMonthStatus": async (args, ctx) => {
     // (authToken, monthId, status, salesPointId?)
@@ -693,20 +672,10 @@ const handlers: Record<string, Handler> = {
         : String(args[0] ?? "");
     const statusRaw =
       typeof args[2] === "string" ? args[2] : String(args[1] ?? "CLOSED");
-    const explicit =
-      typeof args[3] === "number"
-        ? args[3]
-        : args[3] === null
-          ? null
-          : undefined;
-    const scope =
-      explicit !== undefined
-        ? explicit
-        : (await postingScopeForUser(ctx.userId));
-    return setMonthStatus(
+    return setMonthStatusForActor(
+      ctx.userId,
       monthId,
       statusRaw === "OPEN" ? "OPEN" : "CLOSED",
-      scope,
     );
   },
   "db.getCompanySettings": async () => getCompanySettings(),
