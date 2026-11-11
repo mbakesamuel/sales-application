@@ -21,6 +21,7 @@
     "pm2:status": "pm2 status",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:migrate:dev": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts",
     "db:reset": "tsx src/db/reset.ts",
     "db:reset:dev": "tsx src/db/reset.ts",
     "db:clear-ops": "tsx src/db/clearOperational.ts"

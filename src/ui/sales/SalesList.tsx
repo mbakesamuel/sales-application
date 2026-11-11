@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { SaleProductMode } from "../../shared/sales.types.ts";
 import type { SalesModuleVariant } from "../../shared/salesModule.ts";
 import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
+import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
 import { SalePrintView } from "./SalePrintView.tsx";
 import type { SalesListFilters, SalesListResult } from "./types.ts";
 
@@ -15,8 +16,6 @@ interface SalesListProps {
   onOpenInvoice: (invoiceNo: string) => void;
   onOpenScreen?: () => void;
 }
-
-const PAGE_SIZE = 15;
 
 function IconChevronLeft() {
   return (
@@ -75,6 +74,8 @@ export function SalesList({
   const [isLoading, setIsLoading] = useState(true);
   const [printSaleId, setPrintSaleId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const pageSize = useDynamicPageSize(tableScrollRef, { paginationReserve: 96 });
   const isBottled = variant === "bottled";
   const title =
     listTitle ?? (isBottled ? "Bottle Oil invoices" : "Sales invoices");
@@ -131,15 +132,15 @@ export function SalesList({
   }, [appliedFilters]);
 
   const rows = result?.rows ?? [];
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageRows = rows.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
   const pageStart =
-    rows.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, rows.length);
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, rows.length);
+    rows.length === 0 ? 0 : Math.min((currentPage - 1) * pageSize + 1, rows.length);
+  const pageEnd = Math.min(currentPage * pageSize, rows.length);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -205,7 +206,7 @@ export function SalesList({
 
       {error ? <p class="sales-error">{error}</p> : null}
 
-      <div class="sales-table-wrap sales-panel">
+      <div class="sales-table-wrap sales-panel" ref={tableScrollRef}>
         <table class="sales-table sales-list-table">
           <thead>
             <tr>

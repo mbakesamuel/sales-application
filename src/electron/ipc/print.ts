@@ -48,16 +48,23 @@ function createPdfWindow(): BrowserWindow {
 }
 
 function createPrintWindow(parent?: BrowserWindow): BrowserWindow {
-  // Stays hidden. The system print dialog is owned by this window, and a
-  // visible copy is only a blank page beside the dialog.
+  // Size to the display work area so Chromium's print UI opens full-screen
+  // (Personel Management pattern). Keep the window invisible so only the
+  // system print dialog is seen.
+  const bounds =
+    parent && !parent.isDestroyed()
+      ? screen.getDisplayMatching(parent.getBounds()).workArea
+      : screen.getPrimaryDisplay().workArea;
   return new BrowserWindow({
-    parent,
-    width: 794,
-    height: 1123,
+    width: bounds.width,
+    height: bounds.height,
+    x: bounds.x,
+    y: bounds.y,
     show: false,
     frame: false,
     skipTaskbar: true,
-    focusable: true,
+    focusable: false,
+    opacity: 0,
     autoHideMenuBar: true,
     webPreferences: {
       contextIsolation: true,
@@ -65,6 +72,15 @@ function createPrintWindow(parent?: BrowserWindow): BrowserWindow {
       sandbox: true,
     },
   });
+}
+
+/** Show off-screen at opacity 0 so print metrics are valid without flashing UI. */
+function prepareHiddenPrintWindow(printWindow: BrowserWindow): void {
+  printWindow.setOpacity(0);
+  printWindow.setBounds(
+    screen.getDisplayMatching(printWindow.getBounds()).workArea,
+  );
+  printWindow.showInactive();
 }
 
 async function loadHtmlDocument(
@@ -287,6 +303,7 @@ export function registerPrintHandlers(): void {
 
       try {
         tempPath = await loadHtmlDocument(printWindow, html);
+        prepareHiddenPrintWindow(printWindow);
         await waitForPrintReady(printWindow);
         await printWebContents(printWindow.webContents);
         return { ok: true as const };
@@ -308,6 +325,7 @@ export function registerPrintHandlers(): void {
     const printWindow = createPrintWindow(parent);
     try {
       await printWindow.loadURL(pathToFileURL(tempPath).href);
+      prepareHiddenPrintWindow(printWindow);
       await waitForPrintReady(printWindow);
       await printWebContents(printWindow.webContents);
       return { ok: true as const };

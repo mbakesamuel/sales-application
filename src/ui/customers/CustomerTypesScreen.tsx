@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
@@ -6,6 +6,7 @@ import { getAuthenticatedDb } from "../auth/db.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
 import { RowActions } from "../components/RowActions.tsx";
+import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
 import { CustomerTypeFormModal } from "./CustomerTypeFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "./CustomersScreen.css";
@@ -33,8 +34,6 @@ interface CustomerTypeRow {
 }
 
 type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknown> };
-
-const PAGE_SIZE = 6;
 
 function salesTaxBadgeClass(exempt: boolean): string {
   return exempt
@@ -247,6 +246,8 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
   const [formState, setFormState] = useState<FormState | null>(null);
   const [viewRow, setViewRow] = useState<CustomerTypeRow | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const pageSize = useDynamicPageSize(tableScrollRef);
 
   useEffect(() => {
     let cancelled = false;
@@ -353,11 +354,11 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
     return next;
   }, [filtered, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const paginated = sorted.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
 
   useEffect(() => {
@@ -547,8 +548,8 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
   }
 
   const pageStart =
-    sorted.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, sorted.length);
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, sorted.length);
+    sorted.length === 0 ? 0 : Math.min((currentPage - 1) * pageSize + 1, sorted.length);
+  const pageEnd = Math.min(currentPage * pageSize, sorted.length);
 
   return (
     <div class="customers-screen">
@@ -682,7 +683,7 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
           ) : null}
         </div>
 
-        <div class="customers-table-scroll">
+        <div class="customers-table-scroll" ref={tableScrollRef}>
           <table class="customers-table">
             <thead>
               <tr>

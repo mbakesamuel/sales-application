@@ -1,7 +1,8 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
+import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
 import type {
   DeliveryOrdersListFilters,
   DeliveryOrdersListResult,
@@ -15,8 +16,6 @@ interface DeliveryOrdersListProps {
   onOpenOrder: (deliveryOrderNo: string) => void;
   onOpenScreen?: () => void;
 }
-
-const PAGE_SIZE = 15;
 
 function IconChevronLeft() {
   return (
@@ -72,6 +71,8 @@ export function DeliveryOrdersList({
   const [isLoading, setIsLoading] = useState(true);
   const [printOrderId, setPrintOrderId] = useState<number | string | null>(null);
   const [page, setPage] = useState(1);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const pageSize = useDynamicPageSize(tableScrollRef, { paginationReserve: 96 });
 
   useEffect(() => {
     setFilters((current) => ({ ...current, userId: user.id }));
@@ -146,15 +147,15 @@ export function DeliveryOrdersList({
   }, [filters]);
 
   const rows = result?.rows ?? [];
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageRows = rows.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
   const pageStart =
-    rows.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, rows.length);
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, rows.length);
+    rows.length === 0 ? 0 : Math.min((currentPage - 1) * pageSize + 1, rows.length);
+  const pageEnd = Math.min(currentPage * pageSize, rows.length);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -250,7 +251,7 @@ export function DeliveryOrdersList({
 
       {error ? <p class="sales-error">{error}</p> : null}
 
-      <div class="sales-panel sales-table-wrap">
+      <div class="sales-panel sales-table-wrap" ref={tableScrollRef}>
         <table class="sales-table sales-list-table">
           <thead>
             <tr>

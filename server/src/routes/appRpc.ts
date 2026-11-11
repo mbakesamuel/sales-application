@@ -87,9 +87,12 @@ import {
   backupStubs,
   carryForwardStockStubs,
   carryForwardStubs,
-  transportCostCompute,
-  transportCostGetFormOptions,
 } from "../services/thinClientStubs.js";
+import {
+  computeTransportCost,
+  getTransportCostFormOptions,
+  parseTransportCostComputeArgs,
+} from "../services/transportCostService.js";
 import { resolveHandler } from "../services/rpcCoverage.js";
 import {
   canPerformAction,
@@ -785,8 +788,9 @@ const handlers: Record<string, Handler> = {
       userId: ctx.userId,
     });
   },
-  "transportCost.getFormOptions": async () => transportCostGetFormOptions(),
-  "transportCost.compute": async () => transportCostCompute(),
+  "transportCost.getFormOptions": async () => getTransportCostFormOptions(),
+  "transportCost.compute": async (args, ctx) =>
+    computeTransportCost(parseTransportCostComputeArgs(args), ctx.userId),
   "backup.getInfo": async () => backupStubs.getInfo(),
   "backup.create": async () => backupStubs.create(),
   "backup.restore": async () => backupStubs.restore(),

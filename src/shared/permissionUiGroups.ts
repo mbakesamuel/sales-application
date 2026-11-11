@@ -174,7 +174,6 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
       "company-settings",
       "report-settings",
       "data-backup",
-      "sync-settings",
       "financial-year-periods",
       "financial-months",
       "commercial-services",

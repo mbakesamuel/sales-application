@@ -62,9 +62,13 @@ function isIndustryCustomer(
   saleDisposition: string | null,
   customerTypeCode: string,
   customerTypeName: string,
+  customerName = "",
 ): boolean {
-  if (saleDisposition === "RATION") return false;
-  const text = `${customerTypeCode} ${customerTypeName}`.toUpperCase();
+  if (saleDisposition === "RATION" || saleDisposition === "RETAIL") {
+    return false;
+  }
+  const text =
+    `${customerTypeCode} ${customerTypeName} ${customerName}`.toUpperCase();
   return text.includes("INDUSTR");
 }
 
@@ -104,6 +108,7 @@ export async function getIndustryProductMonthlySalesReport(
     Array<{
       date_issued: string;
       sale_disposition: string | null;
+      customer_name: string | null;
       customer_type_code: string | null;
       customer_type_name: string | null;
       product_id: number;
@@ -115,8 +120,9 @@ export async function getIndustryProductMonthlySalesReport(
     }>
   >`
     SELECT s.date_issued, s.sale_disposition,
-           COALESCE(ct.code, '') AS customer_type_code,
-           COALESCE(ct.name, '') AS customer_type_name,
+           COALESCE(c.name, s.customer_name_snapshot, '') AS customer_name,
+           COALESCE(pct.code, ct.code, '') AS customer_type_code,
+           COALESCE(pct.name, ct.name, '') AS customer_type_name,
            sl.product_id, p.product_name, p.product_code,
            COALESCE(pc.is_bottled, false) AS is_bottled,
            sl.qty_kg, sl.line_net
@@ -126,6 +132,13 @@ export async function getIndustryProductMonthlySalesReport(
     LEFT JOIN product_cats pc ON pc.product_cat_id = p.product_cat_id
     LEFT JOIN customers c ON c.id = s.customer_id
     LEFT JOIN customer_type_definitions ct ON ct.id = c.customer_type_id
+    LEFT JOIN delivery_orders d
+      ON d.delivery_order_no = s.delivery_order_no
+     AND d.status = 'VALIDATED'
+    LEFT JOIN delivery_order_details dd
+      ON dd.delivery_order_id = d.id
+     AND dd.product_id = sl.product_id
+    LEFT JOIN customer_type_definitions pct ON pct.id = dd.pricing_customer_type_id
     WHERE s.status = 'VALIDATED'
       AND s.date_issued >= ${yearFromIso}
       AND s.date_issued <= ${yearToIso}
@@ -136,6 +149,7 @@ export async function getIndustryProductMonthlySalesReport(
     .map((row) => ({
       dateIssued: String(row.date_issued).slice(0, 10),
       saleDisposition: row.sale_disposition,
+      customerName: String(row.customer_name ?? ""),
       customerTypeCode: String(row.customer_type_code ?? ""),
       customerTypeName: String(row.customer_type_name ?? ""),
       productId: row.product_id,
@@ -158,6 +172,7 @@ export async function getIndustryProductMonthlySalesReport(
           line.saleDisposition,
           line.customerTypeCode,
           line.customerTypeName,
+          line.customerName,
         ),
     );
 

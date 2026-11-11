@@ -244,11 +244,12 @@ function printViaHiddenIframe(assign: (frame: HTMLIFrameElement) => void): Promi
     const frame = document.createElement("iframe");
     frame.setAttribute("aria-hidden", "true");
     frame.setAttribute("title", "Print");
+    // Full-viewport (invisible) iframe — a 0×0 frame makes Chromium open a
+    // tiny print dialog; Personel-style HTML print needs the dialog full-size.
     frame.style.position = "fixed";
-    frame.style.right = "0";
-    frame.style.bottom = "0";
-    frame.style.width = "0";
-    frame.style.height = "0";
+    frame.style.inset = "0";
+    frame.style.width = "100%";
+    frame.style.height = "100%";
     frame.style.border = "0";
     frame.style.opacity = "0";
     frame.style.pointerEvents = "none";

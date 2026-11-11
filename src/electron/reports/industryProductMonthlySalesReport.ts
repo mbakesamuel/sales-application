@@ -40,6 +40,7 @@ const MONTH_NAMES = [
 interface SaleLineRecord {
   dateIssued: string;
   saleDisposition: string | null;
+  customerName: string;
   customerTypeCode: string;
   customerTypeName: string;
   productId: number;
@@ -84,11 +85,13 @@ function isIndustryCustomer(
   saleDisposition: string | null,
   customerTypeCode: string,
   customerTypeName: string,
+  customerName = "",
 ): boolean {
-  if (saleDisposition === "RATION") {
+  if (saleDisposition === "RATION" || saleDisposition === "RETAIL") {
     return false;
   }
-  const text = `${customerTypeCode} ${customerTypeName}`.toUpperCase();
+  const text =
+    `${customerTypeCode} ${customerTypeName} ${customerName}`.toUpperCase();
   return text.includes("INDUSTR");
 }
 
@@ -120,8 +123,9 @@ function loadSaleLines(
   return getDatabase()
     .prepare(
       `SELECT s.dateIssued, s.saleDisposition,
-              COALESCE(ct.code, '') AS customerTypeCode,
-              COALESCE(ct.name, '') AS customerTypeName,
+              COALESCE(c.name, s.customerNameSnapshot, '') AS customerName,
+              COALESCE(pct.code, ct.code, '') AS customerTypeCode,
+              COALESCE(pct.name, ct.name, '') AS customerTypeName,
               sl.productId, p.productName, p.productCode,
               COALESCE(pc.isBottled, 0) AS isBottled,
               sl.qtyKg, sl.lineNet
@@ -131,6 +135,13 @@ function loadSaleLines(
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
        LEFT JOIN Customer c ON c.id = s.customerId
        LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
+       LEFT JOIN DeliveryOrder d
+         ON d.deliveryOrderNo = s.deliveryOrderNo
+        AND d.status = 'VALIDATED'
+       LEFT JOIN DeliveryOrderDetails dd
+         ON dd.deliveryOrderId = d.id
+        AND dd.productId = sl.productId
+       LEFT JOIN CustomerTypeDefinition pct ON pct.id = dd.pricingCustomerTypeId
        WHERE s.status = 'VALIDATED'
          AND s.dateIssued >= ?
          AND s.dateIssued <= ?${sp.clause}`,
@@ -139,6 +150,7 @@ function loadSaleLines(
     .map((row) => ({
       dateIssued: String((row as { dateIssued: string }).dateIssued).slice(0, 10),
       saleDisposition: (row as { saleDisposition: string | null }).saleDisposition,
+      customerName: String((row as { customerName: string }).customerName ?? ""),
       customerTypeCode: String(
         (row as { customerTypeCode: string }).customerTypeCode ?? "",
       ),
@@ -178,6 +190,7 @@ export function getIndustryProductMonthlySalesReport(
         line.saleDisposition,
         line.customerTypeCode,
         line.customerTypeName,
+        line.customerName,
       ),
   );
 

@@ -28,7 +28,6 @@ import { SalesPointsScreen } from "../sales-points/SalesPointsScreen.tsx";
 import { CommercialServicesScreen } from "../commercial-services/CommercialServicesScreen.tsx";
 import { CompanySettingsScreen } from "../company-settings/CompanySettingsScreen.tsx";
 import { DataBackupScreen } from "../organization/DataBackupScreen.tsx";
-import { SyncSettingsScreen } from "../organization/SyncSettingsScreen.tsx";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import { ReportSettingsScreen } from "../reports/ReportSettingsScreen.tsx";
 import { StorageLocationsScreen } from "../storage-locations/StorageLocationsScreen.tsx";
@@ -84,7 +83,6 @@ import { ConfirmDialog } from "../components/ConfirmDialog.tsx";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import { DashboardScreen } from "../dashboard/DashboardScreen.tsx";
-import { SyncStatusBadge } from "../components/SyncStatusBadge.tsx";
 import { ServerOfflineBanner } from "../components/ServerOfflineBanner.tsx";
 import "./HomeScreen.css";
 
@@ -474,10 +472,6 @@ function RouteContent({
     return <DataBackupScreen readOnly={readOnly} />;
   }
 
-  if (route.id === "sync-settings") {
-    return <SyncSettingsScreen readOnly={readOnly} />;
-  }
-
   if (route.id === "locations") {
     return <LocationsScreen readOnly={readOnly} />;
   }
@@ -815,7 +809,6 @@ export function HomeScreen({
     "company-settings",
     "report-settings",
     "data-backup",
-    "sync-settings",
     "locations",
     "storage-locations",
     "tax-regimes",
@@ -882,7 +875,6 @@ export function HomeScreen({
           <span class="home-topbar-company">{companyName}</span>
         </div>
         <div class="home-topbar-actions">
-          <SyncStatusBadge />
           <div
             class="home-topbar-user"
             title={

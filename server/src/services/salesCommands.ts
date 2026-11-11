@@ -75,7 +75,11 @@ export type CreateSaleCommandResult =
   | { ok: false; error: string };
 
 function parseMoney(value: string | number | null | undefined): number {
-  const n = Number.parseFloat(String(value ?? "").replace(",", "."));
+  const n = Number.parseFloat(
+    String(value ?? "")
+      .replace(/[\s,\u00a0]/g, "")
+      .replace(",", "."),
+  );
   return Number.isFinite(n) ? n : 0;
 }
 

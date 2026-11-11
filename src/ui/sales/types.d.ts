@@ -115,6 +115,10 @@ export interface CreateSaleInput {
     deliveryOrderNo?: string;
     saleProductMode?: SaleProductMode;
     saleDisposition?: SaleDisposition;
+    /** Optional UI totals so thin-client paid amount matches server invoice gross. */
+    netAmount?: string;
+    vatAmount?: string;
+    grossAmount?: string;
     lines: SaleLineInput[];
     payments: SalePaymentInput[];
     validateImmediately?: boolean;

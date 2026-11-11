@@ -63,10 +63,10 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
   return (
     <main class="login-screen">
-      <header class="auth-heading">
+     {/*  <header class="auth-heading">
         <h1 class="auth-title">Sales Management Application</h1>
-        <p class="auth-subtitle">Sign in to continue.</p>
-      </header>
+        <p class="auth-subtitle">provide your credentials to continue</p>
+      </header> */}
 
       <section class="login-card">
         <h2 class="login-card-title">Sign in</h2>

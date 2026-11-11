@@ -605,6 +605,8 @@ export function SalesClient({
   }, [totals.gross, isFormEditable]);
 
   // Bottle Oil: keep a single Cash payment line (skip for Ration / Public relation).
+  // Always refresh amount — returning stale `current` here races the amount-sync
+  // effect and can leave paid at 0 while the invoice total is non-zero.
   useEffect(() => {
     if (!options || !isBottleMode || isSpecialDisposition) {
       return;
@@ -614,17 +616,19 @@ export function SalesClient({
     if (!cashId) {
       return;
     }
+    const amount = String(totals.gross);
     setPayments((current) => {
       if (
         current.length === 1 &&
-        current[0]?.paymentMethodId === cashId
+        current[0]?.paymentMethodId === cashId &&
+        current[0]?.amount === amount
       ) {
         return current;
       }
       return [
         {
           paymentMethodId: cashId,
-          amount: String(totals.gross),
+          amount,
           ...emptyPaymentExtras(),
         },
       ];
@@ -636,17 +640,19 @@ export function SalesClient({
     if (!options || !isFormEditable || !isSpecialDisposition || !dispositionPaymentMethodId) {
       return;
     }
+    const amount = String(totals.gross);
     setPayments((current) => {
       if (
         current.length === 1 &&
-        current[0]?.paymentMethodId === dispositionPaymentMethodId
+        current[0]?.paymentMethodId === dispositionPaymentMethodId &&
+        current[0]?.amount === amount
       ) {
         return current;
       }
       return [
         {
           paymentMethodId: dispositionPaymentMethodId,
-          amount: String(totals.gross),
+          amount,
           ...emptyPaymentExtras(),
         },
       ];
@@ -1494,6 +1500,7 @@ export function SalesClient({
           isBottleMode ? parseDec(line.qtyUnits) > 0 : parseDec(line.qtyKg) > 0,
         );
 
+      const paymentAmount = String(totals.gross);
       const result = await getElectronApi().sales.createSale({
         userId: user.id,
         ...(autoGenerateInvoiceNo ? {} : { invoiceNo }),
@@ -1518,6 +1525,10 @@ export function SalesClient({
             : undefined,
         saleProductMode: defaultProductMode,
         saleDisposition,
+        // Keep server invoice total aligned with the locked payment amount.
+        netAmount: String(totals.net),
+        vatAmount: String(totals.vat),
+        grossAmount: paymentAmount,
         lines: filteredLines.map((line) => {
           const parsedLocation = line.storageLocationId
             ? Number.parseInt(line.storageLocationId, 10)
@@ -1536,17 +1547,28 @@ export function SalesClient({
                 : null,
           };
         }),
-        payments: payments
-          .filter((payment) => parseDec(payment.amount) > 0)
-          .map((payment) => ({
+        payments: (() => {
+          const positive = payments.filter(
+            (payment) => parseDec(payment.amount) > 0,
+          );
+          const source =
+            positive.length > 0
+              ? positive
+              : payments[0]
+                ? [{ ...payments[0], amount: paymentAmount }]
+                : [];
+          return source.map((payment) => ({
             paymentMethodId: payment.paymentMethodId,
-            amount: payment.amount,
+            // Force the locked invoice total so a stale "0" amount cannot fail save.
+            amount:
+              source.length === 1 ? paymentAmount : payment.amount,
             chequeNo: payment.chequeNo,
             bank: payment.bank,
             traiteNo: payment.traiteNo,
             traiteIssuedOn: payment.traiteIssuedOn,
             traiteMaturityOn: payment.traiteMaturityOn,
-          })),
+          }));
+        })(),
       });
 
       if (result.ok === false) {
@@ -1909,16 +1931,9 @@ export function SalesClient({
         {!isBottleVariant && isSpecialDisposition ? (
           <p class="sales-hint">Limited to Loose Palm Oil.</p>
         ) : null}
-        {!isBottleVariant && saleDisposition === "RETAIL" ? (
-          <p class="sales-hint">
-            Invoice-only customer · no delivery order · each line below 3000 kg ·
-            Retail price schedule.
-          </p>
-        ) : null}
 
         <div class="sales-doc-identity-row sales-receipt-no-row">
           <label class="sales-field sales-invoice-no-field">
-            <span>{docNoLabel}</span>
             {saleId ? (
               <div class="sales-doc-invoice-value">{invoiceNo || "—"}</div>
             ) : (
@@ -1935,6 +1950,7 @@ export function SalesClient({
                       ? `${docNoLabel} (or leave blank)`
                       : docNoLabel
                 }
+                aria-label={docNoLabel}
                 disabled={!canEnterInvoiceNo}
                 onInput={(event) =>
                   setInvoiceNo(
@@ -1964,13 +1980,14 @@ export function SalesClient({
           }`}
         >
           <label class="sales-field">
-            <span>Sale date</span>
             <input
               type="date"
               value={transactionDate}
               min={postingPeriod?.startDate}
               max={postingPeriod?.endDate}
               disabled={!isFormEditable || !postingPeriod}
+              placeholder="Sale date"
+              aria-label="Sale date"
               onInput={(event) =>
                 setTransactionDate(
                   clampDateToPeriod(
@@ -1980,24 +1997,16 @@ export function SalesClient({
                 )
               }
             />
-            {postingPeriod ? (
-              <span class="sales-hint">
-                {user.salesPointId == null
-                  ? "Open month (head office)"
-                  : "Open month"}
-                : {postingPeriod.monthName} {postingPeriod.financialYear}
-              </span>
-            ) : (
+            {!postingPeriod ? (
               <span class="sales-hint sales-hint-error">
                 {user.salesPointId == null
                   ? "No central open month."
                   : "No open month for your collection point."}
               </span>
-            )}
+            ) : null}
           </label>
 
           <label class="sales-field">
-            <span>Collection point</span>
             <select
               value={salesPointId}
               disabled={
@@ -2005,12 +2014,13 @@ export function SalesClient({
                 options.scopedSalesPointId != null ||
                 (isBottleVariant && options.botaSalesPointId != null)
               }
+              aria-label="Collection point"
               onChange={(event) => {
                 const next = (event.currentTarget as HTMLSelectElement).value;
                 setSalesPointId(next);
               }}
             >
-              <option value="">Select collection point</option>
+              <option value="">Collection point</option>
               {options.salesPoints.map((point) => (
                 <option key={point.id} value={String(point.id)}>
                   {point.name}
@@ -2030,14 +2040,14 @@ export function SalesClient({
           </label>
 
           <label class="sales-field">
-            <span>Customer</span>
             {isInvoiceOnlyCustomer ? (
               <>
                 <input
                   type="text"
                   value={invoiceCustomerName}
                   disabled={!isFormEditable}
-                  placeholder="Customer name on invoice"
+                  placeholder="Customer"
+                  aria-label="Customer"
                   onInput={(event) =>
                     setInvoiceCustomerName(
                       (event.currentTarget as HTMLInputElement).value,
@@ -2051,13 +2061,14 @@ export function SalesClient({
                 <select
                   value={customerId}
                   disabled={!isFormEditable}
+                  aria-label="Customer"
                   onChange={(event) =>
                     setCustomerId(
                       (event.currentTarget as HTMLSelectElement).value,
                     )
                   }
                 >
-                  <option value="">Select customer</option>
+                  <option value="">Customer</option>
                   {options.customers.map((item) => (
                     <option key={item.id} value={String(item.id)}>
                       {item.name}
@@ -2080,11 +2091,12 @@ export function SalesClient({
 
           {vehicleRequired ? (
             <label class="sales-field">
-              <span>Veh. Consign. #</span>
               <input
                 type="text"
                 value={vehicleNumber}
                 disabled={!isFormEditable}
+                placeholder="Veh. Consign. #"
+                aria-label="Veh. Consign. #"
                 onInput={(event) =>
                   setVehicleNumber(
                     (event.currentTarget as HTMLInputElement).value,
@@ -2096,13 +2108,13 @@ export function SalesClient({
 
           {showDeliveryOrders ? (
             <label class="sales-field sales-field-do">
-              <span>Delivery order (optional)</span>
               <div class="sales-do-row">
                 <input
                   type="text"
                   value={deliveryOrderNo}
                   disabled={!isFormEditable}
-                  placeholder="DO-2026-000001"
+                  placeholder="Delivery order (optional)"
+                  aria-label="Delivery order (optional)"
                   onInput={(event) => {
                     setDeliveryOrderNo(
                       (event.currentTarget as HTMLInputElement).value,

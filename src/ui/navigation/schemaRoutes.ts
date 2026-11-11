@@ -44,12 +44,6 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description: "Create and restore full database backups (ADMIN).",
       },
       {
-        id: "sync-settings",
-        label: "Data sync",
-        table: "SyncState",
-        description: "Central PostgreSQL synchronization settings and status (ADMIN).",
-      },
-      {
         id: "financial-year-periods",
         label: "Financial year",
         table: "FinancialYearPeriod",

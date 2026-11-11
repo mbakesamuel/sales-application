@@ -43,6 +43,7 @@
     "server:logs": "npm --prefix server run pm2:logs",
     "server:status": "pm2 status",
     "server:migrate": "npm --prefix server run db:migrate",
+    "server:seed": "npm --prefix server run db:seed",
     "server:reset": "npm --prefix server run db:reset",
     "server:clear-ops": "npm --prefix server run db:clear-ops",
     "sync:backfill": "npm run transpile:electron && electron scripts/sync-backfill.mjs",

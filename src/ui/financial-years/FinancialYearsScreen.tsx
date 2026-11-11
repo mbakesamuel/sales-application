@@ -7,6 +7,7 @@ import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type { FinancialYearRow } from "../../shared/financialYears.types.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
+import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
 import { FinancialYearFormModal } from "./FinancialYearFormModal.tsx";
 import "../customers/CustomersScreen.css";
 import "./FinancialMonthsScreen.css";
@@ -14,8 +15,6 @@ import "./FinancialMonthsScreen.css";
 type SortKey = "financialYear" | "status" | "openedAt" | "openMonthCount";
 type SortDir = "asc" | "desc";
 type ActiveTab = "all" | "OPEN" | "CLOSED";
-
-const PAGE_SIZE = 6;
 
 function statusBadgeClass(status: string): string {
   return status === "OPEN"
@@ -247,6 +246,8 @@ export function FinancialYearsScreen({
   const [formOpen, setFormOpen] = useState(false);
   const [viewRow, setViewRow] = useState<FinancialYearRow | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const pageSize = useDynamicPageSize(tableScrollRef);
 
   useEffect(() => {
     let cancelled = false;
@@ -301,9 +302,9 @@ export function FinancialYearsScreen({
     return next;
   }, [filtered, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const paginated = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paginated = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const stats = useMemo(
     () => [
@@ -353,8 +354,8 @@ export function FinancialYearsScreen({
   }
 
   const pageStart =
-    sorted.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, sorted.length);
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, sorted.length);
+    sorted.length === 0 ? 0 : Math.min((currentPage - 1) * pageSize + 1, sorted.length);
+  const pageEnd = Math.min(currentPage * pageSize, sorted.length);
 
   return (
     <div class="customers-screen">
@@ -457,7 +458,7 @@ export function FinancialYearsScreen({
           </div>
         </div>
 
-        <div class="customers-table-scroll">
+        <div class="customers-table-scroll" ref={tableScrollRef}>
           <table class="customers-table">
             <thead>
               <tr>

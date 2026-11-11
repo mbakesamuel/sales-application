@@ -218,12 +218,14 @@ function DocumentPreviewBody({
     setPrinting(true);
     setStatus("Opening print dialog…");
     try {
-      if (previewMode === "pdf" && pdfBytes && pdfBytes.byteLength > 0) {
+      // Prefer HTML print (same as Personel LetterPdfOverlay) so the OS/Chromium
+      // print dialog sizes to the app window instead of a tiny PDF iframe.
+      if (htmlDocument) {
+        await getElectronApi().print.printHtml(htmlDocument);
+      } else if (previewMode === "pdf" && pdfBytes && pdfBytes.byteLength > 0) {
         const copy = new Uint8Array(pdfBytes.byteLength);
         copy.set(pdfBytes);
         await getElectronApi().print.printPdf(copy);
-      } else if (htmlDocument) {
-        await getElectronApi().print.printHtml(htmlDocument);
       } else {
         throw new Error("Nothing to print.");
       }

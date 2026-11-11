@@ -8,15 +8,22 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
   return (
-    <main class="auth-screen">
-      <div class="auth-brand">
-        <img class="auth-logo" src={logoSrc} alt="" />
-        <p class="auth-company">CDC Palm Oil Sales</p>
+    <main class="auth-screen auth-screen--welcome">
+      <div
+        class="auth-welcome-bg"
+        aria-hidden="true"
+        style={{ backgroundImage: `url(${welcomeSrc})` }}
+      />
+      <div class="auth-welcome-wash" aria-hidden="true" />
+      <div class="auth-welcome-content">
+        <div class="auth-brand">
+          <img class="auth-logo" src={logoSrc} alt="" />
+          <p class="auth-company">Sales Management Application</p>
+        </div>
+        <button type="button" class="auth-link" onClick={onContinue}>
+          Login
+        </button>
       </div>
-      <img class="auth-welcome-image" src={welcomeSrc} alt="" />
-      <button type="button" class="auth-link" onClick={onContinue}>
-        Login
-      </button>
     </main>
   );
 }

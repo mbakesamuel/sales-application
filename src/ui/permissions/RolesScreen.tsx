@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type {
   RoleDefinition,
   RolePermissionsSnapshot,
@@ -9,6 +9,7 @@ import { getElectronApi } from "../auth/client.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
 import { RowActions } from "../components/RowActions.tsx";
+import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
 import "../customers/CustomersScreen.css";
 import { confirmDelete } from "../components/confirmModal.tsx";
 
@@ -19,8 +20,6 @@ type ActiveTab = "all" | "system" | "custom";
 type FormState =
   | { mode: "create" }
   | { mode: "edit"; role: RoleDefinition };
-
-const PAGE_SIZE = 6;
 
 function exportCsv(rows: RoleDefinition[]) {
   const headers = ["id", "label", "isSystem", "userCount", "sortOrder"];
@@ -192,6 +191,8 @@ export function RolesScreen({ permissions }: RolesScreenProps) {
   const [newId, setNewId] = useState("");
   const [copyFromRoleId, setCopyFromRoleId] = useState("STORE_KEEPER");
   const [editingLabel, setEditingLabel] = useState("");
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const pageSize = useDynamicPageSize(tableScrollRef);
 
   async function reloadRoles() {
     const token = getAuthToken();
@@ -262,9 +263,9 @@ export function RolesScreen({ permissions }: RolesScreenProps) {
     return next;
   }, [filtered, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const paginated = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paginated = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -534,8 +535,8 @@ export function RolesScreen({ permissions }: RolesScreenProps) {
   }
 
   const pageStart =
-    sorted.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, sorted.length);
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, sorted.length);
+    sorted.length === 0 ? 0 : Math.min((currentPage - 1) * pageSize + 1, sorted.length);
+  const pageEnd = Math.min(currentPage * pageSize, sorted.length);
 
   const tabs: Array<{ id: ActiveTab; label: string }> = [
     { id: "all", label: "all" },
@@ -673,7 +674,7 @@ export function RolesScreen({ permissions }: RolesScreenProps) {
           ) : null}
         </div>
 
-        <div class="customers-table-scroll">
+        <div class="customers-table-scroll" ref={tableScrollRef}>
           <table class="customers-table">
             <thead>
               <tr>

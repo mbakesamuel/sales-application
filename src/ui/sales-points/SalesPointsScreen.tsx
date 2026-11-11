@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import {
@@ -11,6 +11,7 @@ import { getAuthenticatedDb } from "../auth/db.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
 import { RowActions } from "../components/RowActions.tsx";
+import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
 import { SalesPointFormModal } from "./SalesPointFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
@@ -38,8 +39,6 @@ interface SalesPointRow {
 }
 
 type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknown> };
-
-const PAGE_SIZE = 6;
 
 function statusBadgeClass(isActive: boolean): string {
   return isActive
@@ -239,6 +238,8 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
   const [formState, setFormState] = useState<FormState | null>(null);
   const [viewRow, setViewRow] = useState<SalesPointRow | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const pageSize = useDynamicPageSize(tableScrollRef);
 
   useEffect(() => {
     let cancelled = false;
@@ -344,9 +345,9 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
     return next;
   }, [filtered, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const paginated = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paginated = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -508,8 +509,8 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
   }
 
   const pageStart =
-    sorted.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, sorted.length);
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, sorted.length);
+    sorted.length === 0 ? 0 : Math.min((currentPage - 1) * pageSize + 1, sorted.length);
+  const pageEnd = Math.min(currentPage * pageSize, sorted.length);
 
   const printRows =
     selectedIds.size > 0
@@ -683,7 +684,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
           ) : null}
         </div>
 
-        <div class="customers-table-scroll">
+        <div class="customers-table-scroll" ref={tableScrollRef}>
           <table class="customers-table">
             <thead>
               <tr>

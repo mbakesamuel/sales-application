@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import { canWriteRouteFromSnapshot } from "../../shared/permissionUtils.ts";
 import type {
@@ -19,6 +19,7 @@ import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
+import { useDynamicPageSize } from "../hooks/useDynamicPageSize.ts";
 import {
   clampIsoDateToRange,
   formatDate,
@@ -43,8 +44,6 @@ type BatchLineDraft = {
 function formatQty(value: number): string {
   return Math.round(value).toLocaleString("en-US");
 }
-
-const PAGE_SIZE = 15;
 
 function IconChevronLeft() {
   return (
@@ -179,6 +178,8 @@ export function CarryForwardStockScreen({
     null,
   );
   const [page, setPage] = useState(1);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const pageSize = useDynamicPageSize(tableScrollRef);
 
   async function reload() {
     setLoading(true);
@@ -248,17 +249,17 @@ export function CarryForwardStockScreen({
     setPage(1);
   }, [search]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageRows = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
   const pageStart =
     filtered.length === 0
       ? 0
-      : Math.min((currentPage - 1) * PAGE_SIZE + 1, filtered.length);
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, filtered.length);
+      : Math.min((currentPage - 1) * pageSize + 1, filtered.length);
+  const pageEnd = Math.min(currentPage * pageSize, filtered.length);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -623,7 +624,7 @@ export function CarryForwardStockScreen({
       ) : null}
 
       <div class="cf-posted-panel">
-        <div class="cf-table-wrap">
+        <div class="cf-table-wrap" ref={tableScrollRef}>
           <table class="cf-table">
             <thead>
               <tr>
