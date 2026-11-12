@@ -290,6 +290,11 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     sectionId: "reports",
   },
   {
+    id: "audit-trail-report",
+    label: "Audit trail",
+    sectionId: "reports",
+  },
+  {
     id: "stock-movements",
     label: "Stock movements",
     sectionId: "inventory",

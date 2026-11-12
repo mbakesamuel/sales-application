@@ -18,7 +18,6 @@ import { getDatabase } from "../db/index.js";
 import { listActiveSalesPoints, requireActiveSalesPoint } from "../salesPoints/active.js";
 import { getOpenPostingPeriod } from "../financialYears/service.js";
 import { resolveDoLineUnitPrice } from "../pricing/doPricingCustomerType.js";
-import { allocateCarryForwardDeliveryOrderNo } from "../deliveryOrders/doNo.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
 import {
   formatTaxLabelWithPercent,
@@ -341,23 +340,43 @@ function assertSourceDocumentAvailable(
   excludeDeliveryOrderId: number | null,
 ): { ok: true } | { ok: false; error: string } {
   const db = getDatabase();
-  const row = db
+  // Original DO # is also the working deliveryOrderNo — block any existing DO
+  // with that number, and any other CF that already claimed it as source.
+  const byNumber = db
     .prepare(
-      `SELECT id, deliveryOrderNo FROM DeliveryOrder
-       WHERE sourceKind = 'CARRY_FORWARD'
-         AND status IN ('PENDING', 'VALIDATED')
-         AND sourceDocumentNo = ?
+      `SELECT id, deliveryOrderNo, sourceKind, sourceDocumentNo FROM DeliveryOrder
+       WHERE status IN ('PENDING', 'VALIDATED')
+         AND (
+           deliveryOrderNo = ?
+           OR (sourceKind = 'CARRY_FORWARD' AND sourceDocumentNo = ?)
+         )
          AND (? IS NULL OR id != ?)
        LIMIT 1`,
     )
-    .get(sourceDocumentNo, excludeDeliveryOrderId, excludeDeliveryOrderId) as
-    | { id: number; deliveryOrderNo: string }
+    .get(
+      sourceDocumentNo,
+      sourceDocumentNo,
+      excludeDeliveryOrderId,
+      excludeDeliveryOrderId,
+    ) as
+    | {
+        id: number;
+        deliveryOrderNo: string;
+        sourceKind: string | null;
+        sourceDocumentNo: string | null;
+      }
     | undefined;
 
-  if (row) {
+  if (byNumber) {
+    if (byNumber.deliveryOrderNo === sourceDocumentNo) {
+      return {
+        ok: false,
+        error: `DO # ${sourceDocumentNo} already exists.`,
+      };
+    }
     return {
       ok: false,
-      error: `Original DO # ${sourceDocumentNo} is already registered on ${row.deliveryOrderNo}.`,
+      error: `Original DO # ${sourceDocumentNo} is already registered on ${byNumber.deliveryOrderNo}.`,
     };
   }
   return { ok: true };
@@ -569,7 +588,8 @@ export function upsertCarryForwardCommitment(
           };
         }
 
-        const deliveryOrderNo = allocateCarryForwardDeliveryOrderNo(db);
+        // Keep the paper/original DO # as the working delivery order number.
+        const deliveryOrderNo = sourceDocumentNo;
         const stamp = nowIso();
         if (requiresValidation) {
           const insert = db

@@ -257,7 +257,7 @@ function printViaHiddenIframe(assign: (frame: HTMLIFrameElement) => void): Promi
 
     let unlocked = false;
     let cleaned = false;
-    let safetyTimer: ReturnType<typeof setTimeout> | undefined;
+    let safetyTimer: number | undefined;
     let objectUrl: string | null = null;
 
     const unlock = (err?: unknown) => {

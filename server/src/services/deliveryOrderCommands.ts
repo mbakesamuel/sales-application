@@ -301,26 +301,38 @@ async function preparePricedLines(input: {
       return { ok: false, error: retailQuantityBlockedOnDoMessage() };
     }
 
-    const pricingCustomerTypeId = await findCustomerTypeIdByKind(pricingKind);
-    const resolved = await resolveUnitPriceExTax({
-      productId: line.productId,
-      pricingCustomerTypeId,
-      asOfDate: dateIssued,
-      fallbackUnitPrice: line.unitPrice,
-    });
-    if (!resolved.ok) {
-      return {
-        ok: false,
-        error: `${product.product_name}: ${resolved.error}`,
-      };
-    }
-
-    const unit = parseMoney(resolved.unitPriceExTax);
-    if (unit <= 0) {
-      return {
-        ok: false,
-        error: `${product.product_name}: unit price must be greater than zero.`,
-      };
+    let unit: number;
+    let pricingCustomerTypeId: string | null = null;
+    if (product.requires_manual_unit_price) {
+      unit = parseMoney(line.unitPrice);
+      if (!(unit > 0)) {
+        return {
+          ok: false,
+          error: `${product.product_name}: enter the negotiated unit price.`,
+        };
+      }
+    } else {
+      pricingCustomerTypeId = await findCustomerTypeIdByKind(pricingKind);
+      const resolved = await resolveUnitPriceExTax({
+        productId: line.productId,
+        pricingCustomerTypeId,
+        asOfDate: dateIssued,
+        fallbackUnitPrice: line.unitPrice,
+      });
+      if (!resolved.ok) {
+        return {
+          ok: false,
+          error: `${product.product_name}: ${resolved.error}`,
+        };
+      }
+      unit = parseMoney(resolved.unitPriceExTax);
+      pricingCustomerTypeId = resolved.pricingCustomerTypeId;
+      if (unit <= 0) {
+        return {
+          ok: false,
+          error: `${product.product_name}: unit price must be greater than zero.`,
+        };
+      }
     }
 
     const lineNet = line.orderQty * unit;
@@ -333,7 +345,7 @@ async function preparePricedLines(input: {
       orderQty: line.orderQty,
       orderUnit: line.orderUnit?.trim() || "kg",
       unitPrice: roundMoney2(unit),
-      pricingCustomerTypeId: resolved.pricingCustomerTypeId,
+      pricingCustomerTypeId,
       lineSubtotalExTax: roundMoney2(lineNet),
       vatRate: String(vatRate),
       vatAmount: roundMoney2(vatAmount),

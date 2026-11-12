@@ -791,6 +791,7 @@ export function HomeScreen({
     "monthly-bottled-oil-report",
     "other-product-sales-deliveries-report",
     "palm-oil-sales-activity-report",
+    "audit-trail-report",
     "stock-bin-card-report",
     "sales-budget-monthly-crosstab",
     "sales-budget-monthly-revenue-crosstab",

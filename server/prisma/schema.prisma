@@ -271,6 +271,7 @@ model products {
   exclude_from_sales            Boolean                         @default(false)
   omits_storage_location        Boolean                         @default(false)
   exclude_from_delivery_orders  Boolean                         @default(false)
+  requires_manual_unit_price    Boolean                         @default(false)
   delivery_order_transfer_lines delivery_order_transfer_lines[]
   product_unit_price_schedules  product_unit_price_schedules[]
   commercial_services           commercial_services?            @relation(fields: [commercial_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -584,6 +585,7 @@ model users {
   commercial_service_id                                                           String?
   created_at                                                                      DateTime                    @default(now()) @db.Timestamptz(6)
   updated_at                                                                      DateTime                    @default(now()) @db.Timestamptz(6)
+  audit_logs                                                                      audit_logs[]
   auth_sessions                                                                   auth_sessions[]
   delivery_order_transfers                                                        delivery_order_transfers[]
   commercial_services                                                             commercial_services?        @relation(fields: [commercial_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -677,6 +679,26 @@ model auth_sessions {
 
   @@index([expires_at])
   @@index([user_id])
+}
+
+model audit_logs {
+  id          String    @id
+  occurred_at DateTime  @db.Timestamptz(6)
+  user_id     String?
+  username    String
+  role        String?
+  action      String
+  outcome     String
+  summary     String?
+  entity_kind String?
+  entity_id   String?
+  ip          String?
+  user_agent  String?
+  users       users?    @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([occurred_at])
+  @@index([user_id, occurred_at])
+  @@index([action, occurred_at])
 }
 
 model commercial_invoice_sequences {

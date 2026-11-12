@@ -19,7 +19,11 @@ import {
   isValidBookletSerial,
   validateBookletSerial,
 } from "../../shared/bookletSerial.ts";
-import { paymentMethodIdForDisposition } from "../../shared/dispositionPaymentMethods.ts";
+import {
+  paymentMethodIdForDisposition,
+  SYS_PM_PUBLIC_RELATION,
+  SYS_PM_RATION,
+} from "../../shared/dispositionPaymentMethods.ts";
 import { SalePrintView } from "./SalePrintView.tsx";
 import { SalesLineModal, type SalesLineDraft } from "./SalesLineModal.tsx";
 import { useServerConnectivity } from "../hooks/useServerConnectivity.ts";
@@ -71,27 +75,22 @@ function formatAmountInput(value: string): string {
 }
 
 function clampDateToPeriod(isoDate: string, period: OpenPostingPeriod | null): string {
-  if (!period) return isoDate;
+  if (!isoDate || !period) return isoDate;
   if (isoDate < period.startDate) return period.startDate;
   if (isoDate > period.endDate) return period.endDate;
   return isoDate;
 }
 
-function todayIsoDate(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-/** Label for the document-number field: Bottle Oil stays Receipt No.; loose varies by disposition. */
+/** Label for the document-number field: Bottle Oil and loose vary by disposition. */
 function documentNumberLabel(
   variant: SalesModuleVariant,
   disposition: SaleDisposition,
   dispositionChosen: boolean,
 ): string {
   if (variant === "bottled") {
+    if (dispositionChosen && disposition === "PUBLIC_RELATION") {
+      return "Consignment No.";
+    }
     return "Receipt No.";
   }
   if (!dispositionChosen) {
@@ -110,16 +109,32 @@ function dispositionPaymentMethodName(
   options: SalesFormOptions | null,
   paymentMethodId: string,
 ): string | null {
-  if (!options) {
-    return null;
-  }
-  if (paymentMethodId === options.rationPaymentMethodId) {
+  if (
+    paymentMethodId === SYS_PM_RATION ||
+    paymentMethodId === options?.rationPaymentMethodId
+  ) {
     return "Ration (deferred)";
   }
-  if (paymentMethodId === options.publicRelationPaymentMethodId) {
+  if (
+    paymentMethodId === SYS_PM_PUBLIC_RELATION ||
+    paymentMethodId === options?.publicRelationPaymentMethodId
+  ) {
     return "Public relation";
   }
   return null;
+}
+
+function paymentMethodDisplayName(
+  method: SalesPaymentMethodOption | undefined,
+  options: SalesFormOptions | null,
+  paymentMethodId: string,
+): string | null {
+  return (
+    dispositionPaymentMethodName(options, paymentMethodId) ??
+    (method?.kind === "PUBLIC_RELATION" ? "Public relation" : null) ??
+    method?.name ??
+    null
+  );
 }
 
 function cashOnlyPaymentMethods(
@@ -423,7 +438,8 @@ export function SalesClient({
   const [referenceNumber, setReferenceNumber] = useState("");
   const [deliveryOrderNo, setDeliveryOrderNo] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
-  const [transactionDate, setTransactionDate] = useState(todayIsoDate());
+  const [transactionDate, setTransactionDate] = useState("");
+  const [invoiceDateFocused, setInvoiceDateFocused] = useState(false);
   const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(null);
   const [taxRates, setTaxRates] = useState<TaxRatesBag>(FALLBACK_TAX_RATES);
   const [lines, setLines] = useState<SalesLineDraft[]>([]);
@@ -570,6 +586,11 @@ export function SalesClient({
   }, [lines, payments, vatRate, salesTaxRate, isBottleMode]);
 
   useEffect(() => {
+    if (!transactionDate) {
+      setTaxRates(FALLBACK_TAX_RATES);
+      return;
+    }
+
     let cancelled = false;
     void getElectronApi()
       .sales.getTaxRatesAsOf(transactionDate)
@@ -753,7 +774,9 @@ export function SalesClient({
       .then((period) => {
         if (cancelled) return;
         setPostingPeriod(period);
-        setTransactionDate((current) => clampDateToPeriod(current, period));
+        setTransactionDate((current) =>
+          current ? clampDateToPeriod(current, period) : current,
+        );
       })
       .catch(() => {
         if (!cancelled) {
@@ -1056,7 +1079,8 @@ export function SalesClient({
     setReferenceNumber("");
     setDeliveryOrderNo("");
     setVehicleNumber("");
-    setTransactionDate(clampDateToPeriod(todayIsoDate(), postingPeriod));
+    setTransactionDate("");
+    setInvoiceDateFocused(false);
     setLines([]);
     setPayments([{ paymentMethodId: "", amount: "0", ...emptyPaymentExtras() }]);
     setDoLinePrefill(null);
@@ -1445,13 +1469,20 @@ export function SalesClient({
       });
       return;
     }
+    if (!transactionDate) {
+      setBanner({
+        type: "error",
+        text: "Enter the invoice date.",
+      });
+      return;
+    }
     if (
       transactionDate < postingPeriod.startDate ||
       transactionDate > postingPeriod.endDate
     ) {
       setBanner({
         type: "error",
-        text: `Sale date must be within the open month (${postingPeriod.monthName} ${postingPeriod.financialYear}).`,
+        text: `Invoice date must be within the open month (${postingPeriod.monthName} ${postingPeriod.financialYear}).`,
       });
       return;
     }
@@ -1981,21 +2012,21 @@ export function SalesClient({
         >
           <label class="sales-field">
             <input
-              type="date"
+              type={transactionDate || invoiceDateFocused ? "date" : "text"}
               value={transactionDate}
               min={postingPeriod?.startDate}
               max={postingPeriod?.endDate}
               disabled={!isFormEditable || !postingPeriod}
-              placeholder="Sale date"
-              aria-label="Sale date"
-              onInput={(event) =>
+              placeholder="Invoice date"
+              aria-label="Invoice date"
+              onFocus={() => setInvoiceDateFocused(true)}
+              onBlur={() => setInvoiceDateFocused(false)}
+              onInput={(event) => {
+                const next = (event.currentTarget as HTMLInputElement).value;
                 setTransactionDate(
-                  clampDateToPeriod(
-                    (event.currentTarget as HTMLInputElement).value,
-                    postingPeriod,
-                  ),
-                )
-              }
+                  next ? clampDateToPeriod(next, postingPeriod) : "",
+                );
+              }}
             />
             {!postingPeriod ? (
               <span class="sales-hint sales-hint-error">
@@ -2006,38 +2037,53 @@ export function SalesClient({
             ) : null}
           </label>
 
-          <label class="sales-field">
-            <select
-              value={salesPointId}
-              disabled={
-                !isFormEditable ||
-                options.scopedSalesPointId != null ||
-                (isBottleVariant && options.botaSalesPointId != null)
-              }
-              aria-label="Collection point"
-              onChange={(event) => {
-                const next = (event.currentTarget as HTMLSelectElement).value;
-                setSalesPointId(next);
-              }}
-            >
-              <option value="">Collection point</option>
-              {options.salesPoints.map((point) => (
-                <option key={point.id} value={String(point.id)}>
-                  {point.name}
-                </option>
-              ))}
-            </select>
-            {bookletStatus ? (
+          {!isBottleVariant ? (
+            <label class="sales-field">
+              <select
+                value={salesPointId}
+                disabled={
+                  !isFormEditable || options.scopedSalesPointId != null
+                }
+                aria-label="Collection point"
+                onChange={(event) => {
+                  const next = (event.currentTarget as HTMLSelectElement).value;
+                  setSalesPointId(next);
+                }}
+              >
+                <option value="">Collection point</option>
+                {options.salesPoints.map((point) => (
+                  <option key={point.id} value={String(point.id)}>
+                    {point.name}
+                  </option>
+                ))}
+              </select>
+              {bookletStatus ? (
+                <span
+                  class={
+                    bookletStatus.ok
+                      ? "sales-hint sales-hint-ok"
+                      : "sales-hint sales-hint-error"
+                  }
+                >
+                  {bookletStatus.ok ? "✓ " : "⚠ "}
+                  {bookletStatus.message}
+                </span>
+              ) : null}
+            </label>
+          ) : bookletStatus ? (
+            <div class="sales-field">
               <span
                 class={
-                  bookletStatus.ok ? "sales-hint sales-hint-ok" : "sales-hint sales-hint-error"
+                  bookletStatus.ok
+                    ? "sales-hint sales-hint-ok"
+                    : "sales-hint sales-hint-error"
                 }
               >
                 {bookletStatus.ok ? "✓ " : "⚠ "}
                 {bookletStatus.message}
               </span>
-            ) : null}
-          </label>
+            </div>
+          ) : null}
 
           <label class="sales-field">
             {isInvoiceOnlyCustomer ? (
@@ -2164,9 +2210,10 @@ export function SalesClient({
                         }
                       >
                         <strong>
-                          {row.isCarryForward ? "CF · " : ""}
                           {row.deliveryOrderNo}
-                          {row.isCarryForward && row.sourceDocumentNo
+                          {row.isCarryForward &&
+                          row.sourceDocumentNo &&
+                          row.sourceDocumentNo !== row.deliveryOrderNo
                             ? ` · orig ${row.sourceDocumentNo}`
                             : ""}
                         </strong>
@@ -2412,8 +2459,11 @@ export function SalesClient({
                   (item) => item.id === payment.paymentMethodId,
                 );
               const methodLabel =
-                method?.name ??
-                dispositionPaymentMethodName(options, payment.paymentMethodId) ??
+                paymentMethodDisplayName(
+                  method,
+                  options,
+                  payment.paymentMethodId,
+                ) ??
                 (isBottleMode && !isSpecialDisposition ? "Cash" : null) ??
                 payment.paymentMethodId ??
                 "—";
@@ -2457,7 +2507,8 @@ export function SalesClient({
                           <option value="">Select payment method</option>
                           {paymentMethodOptions.map((item) => (
                             <option key={item.id} value={item.id}>
-                              {item.name}
+                              {paymentMethodDisplayName(item, options, item.id) ??
+                                item.name}
                             </option>
                           ))}
                         </select>

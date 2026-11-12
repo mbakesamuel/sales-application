@@ -849,7 +849,7 @@ export type ListPeriodFilter = "month" | "year" | "all";
 
 export function resolveListDateRange(
   period: ListPeriodFilter = "month",
-  salesPointId?: number | null,
+  scope?: number | null | string,
 ): {
   fromIso: string | null;
   toIso: string | null;
@@ -859,29 +859,31 @@ export function resolveListDateRange(
     return { fromIso: null, toIso: null, periodLabel: "All time" };
   }
 
-  const open = getOpenPostingPeriod(normalizeScope(salesPointId));
+  // string → acting userId (HO personal / CP month). number|null → legacy SP scope.
+  const open =
+    typeof scope === "string" && scope.trim()
+      ? getOpenPostingPeriodForActor(scope.trim())
+      : getOpenPostingPeriod(
+          normalizeScope(typeof scope === "number" ? scope : null),
+        );
   if (!open) {
     throw new Error("Open a financial month before listing documents.");
   }
 
-  const today = localTodayIso();
-  const asAtIso = today < open.endDate ? today : open.endDate;
-
   if (period === "month") {
     return {
       fromIso: open.startDate,
-      toIso: asAtIso,
+      toIso: open.endDate,
       periodLabel: `${open.monthName} ${open.financialYear}`,
     };
   }
 
   const yearStart = `${open.financialYear}-01-01`;
   const yearEnd = `${open.financialYear}-12-31`;
-  const toIso = asAtIso < yearEnd ? asAtIso : yearEnd;
   return {
     fromIso: yearStart,
-    toIso,
-    periodLabel: `FY ${open.financialYear} (through ${toIso})`,
+    toIso: yearEnd,
+    periodLabel: `FY ${open.financialYear}`,
   };
 }
 

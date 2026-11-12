@@ -190,6 +190,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getDailySales", authToken, reportDateIso, salesPointId),
     getDailySalesMatrix: (authToken, salesPointId, productId) =>
       ipcRenderer.invoke("reports:getDailySalesMatrix", authToken, salesPointId, productId),
+    getAuditTrail: (authToken, fromIso, toIso, userId) =>
+      ipcRenderer.invoke("reports:getAuditTrail", authToken, fromIso, toIso, userId),
     getPalmOilSalesActivity: (authToken) =>
       ipcRenderer.invoke("reports:getPalmOilSalesActivity", authToken),
     saveReportComments: (authToken, input) =>

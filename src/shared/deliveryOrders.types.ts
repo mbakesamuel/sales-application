@@ -20,6 +20,8 @@ export interface DeliveryOrdersCustomerOption {
 export interface DeliveryOrdersProductOption {
   productId: number;
   productName: string;
+  /** When true, unit price is entered manually (negotiated); schedule is not used. */
+  requiresManualUnitPrice: boolean;
 }
 
 export interface DeliveryOrdersSalesPointOption {
@@ -57,6 +59,8 @@ export interface DeliveryOrderLineInput {
   productId: number;
   orderQty: string;
   orderUnit?: string;
+  /** Required when the product uses negotiated / manual unit pricing. */
+  unitPrice?: string;
 }
 
 export interface DeliveryOrderPaymentInput {

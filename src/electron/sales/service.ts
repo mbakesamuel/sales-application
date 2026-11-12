@@ -455,7 +455,8 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
       `SELECT p.productId, p.productName, p.productCode, pc.productCat,
               pc.productCode AS productCatCode, pc.isBottled,
               COALESCE(p.excludeFromSales, 0) AS excludeFromSales,
-              COALESCE(p.omitsStorageLocation, 0) AS omitsStorageLocation
+              COALESCE(p.omitsStorageLocation, 0) AS omitsStorageLocation,
+              COALESCE(p.requiresManualUnitPrice, 0) AS requiresManualUnitPrice
        FROM Product p
        INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE COALESCE(p.excludeFromSales, 0) = 0
@@ -470,11 +471,12 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
     productCatCode: string;
     isBottled: number;
     omitsStorageLocation: number;
+    requiresManualUnitPrice: number;
   }>;
 
   const looseProducts = products
     .filter((product) => product.isBottled !== 1)
-    .map(({ productId, productName, productCat, productCode, productCatCode, isBottled, omitsStorageLocation }) => ({
+    .map(({ productId, productName, productCat, productCode, productCatCode, isBottled, omitsStorageLocation, requiresManualUnitPrice }) => ({
       productId,
       productName,
       productCat,
@@ -485,11 +487,12 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
         isBottled,
       }),
       omitsStorageLocation: omitsStorageLocation === 1,
+      requiresManualUnitPrice: requiresManualUnitPrice === 1,
     }));
 
   const bottledProducts = products
     .filter((product) => product.isBottled === 1)
-    .map(({ productId, productName, productCat, productCode, productCatCode, isBottled, omitsStorageLocation }) => ({
+    .map(({ productId, productName, productCat, productCode, productCatCode, isBottled, omitsStorageLocation, requiresManualUnitPrice }) => ({
       productId,
       productName,
       productCat,
@@ -500,6 +503,7 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
         isBottled,
       }),
       omitsStorageLocation: omitsStorageLocation === 1,
+      requiresManualUnitPrice: requiresManualUnitPrice === 1,
     }));
 
   const paymentMethods = db
@@ -937,10 +941,15 @@ export function listSales(filters: SalesListFilters = {}): SalesListResult {
   const params: unknown[] = [];
   const whereParts: string[] = [];
 
+  const productMode = filters.productMode;
+  // Bottle Oil invoices always post to Bota; don't hide them behind the
+  // clerk's own collection-point scope.
   const scopedSalesPointId =
-    typeof filters.userId === "string" && filters.userId.trim()
-      ? getUserCollectionPointId(filters.userId.trim())
-      : null;
+    productMode === "BOTTLE"
+      ? null
+      : typeof filters.userId === "string" && filters.userId.trim()
+        ? getUserCollectionPointId(filters.userId.trim())
+        : null;
   if (scopedSalesPointId != null) {
     whereParts.push(`s.salesPointId = ?`);
     params.push(scopedSalesPointId);
@@ -951,7 +960,6 @@ export function listSales(filters: SalesListFilters = {}): SalesListResult {
     params.push(`%${q}%`);
   }
 
-  const productMode = filters.productMode;
   if (productMode === "LOOSE" || productMode === "BOTTLE") {
     whereParts.push(`COALESCE(s.saleProductMode, 'LOOSE') = ?`);
     params.push(productMode);
@@ -959,6 +967,7 @@ export function listSales(filters: SalesListFilters = {}): SalesListResult {
 
   const { fromIso, toIso, periodLabel } = resolveListDateRange(
     period === "year" || period === "all" ? period : "month",
+    typeof filters.userId === "string" ? filters.userId : undefined,
   );
   if (fromIso && toIso) {
     whereParts.push(`substr(s.dateIssued, 1, 10) >= ?`);

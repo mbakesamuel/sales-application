@@ -1212,7 +1212,8 @@ export function CompanySettingsScreen({
             <span>
               When unchecked (default), users enter a booklet serial when creating
               a new delivery order. When checked, the system assigns DO-year-######
-              on save. Carry-forward and transfer numbers stay system-assigned.
+              on save. Carry-forward commitments keep the original DO #; transfer
+              numbers stay system-assigned.
             </span>
           </span>
         </label>

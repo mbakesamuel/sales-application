@@ -40,6 +40,17 @@ function formatKg(value: number): string {
   return Math.round(value).toLocaleString("en-US");
 }
 
+/** Prefer working DO #; fall back to original for legacy CF-* rows. */
+function displayDoNo(row: {
+  deliveryOrderNo: string;
+  sourceDocumentNo?: string | null;
+}): string {
+  const working = row.deliveryOrderNo?.trim();
+  if (working) return working;
+  const original = row.sourceDocumentNo?.trim();
+  return original || "—";
+}
+
 function newLineKey(): string {
   return `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -463,9 +474,8 @@ export function CarryForwardCommitmentsScreen({
                   <th>Customer</th>
                   <th>Collection point</th>
                   <th>Product</th>
-                  <th>Original DO #</th>
+                  <th>DO #</th>
                   <th class="cf-num">Outstanding (kg)</th>
-                  <th>CF DO</th>
                 </tr>
               </thead>
               <tbody>
@@ -479,16 +489,9 @@ export function CarryForwardCommitmentsScreen({
                     <td>{row.salesPointName}</td>
                     <td>{row.productName}</td>
                     <td>
-                      {row.sourceDocumentNo ? (
-                        <code>{row.sourceDocumentNo}</code>
-                      ) : (
-                        "—"
-                      )}
+                      <code>{displayDoNo(row)}</code>
                     </td>
                     <td class="cf-num">{formatKg(row.outstandingQty)}</td>
-                    <td>
-                      <code>{row.deliveryOrderNo}</code>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -508,8 +511,7 @@ export function CarryForwardCommitmentsScreen({
               <th>Customer</th>
               <th>Collection point</th>
               <th>Product</th>
-              <th>Original DO #</th>
-              <th>CF DO</th>
+              <th>DO #</th>
               <th class="cf-num">Outstanding (kg)</th>
               <th class="cf-num">Sold (kg)</th>
               <th class="cf-num">Order qty</th>
@@ -519,7 +521,7 @@ export function CarryForwardCommitmentsScreen({
           <tbody>
             {filtered.length === 0 && !loading ? (
               <tr>
-                <td colSpan={9} class="cf-empty">
+                <td colSpan={8} class="cf-empty">
                   No carry-forward commitments yet. Use Batch entry to add them.
                 </td>
               </tr>
@@ -530,14 +532,7 @@ export function CarryForwardCommitmentsScreen({
                 <td>{row.salesPointName}</td>
                 <td>{row.productName}</td>
                 <td>
-                  {row.sourceDocumentNo ? (
-                    <code>{row.sourceDocumentNo}</code>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  <code>{row.deliveryOrderNo}</code>
+                  <code>{displayDoNo(row)}</code>
                 </td>
                 <td class="cf-num">{formatKg(row.outstandingQty)}</td>
                 <td class="cf-num">{formatKg(row.soldQty)}</td>
@@ -664,7 +659,7 @@ export function CarryForwardCommitmentsScreen({
                 <thead>
                   <tr>
                     <th>Customer</th>
-                    <th>Original DO #</th>
+                    <th>DO #</th>
                     <th class="cf-num">Sold (kg)</th>
                     <th class="cf-num">Outstanding (kg)</th>
                     <th />
@@ -694,7 +689,10 @@ export function CarryForwardCommitmentsScreen({
                                 </option>
                               ))}
                             </select>
-                            {line.deliveryOrderNo ? (
+                            {line.deliveryOrderNo &&
+                            line.sourceDocumentNo.trim() &&
+                            line.deliveryOrderNo !==
+                              line.sourceDocumentNo.trim() ? (
                               <span class="cf-hint-inline">
                                 {" "}
                                 · {line.deliveryOrderNo}
@@ -708,7 +706,7 @@ export function CarryForwardCommitmentsScreen({
                               type="text"
                               inputMode="numeric"
                               pattern="\d*"
-                              placeholder="Original DO #"
+                              placeholder="DO #"
                               disabled={saving}
                               value={line.sourceDocumentNo}
                               onInput={(event) =>

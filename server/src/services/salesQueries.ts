@@ -9,22 +9,14 @@ import {
   canPerformAction,
   loadRpcActor,
 } from "./rpcActor.js";
-import { getOpenPostingPeriod } from "./financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "./financialYearsService.js";
 
 const SALES_ROUTE_ID = "sales";
 const BOTTLE_OIL_SALES_ROUTE_ID = "bottle-oil-sales";
 
-function localTodayIso(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
 async function resolveListDateRange(
   period: string,
-  salesPointId?: number | null,
+  userId?: string | null,
 ): Promise<{
   fromIso: string | null;
   toIso: string | null;
@@ -34,28 +26,31 @@ async function resolveListDateRange(
     return { fromIso: null, toIso: null, periodLabel: "All time" };
   }
 
-  const open = await getOpenPostingPeriod(salesPointId);
+  const actorId = userId?.trim();
+  if (!actorId) {
+    throw new Error("Open a financial month before listing documents.");
+  }
+
+  // Match createSale: list the actor's open month (HO personal / CP month),
+  // not a separate central window that can hide newly posted invoices.
+  const open = await getOpenPostingPeriodForActor(actorId);
   if (!open) {
     throw new Error("Open a financial month before listing documents.");
   }
 
-  const today = localTodayIso();
-  const asAtIso = today < open.endDate ? today : open.endDate;
-
   if (period === "year") {
     const yearStart = `${open.financialYear}-01-01`;
     const yearEnd = `${open.financialYear}-12-31`;
-    const toIso = asAtIso < yearEnd ? asAtIso : yearEnd;
     return {
       fromIso: yearStart,
-      toIso,
-      periodLabel: `FY ${open.financialYear} (through ${toIso})`,
+      toIso: yearEnd,
+      periodLabel: `FY ${open.financialYear}`,
     };
   }
 
   return {
     fromIso: open.startDate,
-    toIso: asAtIso,
+    toIso: open.endDate,
     periodLabel: `${open.monthName} ${open.financialYear}`,
   };
 }
@@ -154,7 +149,7 @@ export async function listSales(filters: {
     periodRaw === "year" || periodRaw === "all" ? periodRaw : "month";
   const { fromIso, toIso, periodLabel } = await resolveListDateRange(
     period,
-    filters.salesPointId,
+    filters.userId,
   );
 
   const where: Record<string, unknown> = {};

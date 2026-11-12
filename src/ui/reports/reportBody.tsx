@@ -26,6 +26,7 @@ import { SalesBudgetWeeklyCrosstabScreen } from "./SalesBudgetWeeklyCrosstabScre
 import { SalesBudgetWeeklyRevenueCrosstabScreen } from "./SalesBudgetWeeklyRevenueCrosstabScreen.tsx";
 import { TransportCostReportScreen } from "./TransportCostReportScreen.tsx";
 import { PalmOilSalesActivityScreen } from "./PalmOilSalesActivityScreen.tsx";
+import { AuditTrailReportScreen } from "./AuditTrailReportScreen.tsx";
 import { BinCardReportScreen } from "../stock/BinCardReportScreen.tsx";
 import "./ReportLightSurface.css";
 
@@ -98,6 +99,8 @@ export function ReportBody({
       return <SalesBudgetWeeklyRevenueCrosstabScreen windowMode={windowMode} />;
     case "palm-oil-sales-activity-report":
       return <PalmOilSalesActivityScreen windowMode={windowMode} />;
+    case "audit-trail-report":
+      return <AuditTrailReportScreen windowMode={windowMode} />;
     default:
       return (
         <p class="scr-status scr-status-error">

@@ -44,6 +44,7 @@ import type {
   WeeklyDeliveriesReport,
   DailySalesReport,
   DailySalesMatrixReport,
+  AuditTrailReport,
   ReportSignatoryRow,
 } from "../../shared/reports.types.ts";
 import type {
@@ -305,6 +306,12 @@ interface ReportsApi {
     salesPointId?: number | null,
     productId?: number | null,
   ): Promise<DailySalesMatrixReport>;
+  getAuditTrail(
+    authToken: string,
+    fromIso: string,
+    toIso: string,
+    userId?: string | null,
+  ): Promise<AuditTrailReport>;
   saveReportComments(
     authToken: string,
     input: { reportId: string; text: string | null },

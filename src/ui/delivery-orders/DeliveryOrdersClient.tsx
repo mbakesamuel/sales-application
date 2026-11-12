@@ -334,6 +334,13 @@ export function DeliveryOrdersClient({
             return;
           }
 
+          const product = options.products.find(
+            (item) => item.productId === productId,
+          );
+          if (product?.requiresManualUnitPrice) {
+            return;
+          }
+
           const result = await getElectronApi().deliveryOrders.previewUnitPrice(
             {
               customerId: Number.parseInt(customerId, 10),
@@ -668,6 +675,29 @@ export function DeliveryOrdersClient({
         setBanner({
           type: "error",
           text: "Enter a delivery order number.",
+        });
+        return;
+      }
+
+      const negotiatedLine = lines.find((line) => {
+        if (!line.productId || !(Number.parseInt(line.orderQty, 10) > 0)) {
+          return false;
+        }
+        const product = options.products.find(
+          (item) => String(item.productId) === line.productId,
+        );
+        if (!product?.requiresManualUnitPrice) {
+          return false;
+        }
+        return !(parseDec(line.unitPrice) > 0);
+      });
+      if (negotiatedLine) {
+        const product = options.products.find(
+          (item) => String(item.productId) === negotiatedLine.productId,
+        );
+        setBanner({
+          type: "error",
+          text: `Enter the negotiated unit price for ${product?.productName ?? "this product"}.`,
         });
         return;
       }
@@ -1114,6 +1144,12 @@ export function DeliveryOrdersClient({
                         event.currentTarget as HTMLSelectElement
                       ).value;
                       const lineIndex = index;
+                      const selected = options.products.find(
+                        (item) => String(item.productId) === productId,
+                      );
+                      const negotiated = Boolean(
+                        selected?.requiresManualUnitPrice,
+                      );
                       setLines((current) =>
                         current.map((item, itemIndex) =>
                           itemIndex === lineIndex
@@ -1130,7 +1166,7 @@ export function DeliveryOrdersClient({
                         return next;
                       });
 
-                      if (productId && customerId) {
+                      if (productId && customerId && !negotiated) {
                         const parsedCustomerId = Number.parseInt(customerId, 10);
                         const parsedProductId = Number.parseInt(productId, 10);
                         if (
@@ -1185,6 +1221,9 @@ export function DeliveryOrdersClient({
                         value={String(product.productId)}
                       >
                         {product.productName}
+                        {product.requiresManualUnitPrice
+                          ? " · negotiated price"
+                          : ""}
                       </option>
                     ))}
                   </select>
@@ -1246,21 +1285,70 @@ export function DeliveryOrdersClient({
 
                   <label class="sales-field">
                     <span>Unit price (ex VAT)</span>
-                    <input
-                      type="text"
-                      value={
-                        line.unitPrice
-                          ? formatAmount(parseDec(line.unitPrice))
-                          : ""
+                    {(() => {
+                      const lineProduct = options.products.find(
+                        (item) => String(item.productId) === line.productId,
+                      );
+                      const negotiated = Boolean(
+                        lineProduct?.requiresManualUnitPrice,
+                      );
+                      if (negotiated) {
+                        return (
+                          <>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={line.unitPrice}
+                              disabled={!isFormEditable}
+                              placeholder="Enter negotiated price"
+                              onInput={(event) => {
+                                const value = (
+                                  event.currentTarget as HTMLInputElement
+                                ).value;
+                                setLinePriceErrors((current) => {
+                                  if (!current[index]) {
+                                    return current;
+                                  }
+                                  const next = { ...current };
+                                  delete next[index];
+                                  return next;
+                                });
+                                setLines((current) =>
+                                  current.map((item, itemIndex) =>
+                                    itemIndex === index
+                                      ? { ...item, unitPrice: value }
+                                      : item,
+                                  ),
+                                );
+                              }}
+                            />
+                            <span class="sales-hint">
+                              Negotiated price — enter the agreed unit price.
+                            </span>
+                          </>
+                        );
                       }
-                      readOnly
-                      disabled={!isFormEditable}
-                    />
-                    {linePriceErrors[index] ? (
-                      <span class="sales-hint sales-hint-warn">
-                        {linePriceErrors[index]}
-                      </span>
-                    ) : null}
+                      return (
+                        <>
+                          <input
+                            type="text"
+                            value={
+                              line.unitPrice
+                                ? formatAmount(parseDec(line.unitPrice))
+                                : ""
+                            }
+                            readOnly
+                            disabled={!isFormEditable}
+                          />
+                          {linePriceErrors[index] ? (
+                            <span class="sales-hint sales-hint-warn">
+                              {linePriceErrors[index]}
+                            </span>
+                          ) : null}
+                        </>
+                      );
+                    })()}
                   </label>
 
                   <label class="sales-field">

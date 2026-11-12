@@ -18,6 +18,10 @@ export async function listCustomers() {
 
 export async function listProducts() {
   const rows = await prisma.products.findMany({
+    where: {
+      exclude_from_delivery_orders: false,
+      product_cats: { is_bottled: false },
+    },
     orderBy: { product_name: "asc" },
     take: 2000,
   });
@@ -26,6 +30,7 @@ export async function listProducts() {
     productName: row.product_name,
     productCatId: row.product_cat_id,
     uom: row.uom,
+    requiresManualUnitPrice: Boolean(row.requires_manual_unit_price),
   }));
 }
 
@@ -36,6 +41,7 @@ export type SalesFormProductOption = {
   productCatCode: string;
   isMain: boolean;
   omitsStorageLocation: boolean;
+  requiresManualUnitPrice: boolean;
 };
 
 function isLooseLpoSalesProduct(args: {
@@ -84,6 +90,7 @@ export async function listSalesFormProducts(): Promise<{
         isBottled,
       }),
       omitsStorageLocation: Boolean(row.omits_storage_location),
+      requiresManualUnitPrice: Boolean(row.requires_manual_unit_price),
     };
     if (isBottled) {
       bottledProducts.push(option);

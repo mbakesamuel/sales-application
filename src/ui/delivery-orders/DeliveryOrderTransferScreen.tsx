@@ -85,12 +85,12 @@ export function DeliveryOrderTransferScreen({
   }, [user.id]);
 
   const destinationPoints = useMemo(() => {
-    if (!options || !payload) {
-      return options?.salesPoints ?? [];
+    const points = options?.salesPoints ?? [];
+    if (!payload) {
+      return points;
     }
-    return options.salesPoints.filter(
-      (point) => point.id !== payload.order.salesPointId,
-    );
+    const sourceId = Number(payload.order.salesPointId);
+    return points.filter((point) => Number(point.id) !== sourceId);
   }, [options, payload]);
 
   async function loadSource(rawNo?: string) {
@@ -383,20 +383,29 @@ export function DeliveryOrderTransferScreen({
               <span>Destination collection point</span>
               <select
                 value={toSalesPointId}
-                disabled={!canTransfer || busy}
+                disabled={!canTransfer || busy || destinationPoints.length === 0}
                 onChange={(event) =>
                   setToSalesPointId(
                     (event.currentTarget as HTMLSelectElement).value,
                   )
                 }
               >
-                <option value="">Select collection point</option>
+                <option value="">
+                  {destinationPoints.length === 0
+                    ? "No other collection points available"
+                    : "Select collection point"}
+                </option>
                 {destinationPoints.map((point) => (
                   <option key={point.id} value={String(point.id)}>
                     {point.name}
                   </option>
                 ))}
               </select>
+              {options && destinationPoints.length === 0 ? (
+                <span class="sales-hint sales-hint-error">
+                  Add another active collection point to transfer this balance.
+                </span>
+              ) : null}
             </label>
 
             <label class="sales-field">

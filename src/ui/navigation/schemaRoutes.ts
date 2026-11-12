@@ -473,11 +473,21 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
           "Annual palm oil sales by customer category in tons and FCFA.",
       },
     ];
+    const adminRoutes: SchemaRoute[] = [
+      {
+        id: "audit-trail-report",
+        label: "Audit trail",
+        table: "AuditLog",
+        description:
+          "Who signed in and which authenticated actions they performed in a date range.",
+      },
+    ];
     const groups: SchemaRouteGroup[] = [
       { id: "daily", label: "Daily", routes: dailyRoutes },
       { id: "weekly", label: "Weekly", routes: weeklyRoutes },
       { id: "monthly", label: "Monthly", routes: monthlyRoutes },
       { id: "annual", label: "Annual", routes: annualRoutes },
+      { id: "admin", label: "Admin", routes: adminRoutes },
     ];
     return {
       id: "reports",

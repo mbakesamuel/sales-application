@@ -26,6 +26,7 @@ interface FormData {
   uom: string;
   omitsStorageLocation: boolean;
   excludeFromDeliveryOrders: boolean;
+  requiresManualUnitPrice: boolean;
 }
 
 const UOM_OPTIONS = ["Kg", "Unit", "Litre", "Ton", "Bag"] as const;
@@ -54,6 +55,7 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
       uom: "Kg",
       omitsStorageLocation: false,
       excludeFromDeliveryOrders: false,
+      requiresManualUnitPrice: false,
     };
   }
 
@@ -66,6 +68,7 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
     uom: row.uom != null ? String(row.uom) : "Kg",
     omitsStorageLocation: readBoolean(row.omitsStorageLocation),
     excludeFromDeliveryOrders: readBoolean(row.excludeFromDeliveryOrders),
+    requiresManualUnitPrice: readBoolean(row.requiresManualUnitPrice),
   };
 }
 
@@ -179,6 +182,7 @@ export function ProductFormModal({
       commercialServiceId: form.commercialServiceId || null,
       omitsStorageLocation: form.omitsStorageLocation ? 1 : 0,
       excludeFromDeliveryOrders: form.excludeFromDeliveryOrders ? 1 : 0,
+      requiresManualUnitPrice: form.requiresManualUnitPrice ? 1 : 0,
     };
 
     try {
@@ -381,6 +385,34 @@ export function ProductFormModal({
             <p class="form-dialog-hint">
               When checked, this product does not appear on the Delivery Order
               form (e.g. sludge oil, palm kernel).
+            </p>
+          </div>
+        </div>
+
+        <div class="form-dialog-row">
+          <label class="form-dialog-label" for="product-manual-price">
+            Pricing
+          </label>
+          <div class="form-dialog-control">
+            <label class="form-dialog-checkbox-label">
+              <input
+                id="product-manual-price"
+                type="checkbox"
+                checked={form.requiresManualUnitPrice}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  updateField(
+                    "requiresManualUnitPrice",
+                    (event.currentTarget as HTMLInputElement).checked,
+                  )
+                }
+              />
+              Negotiated unit price
+            </label>
+            <p class="form-dialog-hint">
+              When checked, sales and delivery orders require a manually entered
+              unit price (no price schedule). Use for products priced by
+              consultation with the customer.
             </p>
           </div>
         </div>

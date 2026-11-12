@@ -67,6 +67,12 @@ export function getAuthenticatedReports() {
       api.getDailySales(requireAuthToken(), reportDateIso, salesPointId ?? null),
     getDailySalesMatrix: (salesPointId?: number | null, productId?: number | null) =>
       api.getDailySalesMatrix(requireAuthToken(), salesPointId ?? null, productId ?? null),
+    getAuditTrail: (
+      fromIso: string,
+      toIso: string,
+      userId?: string | null,
+    ) =>
+      api.getAuditTrail(requireAuthToken(), fromIso, toIso, userId ?? null),
     saveReportComments: (input: { reportId: string; text: string | null }) =>
       api.saveReportComments(requireAuthToken(), input),
     listSignatories: () => api.listSignatories(requireAuthToken()),

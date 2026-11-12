@@ -22,6 +22,7 @@ import {
   postReceiptCommand,
   postTransferCommand,
   receiveTransferCommand,
+  updateReceiptCommand,
 } from "../services/stockCommands.js";
 import { prisma } from "../db/prisma.js";
 import {
@@ -70,6 +71,7 @@ import { getCommitmentReport } from "../services/reports/commitmentReport.js";
 import { getStockCommitmentReport } from "../services/reports/stockCommitmentReport.js";
 import { getDailySalesReport } from "../services/reports/dailySalesReport.js";
 import { getDailySalesMatrixReport } from "../services/reports/dailySalesMatrixReport.js";
+import { getAuditTrailReport } from "../services/reports/auditTrailReport.js";
 import { getWeeklyDeliveriesReport } from "../services/reports/weeklyDeliveriesReport.js";
 import { getMonthlyDeliveryReport } from "../services/reports/monthlyDeliveryReport.js";
 import { getMonthlyPaymentDeliveryReport } from "../services/reports/monthlyPaymentDeliveryReport.js";
@@ -92,6 +94,12 @@ import {
   parseTransportCostComputeArgs,
 } from "../services/transportCostService.js";
 import { resolveHandler } from "../services/rpcCoverage.js";
+import {
+  requestClientMeta,
+  resolveAuditOutcome,
+  summarizeRpcAudit,
+  writeAuditLog,
+} from "../services/auditLog.js";
 import {
   canPerformAction,
   canWriteRoute,
@@ -136,12 +144,21 @@ const handlers: Record<string, Handler> = {
   },
   "sales.listSales": async (args, ctx) => {
     const filters = (args[0] ?? {}) as Record<string, unknown>;
+    const productMode = String(filters.productMode ?? "").toUpperCase();
+    // Bottle Oil invoices always post to Bota; don't hide them behind the
+    // clerk's own collection-point scope.
+    const salesPointId =
+      productMode === "BOTTLE"
+        ? filters.salesPointId != null
+          ? Number(filters.salesPointId)
+          : null
+        : filters.salesPointId != null
+          ? Number(filters.salesPointId)
+          : ctx.salesPointId;
     return listSales({
       ...filters,
-      salesPointId:
-        filters.salesPointId != null
-          ? Number(filters.salesPointId)
-          : ctx.salesPointId,
+      userId: filters.userId ?? ctx.userId,
+      salesPointId,
     });
   },
   "sales.listValidationQueue": async (_args, ctx) => {
@@ -201,13 +218,23 @@ const handlers: Record<string, Handler> = {
   },
   "stock.saveReceipt": async (args, ctx) => {
     const input = (args[0] ?? {}) as Record<string, unknown>;
-    if (input.id) {
-      return { ok: false, error: "Updating receipts via API is not yet supported." };
+    const salesPointId = Number(input.salesPointId ?? ctx.salesPointId);
+    const id =
+      input.id == null || input.id === ""
+        ? null
+        : String(input.id).trim() || null;
+    if (id) {
+      return updateReceiptCommand({
+        ...(input as Parameters<typeof updateReceiptCommand>[0]),
+        id,
+        userId: ctx.userId,
+        salesPointId,
+      });
     }
     return createReceiptCommand({
       ...(input as Parameters<typeof createReceiptCommand>[0]),
       userId: ctx.userId,
-      salesPointId: Number(input.salesPointId ?? ctx.salesPointId),
+      salesPointId,
     });
   },
   "stock.postReceipt": async (args, ctx) => {
@@ -633,6 +660,27 @@ const handlers: Record<string, Handler> = {
       typeof args[1] === "string" ? args[1] : String(args[0] ?? "");
     return deleteReportSignatory(ctx.userId, id);
   },
+  "reports.getAuditTrail": async (args, ctx) => {
+    const payload = (args[1] ?? args[0] ?? {}) as {
+      fromIso?: string;
+      toIso?: string;
+      userId?: string | null;
+    };
+    // Authenticated wrappers may pass (authToken, fromIso, toIso, userId).
+    const fromIso =
+      typeof args[1] === "string"
+        ? String(args[1])
+        : String(payload.fromIso ?? "");
+    const toIso =
+      typeof args[2] === "string"
+        ? String(args[2])
+        : String(payload.toIso ?? "");
+    const filterUserId =
+      typeof args[3] === "string" || args[3] === null
+        ? (args[3] as string | null)
+        : (payload.userId ?? null);
+    return getAuditTrailReport(ctx.userId, fromIso, toIso, filterUserId);
+  },
 
   "financialYears.getOpenPostingPeriod": async (_args, ctx) => {
     // Actor-scoped: HO → personal UserPostingMonth; CP → sales-point month.
@@ -831,12 +879,16 @@ const handlers: Record<string, Handler> = {
       looseProducts: salesProducts.looseProducts,
       bottledProducts: salesProducts.bottledProducts,
       salesPoints,
-      paymentMethods: paymentMethods.map((p) => ({
-        id: p.id,
-        code: p.code,
-        name: p.name,
-        kind: p.kind,
-      })),
+      paymentMethods: paymentMethods
+        .filter(
+          (p) => p.kind !== "CREDIT" && p.kind !== "PUBLIC_RELATION",
+        )
+        .map((p) => ({
+          id: p.id,
+          code: p.code,
+          name: p.name,
+          kind: p.kind,
+        })),
       storageLocations: mappedLocations,
       scopedSalesPointId: ctx.salesPointId,
       companyName: company?.companyName ?? "",
@@ -852,6 +904,8 @@ const handlers: Record<string, Handler> = {
         company?.loosePalmOilRequireSalesTank !== false,
       botaSalesPointId: botaSalesPoint?.id ?? null,
       bottleOilStoreLocationId: bottleOilStoreLocation?.id ?? null,
+      rationPaymentMethodId: "sys-pm-ration",
+      publicRelationPaymentMethodId: "sys-pm-public-relation",
     };
   },
   "deliveryOrders.getFormOptions": async (_args, ctx) => {
@@ -992,6 +1046,7 @@ appRpcRoute.post("/:namespace/:method", async (c) => {
     userId: user.id,
     salesPointId: user.salesPointId,
   };
+  const client = requestClientMeta(c);
 
   if (key === "permissions.getSnapshot") {
     return c.json(user.permissions);
@@ -999,6 +1054,16 @@ appRpcRoute.post("/:namespace/:method", async (c) => {
 
   const handler = resolveHandler(key, handlers);
   if (!handler) {
+    writeAuditLog({
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      action: key,
+      outcome: "FAILURE",
+      summary: "API method not implemented",
+      ip: client.ip,
+      userAgent: client.userAgent,
+    });
     return c.json(
       {
         ok: false,
@@ -1011,9 +1076,52 @@ appRpcRoute.post("/:namespace/:method", async (c) => {
 
   try {
     const result = await handler(args, ctx);
+    const outcome = resolveAuditOutcome(result, false);
+    const summarized = summarizeRpcAudit({
+      action: key,
+      args,
+      result,
+      errorMessage:
+        outcome === "FAILURE" &&
+        result &&
+        typeof result === "object" &&
+        typeof (result as { error?: unknown }).error === "string"
+          ? String((result as { error: string }).error)
+          : null,
+    });
+    writeAuditLog({
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      action: key,
+      outcome,
+      summary: summarized.summary,
+      entityKind: summarized.entityKind,
+      entityId: summarized.entityId,
+      ip: client.ip,
+      userAgent: client.userAgent,
+    });
     return c.json(result ?? null);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Request failed.";
+    const summarized = summarizeRpcAudit({
+      action: key,
+      args,
+      result: null,
+      errorMessage: message,
+    });
+    writeAuditLog({
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      action: key,
+      outcome: "FAILURE",
+      summary: summarized.summary,
+      entityKind: summarized.entityKind,
+      entityId: summarized.entityId,
+      ip: client.ip,
+      userAgent: client.userAgent,
+    });
     return c.json({ ok: false, error: message }, 400);
   }
 });

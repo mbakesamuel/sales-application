@@ -79,12 +79,16 @@ export function SalesLineModal({
   const [locationsLoading, setLocationsLoading] = useState(false);
   const [locationsError, setLocationsError] = useState<string | null>(null);
   const openedProductIdRef = useRef(line.productId);
+  const qtyInputRef = useRef<HTMLInputElement | null>(null);
 
   const title = mode === "add" ? "Add item" : "Edit item";
   const selectedProduct = products.find(
     (product) => String(product.productId) === draft.productId,
   );
   const omitsStorage = Boolean(selectedProduct?.omitsStorageLocation);
+  const requiresManualUnitPrice = Boolean(
+    selectedProduct?.requiresManualUnitPrice,
+  );
   const isLoosePalmOil = Boolean(selectedProduct?.isMain);
   const needsStorageLocation = !isBottleMode && !omitsStorage;
   /** Bottle still checks Bottle Oil Store qty even though the picker stays hidden. */
@@ -97,10 +101,13 @@ export function SalesLineModal({
         ? "Enter the loose product, sales tank, and weight."
         : "Enter the loose product, location, and weight.";
 
+  const lockPriceFromSchedule =
+    lockUnitPriceFromSchedule && !requiresManualUnitPrice;
   const allowAutoUnitPrice =
-    lockUnitPriceFromSchedule ||
-    isBottleMode ||
-    saleDisposition === "RETAIL";
+    !requiresManualUnitPrice &&
+    (lockUnitPriceFromSchedule ||
+      isBottleMode ||
+      saleDisposition === "RETAIL");
 
   useEffect(() => {
     setDraft(line);
@@ -132,6 +139,12 @@ export function SalesLineModal({
     const productId = Number.parseInt(draft.productId, 10);
     if (!Number.isFinite(productId)) {
       setPriceError(null);
+      return;
+    }
+
+    if (!transactionDate.trim()) {
+      setPriceLoading(false);
+      setPriceError("Set the invoice date first.");
       return;
     }
 
@@ -210,7 +223,7 @@ export function SalesLineModal({
     }
 
     const productId = Number.parseInt(draft.productId, 10);
-    if (!salesPointId || !Number.isFinite(productId)) {
+    if (!salesPointId || !Number.isFinite(productId) || !transactionDate.trim()) {
       setBalanceLocations([]);
       setLocationsLoading(false);
       setLocationsError(null);
@@ -392,7 +405,19 @@ export function SalesLineModal({
       }
     }
 
-    if (unitPrice < 0) {
+    if (requiresManualUnitPrice) {
+      const raw = (
+        isBottleMode ? draft.unitPricePerUnit : draft.unitPricePerKg
+      ).trim();
+      if (!raw) {
+        setError("Enter the negotiated unit price for this product.");
+        return;
+      }
+      if (!(unitPrice > 0)) {
+        setError("Negotiated unit price must be greater than zero.");
+        return;
+      }
+    } else if (unitPrice < 0) {
       setError("Unit price cannot be negative.");
       return;
     }
@@ -445,17 +470,36 @@ export function SalesLineModal({
               id="sales-line-product"
               class="form-dialog-input"
               value={draft.productId}
-              onChange={(event) =>
+              onChange={(event) => {
+                const productId = (event.currentTarget as HTMLSelectElement)
+                  .value;
+                const nextProduct = products.find(
+                  (product) => String(product.productId) === productId,
+                );
+                const clearPrice = Boolean(
+                  nextProduct?.requiresManualUnitPrice,
+                );
+                setPriceError(null);
                 updateDraft({
-                  productId: (event.currentTarget as HTMLSelectElement).value,
+                  productId,
                   storageLocationId: "",
-                })
-              }
+                  ...(clearPrice
+                    ? { unitPricePerKg: "", unitPricePerUnit: "" }
+                    : {}),
+                });
+                if (productId) {
+                  requestAnimationFrame(() => {
+                    qtyInputRef.current?.focus();
+                    qtyInputRef.current?.select();
+                  });
+                }
+              }}
             >
               <option value="">Select a product</option>
               {products.map((product) => (
                 <option key={product.productId} value={String(product.productId)}>
                   {product.productName}
+                  {product.requiresManualUnitPrice ? " · negotiated price" : ""}
                 </option>
               ))}
             </select>
@@ -512,6 +556,7 @@ export function SalesLineModal({
           </label>
           <input
             id="sales-line-qty"
+            ref={qtyInputRef}
             class="form-dialog-input"
             type="number"
             min="0"
@@ -538,12 +583,12 @@ export function SalesLineModal({
             type="number"
             min="0"
             step="1"
-            readOnly={lockUnitPriceFromSchedule}
+            readOnly={lockPriceFromSchedule}
             value={
               isBottleMode ? draft.unitPricePerUnit : draft.unitPricePerKg
             }
             onInput={
-              lockUnitPriceFromSchedule
+              lockPriceFromSchedule
                 ? undefined
                 : (event) => {
                     const value = (event.currentTarget as HTMLInputElement)
@@ -557,17 +602,14 @@ export function SalesLineModal({
                   }
             }
           />
-          {priceLoading ? (
+          {requiresManualUnitPrice && draft.productId ? (
+            <p class="form-dialog-hint">
+              Negotiated price — enter the agreed unit price for this sale.
+            </p>
+          ) : priceLoading ? (
             <p class="form-dialog-hint">Resolving price from schedule…</p>
           ) : priceError ? (
             <p class="form-dialog-error">{priceError}</p>
-          ) : allowAutoUnitPrice && draft.productId ? (
-            <p class="form-dialog-hint">
-              Price from schedule as of {transactionDate}.
-              {lockUnitPriceFromSchedule
-                ? ""
-                : " You can override it manually."}
-            </p>
           ) : null}
         </div>
 

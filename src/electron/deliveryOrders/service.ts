@@ -23,7 +23,6 @@ import {
 import { assertRouteWrite, canPerformAction } from "../auth/permissions/service.js";
 import {
   collectionPointScopeError,
-  filterByCollectionPointScope,
   getUserCollectionPointId,
 } from "../auth/collectionPointScope.js";
 import { getDatabase } from "../db/index.js";
@@ -200,7 +199,8 @@ export function getDeliveryOrdersFormOptions(
 
   const products = db
     .prepare(
-      `SELECT p.productId, p.productName
+      `SELECT p.productId, p.productName,
+              COALESCE(p.requiresManualUnitPrice, 0) AS requiresManualUnitPrice
        FROM Product p
        INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE COALESCE(pc.isBottled, 0) = 0
@@ -208,12 +208,23 @@ export function getDeliveryOrdersFormOptions(
        ORDER BY p.productName ASC
        LIMIT 200`,
     )
-    .all() as DeliveryOrdersFormOptions["products"];
-
-  const salesPoints = filterByCollectionPointScope(
-    listActiveSalesPoints(db, 200),
-    scopedSalesPointId,
+    .all() as Array<{
+      productId: number;
+      productName: string;
+      requiresManualUnitPrice: number;
+    }>;
+  const formProducts: DeliveryOrdersFormOptions["products"] = products.map(
+    (row) => ({
+      productId: row.productId,
+      productName: row.productName,
+      requiresManualUnitPrice: row.requiresManualUnitPrice === 1,
+    }),
   );
+
+  // Always return every active collection point. Create/edit forms lock the
+  // picker via scopedSalesPointId; Transfer DO balance needs other CPs as
+  // destinations and was left empty when this list was scope-filtered.
+  const salesPoints = listActiveSalesPoints(db, 200);
 
   const paymentMethods = db
     .prepare(
@@ -249,7 +260,7 @@ export function getDeliveryOrdersFormOptions(
         taxRegimeKind: customer.taxRegimeKind,
       };
     }),
-    products,
+    products: formProducts,
     salesPoints,
     paymentMethods,
     scopedSalesPointId,
@@ -735,7 +746,7 @@ export async function saveDeliveryOrder(
     orderQty: number;
     orderUnit: string | null;
     unitPrice: string;
-    pricingCustomerTypeId: string;
+    pricingCustomerTypeId: string | null;
     lineSubtotalExTax: string;
     vatRate: string;
     vatAmount: string;
@@ -754,7 +765,8 @@ export async function saveDeliveryOrder(
       .prepare(
         `SELECT p.productName,
                 COALESCE(pc.isBottled, 0) AS isBottled,
-                COALESCE(p.excludeFromDeliveryOrders, 0) AS excludeFromDeliveryOrders
+                COALESCE(p.excludeFromDeliveryOrders, 0) AS excludeFromDeliveryOrders,
+                COALESCE(p.requiresManualUnitPrice, 0) AS requiresManualUnitPrice
          FROM Product p
          INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
          WHERE p.productId = ?`,
@@ -764,6 +776,7 @@ export async function saveDeliveryOrder(
           productName: string;
           isBottled: number;
           excludeFromDeliveryOrders: number;
+          requiresManualUnitPrice: number;
         }
       | undefined;
 
@@ -783,17 +796,32 @@ export async function saveDeliveryOrder(
       };
     }
 
-    const unitPrice = resolveDoLineUnitPrice({
-      productId: line.productId,
-      customerTypeId: taxInfo.customerTypeId,
-      orderQtyKg: orderQty,
-      asOfDate: dateIssued,
-    });
-    if (!unitPrice.ok) {
-      return { ok: false, error: unitPrice.error };
+    let unitPriceExTax: string;
+    let pricingCustomerTypeId: string | null = null;
+    if (productRow.requiresManualUnitPrice === 1) {
+      const manualUnit = parseAmount(String(line.unitPrice ?? ""));
+      if (!(manualUnit > 0)) {
+        return {
+          ok: false,
+          error: `${productRow.productName}: enter the negotiated unit price.`,
+        };
+      }
+      unitPriceExTax = roundMoney2(manualUnit);
+    } else {
+      const unitPrice = resolveDoLineUnitPrice({
+        productId: line.productId,
+        customerTypeId: taxInfo.customerTypeId,
+        orderQtyKg: orderQty,
+        asOfDate: dateIssued,
+      });
+      if (!unitPrice.ok) {
+        return { ok: false, error: unitPrice.error };
+      }
+      unitPriceExTax = unitPrice.unitPriceExTax;
+      pricingCustomerTypeId = unitPrice.pricingCustomerTypeId;
     }
 
-    const unit = parseAmount(unitPrice.unitPriceExTax);
+    const unit = parseAmount(unitPriceExTax);
     const lineNet = orderQty * unit;
     const vatAmount = lineNet * vatRate;
     const otherTaxAmount = lineNet * otherRate;
@@ -804,7 +832,7 @@ export async function saveDeliveryOrder(
       orderQty,
       orderUnit: line.orderUnit?.trim() || "kg",
       unitPrice: roundMoney2(unit),
-      pricingCustomerTypeId: unitPrice.pricingCustomerTypeId,
+      pricingCustomerTypeId,
       lineSubtotalExTax: roundMoney2(lineNet),
       vatRate: taxPreview.vatRate,
       vatAmount: roundMoney2(vatAmount),
@@ -1019,7 +1047,7 @@ function insertLinesAndPayments(
     orderQty: number;
     orderUnit: string | null;
     unitPrice: string;
-    pricingCustomerTypeId: string;
+    pricingCustomerTypeId: string | null;
     lineSubtotalExTax: string;
     vatRate: string;
     vatAmount: string;

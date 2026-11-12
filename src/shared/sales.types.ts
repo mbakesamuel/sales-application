@@ -39,6 +39,8 @@ export interface SalesProductOption {
   isMain: boolean;
   /** When true, stock is tracked at collection-point level (no storage location). */
   omitsStorageLocation: boolean;
+  /** When true, unit price is entered manually (negotiated); schedule is not used. */
+  requiresManualUnitPrice: boolean;
 }
 
 export interface SalesPaymentMethodOption {

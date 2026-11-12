@@ -5,7 +5,6 @@ import type {
   BinCardQuery,
   BinCardReport,
   ProductOption,
-  SalesPointOption,
   StockBootstrap,
   StorageLocationOption,
 } from "../../shared/stock.types.ts";
@@ -16,8 +15,8 @@ import { useReportOverlay } from "../reports/ReportOverlayContext.tsx";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import {
   clampIsoDateToRange,
+  defaultReceiptLocationId,
   formatDate,
-  locationsForSalesPoint,
   utcIsoDateToday,
 } from "./stockUtils.ts";
 import "./StockScreen.css";
@@ -145,8 +144,17 @@ export function BinCardScreen({
           setFromIso(start);
           setToIso(end);
         }
-        if (data.scopedSalesPointId != null) {
-          setSalesPointId(String(data.scopedSalesPointId));
+        const lockedSalesPointId =
+          data.botaSalesPointId ?? data.scopedSalesPointId;
+        if (lockedSalesPointId != null) {
+          setSalesPointId(String(lockedSalesPointId));
+          setStorageLocationId(
+            defaultReceiptLocationId(
+              data.storageLocations,
+              lockedSalesPointId,
+              true,
+            ),
+          );
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -170,25 +178,41 @@ export function BinCardScreen({
   }, [user.id, user.salesPointId, bootstrapProp]);
 
   const products: ProductOption[] = bootstrap?.products ?? [];
-  const salesPoints: SalesPointOption[] = bootstrap?.salesPoints ?? [];
   const storageLocations: StorageLocationOption[] =
     bootstrap?.storageLocations ?? [];
 
-  const locationOptions = useMemo(() => {
-    if (!salesPointId) {
-      return storageLocations;
+  const lockedSalesPointId = useMemo(() => {
+    if (bootstrap?.botaSalesPointId != null) {
+      return String(bootstrap.botaSalesPointId);
     }
-    return locationsForSalesPoint(storageLocations, salesPointId);
-  }, [salesPointId, storageLocations]);
+    if (bootstrap?.scopedSalesPointId != null) {
+      return String(bootstrap.scopedSalesPointId);
+    }
+    return "";
+  }, [bootstrap?.botaSalesPointId, bootstrap?.scopedSalesPointId]);
+
+  const lockedStorageLocationId = useMemo(
+    () =>
+      lockedSalesPointId
+        ? defaultReceiptLocationId(storageLocations, lockedSalesPointId, true)
+        : "",
+    [lockedSalesPointId, storageLocations],
+  );
+
+  useEffect(() => {
+    if (lockedSalesPointId && salesPointId !== lockedSalesPointId) {
+      setSalesPointId(lockedSalesPointId);
+    }
+  }, [lockedSalesPointId, salesPointId]);
 
   useEffect(() => {
     if (
-      storageLocationId &&
-      !locationOptions.some((loc) => String(loc.id) === storageLocationId)
+      lockedStorageLocationId &&
+      storageLocationId !== lockedStorageLocationId
     ) {
-      setStorageLocationId("");
+      setStorageLocationId(lockedStorageLocationId);
     }
-  }, [locationOptions, storageLocationId]);
+  }, [lockedStorageLocationId, storageLocationId]);
 
   async function applyFilters() {
     if (!postingPeriod) {
@@ -296,42 +320,6 @@ export function BinCardScreen({
             </select>
           </label>
           <label>
-            Collection point
-            <select
-              value={salesPointId}
-              disabled={bootstrap?.scopedSalesPointId != null}
-              onChange={(event) => {
-                setSalesPointId((event.target as HTMLSelectElement).value);
-                setStorageLocationId("");
-              }}
-            >
-              {bootstrap?.scopedSalesPointId == null ? (
-                <option value="">All collection points</option>
-              ) : null}
-              {salesPoints.map((point) => (
-                <option key={point.id} value={point.id}>
-                  {point.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Storage location
-            <select
-              value={storageLocationId}
-              onChange={(event) =>
-                setStorageLocationId((event.target as HTMLSelectElement).value)
-              }
-            >
-              <option value="">All locations</option>
-              {locationOptions.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
             From
             <input
               type="date"
@@ -394,47 +382,50 @@ export function BinCardScreen({
         ) : null}
 
         {report ? (
-          <>
-            <div class="stock-section-header">
-              <div>
-                <h2>{report.productName}</h2>
-                <p class="stock-hint">
-                  {report.salesPointLabel} · {report.storageLocationLabel} ·{" "}
-                  {formatDate(report.fromIso)} – {formatDate(report.toIso)} ·{" "}
-                  {report.uom}
-                </p>
-              </div>
-              <div class="stock-hint bincard-balance-summary">
-                Opening {formatQty(report.openingBalance)} · Closing{" "}
-                {formatQty(report.closingBalance)}
-              </div>
+          <div class="stock-section-header">
+            <div>
+              <h2>{report.productName}</h2>
+              <p class="stock-hint">
+                {report.salesPointLabel} · {report.storageLocationLabel} ·{" "}
+                {formatDate(report.fromIso)} – {formatDate(report.toIso)} ·{" "}
+                {report.uom}
+              </p>
             </div>
+            <div class="stock-hint bincard-balance-summary">
+              Opening {formatQty(report.openingBalance)} · Closing{" "}
+              {formatQty(report.closingBalance)}
+            </div>
+          </div>
+        ) : null}
 
-            <div class="stock-table-wrap bincard-ledger-scroll">
-              <table class="stock-table bincard-ledger-table">
-                <BinCardColGroup />
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Reference</th>
-                    <th>Particulars</th>
-                    <th class="stock-num">In</th>
-                    <th class="stock-num">Out</th>
-                    <th class="stock-num">Balance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td class="stock-nowrap">{formatDate(report.fromIso)}</td>
-                    <td>—</td>
-                    <td class="stock-strong">Opening balance</td>
-                    <td class="stock-num">—</td>
-                    <td class="stock-num">—</td>
-                    <td class="stock-num stock-strong">
-                      {formatQty(report.openingBalance)}
-                    </td>
-                  </tr>
-                  {report.lines.map((line) => (
+        <div class="stock-table-wrap bincard-ledger-scroll">
+          <table class="stock-table bincard-ledger-table">
+            <BinCardColGroup />
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Reference</th>
+                <th>Particulars</th>
+                <th class="stock-num">In</th>
+                <th class="stock-num">Out</th>
+                <th class="stock-num">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="stock-nowrap">
+                  {report ? formatDate(report.fromIso) : fromIso ? formatDate(fromIso) : "—"}
+                </td>
+                <td>—</td>
+                <td class="stock-strong">Opening balance</td>
+                <td class="stock-num">—</td>
+                <td class="stock-num">—</td>
+                <td class="stock-num stock-strong">
+                  {report ? formatQty(report.openingBalance) : "—"}
+                </td>
+              </tr>
+              {report
+                ? report.lines.map((line) => (
                     <tr key={line.id}>
                       <td class="stock-nowrap">
                         {formatDate(line.occurredAtIso)}
@@ -460,29 +451,35 @@ export function BinCardScreen({
                       </td>
                       <td class="stock-num">{formatQty(line.balance)}</td>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot class="bincard-ledger-footer">
+                  ))
+                : (
                   <tr>
-                    <td class="stock-nowrap">{formatDate(report.toIso)}</td>
-                    <td>—</td>
-                    <td class="stock-strong">Closing balance</td>
-                    <td class="stock-num">—</td>
-                    <td class="stock-num">—</td>
-                    <td class="stock-num stock-strong">
-                      {formatQty(report.closingBalance)}
+                    <td colSpan={6} class="stock-empty-cell">
+                      {loadingReport
+                        ? "Loading…"
+                        : "Select a product and date range, then click Apply."}
                     </td>
                   </tr>
-                </tfoot>
-              </table>
-            </div>
-          </>
-        ) : !loadingReport ? (
-          <p class="stock-muted">
-            Select a product and date range, then click Apply.
-          </p>
-        ) : null}
+                )}
+            </tbody>
+            <tfoot class="bincard-ledger-footer">
+              <tr>
+                <td class="stock-nowrap">
+                  {report ? formatDate(report.toIso) : toIso ? formatDate(toIso) : "—"}
+                </td>
+                <td>—</td>
+                <td class="stock-strong">Closing balance</td>
+                <td class="stock-num">—</td>
+                <td class="stock-num">—</td>
+                <td class="stock-num stock-strong">
+                  {report ? formatQty(report.closingBalance) : "—"}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </section>
+    
     </div>
   );
 }

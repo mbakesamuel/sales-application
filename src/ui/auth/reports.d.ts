@@ -29,6 +29,7 @@ export declare function getAuthenticatedReports(): {
     getSalesBudgetWeeklyRevenueCrosstab: (reportYear?: number) => Promise<import("../../shared/reports.types.ts").SalesBudgetWeeklyRevenueCrosstabReport>;
     getDailySales: (reportDateIso: string, salesPointId?: number | null) => Promise<import("../../shared/reports.types.ts").DailySalesReport>;
     getDailySalesMatrix: (salesPointId?: number | null, productId?: number | null) => Promise<import("../../shared/reports.types.ts").DailySalesMatrixReport>;
+    getAuditTrail: (fromIso: string, toIso: string, userId?: string | null) => Promise<import("../../shared/reports.types.ts").AuditTrailReport>;
     saveReportComments: (input: {
         reportId: string;
         text: string | null;

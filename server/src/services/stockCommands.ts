@@ -121,6 +121,10 @@ export type CreateReceiptCommandInput = {
   originDeviceId?: string;
 };
 
+export type UpdateReceiptCommandInput = CreateReceiptCommandInput & {
+  id: string;
+};
+
 function normalizeOptionalText(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -285,6 +289,118 @@ export async function createReceiptCommand(
     return { ok: true, id, documentNo: receiptNo, posted: postImmediately };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to create receipt.";
+    return { ok: false, error: uniqueConflict(message, "Receipt number") };
+  }
+}
+
+export async function updateReceiptCommand(
+  input: UpdateReceiptCommandInput,
+): Promise<StockCommandResult> {
+  const id = String(input.id ?? "").trim();
+  if (!id) {
+    return { ok: false, error: "Receipt id is required." };
+  }
+  if (!input.salesPointId || !Number.isFinite(input.salesPointId)) {
+    return { ok: false, error: "Collection point is required." };
+  }
+  if (!input.supplierLabel?.trim()) {
+    return { ok: false, error: "Supplier label is required." };
+  }
+  if (!input.lines?.length) {
+    return { ok: false, error: "Add at least one line." };
+  }
+  for (const line of input.lines) {
+    if (!isPositiveQty(line.qty)) {
+      return { ok: false, error: "Each line quantity must be greater than zero." };
+    }
+  }
+
+  const bottleScopeError = await assertBottleReceiptAtBota(
+    input.salesPointId,
+    input.lines.map((line) => line.productId),
+  );
+  if (bottleScopeError) {
+    return { ok: false, error: bottleScopeError };
+  }
+
+  const consignError = await assertBottledReceiptConsignmentFields(
+    input.lines.map((line) => line.productId),
+    input,
+  );
+  if (consignError) {
+    return { ok: false, error: consignError };
+  }
+
+  try {
+    const existing = await prisma.stock_receipts.findUnique({
+      where: { id },
+      select: { id: true, status: true, receipt_no: true },
+    });
+    if (!existing) {
+      return { ok: false, error: "Receipt not found." };
+    }
+    if (existing.status !== "DRAFT") {
+      return { ok: false, error: "Only draft receipts can be edited." };
+    }
+
+    const receivedAt = parseIsoDateTime(input.receivedAt);
+    const consignmentNoteNo = normalizeOptionalText(input.consignmentNoteNo);
+    if (consignmentNoteNo) {
+      const duplicate = await prisma.$queryRaw<
+        Array<{ id: string; receipt_no: string }>
+      >`
+        SELECT id, receipt_no
+        FROM stock_receipts
+        WHERE consignment_note_no IS NOT NULL
+          AND lower(btrim(consignment_note_no)) = lower(btrim(${consignmentNoteNo}))
+          AND id <> ${id}
+        LIMIT 1
+      `;
+      if (duplicate[0]) {
+        return {
+          ok: false,
+          error: `Consignment # "${consignmentNoteNo}" is already used on receipt ${duplicate[0].receipt_no}.`,
+        };
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.stock_receipts.update({
+        where: { id },
+        data: {
+          sales_point_id: input.salesPointId,
+          received_at: receivedAt,
+          supplier_label: input.supplierLabel.trim(),
+          notes: input.notes?.trim() || null,
+          consignment_note_no: consignmentNoteNo,
+          consigned_by: normalizeOptionalText(input.consignedBy),
+          cons_design: normalizeOptionalText(input.consDesign),
+          cons_date: normalizeOptionalText(input.consDate),
+          receive_by: normalizeOptionalText(input.receiveBy),
+          receive_by_design: normalizeOptionalText(input.receiveByDesign),
+          receive_date: normalizeOptionalText(input.receiveDate),
+          updated_at: new Date(),
+        },
+      });
+
+      await tx.stock_receipt_lines.deleteMany({ where: { receipt_id: id } });
+
+      for (const line of input.lines) {
+        await tx.stock_receipt_lines.create({
+          data: {
+            id: randomUUID(),
+            receipt_id: id,
+            product_id: line.productId,
+            qty: String(line.qty).trim(),
+            storage_location_id: line.storageLocationId ?? null,
+          },
+        });
+      }
+    });
+
+    return { ok: true, id, documentNo: existing.receipt_no, posted: false };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update receipt.";
     return { ok: false, error: uniqueConflict(message, "Receipt number") };
   }
 }

@@ -162,6 +162,8 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
       "other-product-sales-deliveries-report",
       // Annual
       "palm-oil-sales-activity-report",
+      // Admin
+      "audit-trail-report",
       // Opened from bin card (not sidebar)
       "stock-bin-card-report",
     ],

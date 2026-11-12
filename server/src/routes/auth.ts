@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { requestClientMeta, writeAuditLog } from "../services/auditLog.js";
 import {
   changeUserPassword,
   getUserSession,
@@ -12,10 +13,29 @@ authRoute.post("/login", async (c) => {
   const body = await c.req.json().catch(() => null);
   const username = String(body?.username ?? "");
   const password = String(body?.password ?? "");
+  const client = requestClientMeta(c);
   const result = await loginUser(username, password);
   if ("error" in result) {
+    writeAuditLog({
+      username: username.trim() || "(blank)",
+      action: "auth.login",
+      outcome: "FAILURE",
+      summary: "Invalid credentials",
+      ip: client.ip,
+      userAgent: client.userAgent,
+    });
     return c.json(result, 401);
   }
+  writeAuditLog({
+    userId: result.user.id,
+    username: result.user.username,
+    role: result.user.role,
+    action: "auth.login",
+    outcome: "SUCCESS",
+    summary: "Signed in",
+    ip: client.ip,
+    userAgent: client.userAgent,
+  });
   return c.json(result);
 });
 
@@ -38,7 +58,21 @@ authRoute.post("/logout", async (c) => {
     typeof body?.token === "string"
       ? body.token
       : c.req.header("Authorization")?.replace(/^Bearer\s+/i, "").trim() || "";
+  const client = requestClientMeta(c);
+  const session = token ? await getUserSession(token) : null;
   await logoutUser(token);
+  if (session) {
+    writeAuditLog({
+      userId: session.user.id,
+      username: session.user.username,
+      role: session.user.role,
+      action: "auth.logout",
+      outcome: "SUCCESS",
+      summary: "Signed out",
+      ip: client.ip,
+      userAgent: client.userAgent,
+    });
+  }
   return c.json({ ok: true });
 });
 

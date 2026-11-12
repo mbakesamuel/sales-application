@@ -15,6 +15,7 @@ import {
 } from "./password.js";
 import { getDatabase } from "../db/index.js";
 import { loadSessionIdleTimeoutMinutes } from "./sessionPolicy.js";
+import { writeLocalAuditLog } from "./auditLog.js";
 
 export type { AuthUser };
 
@@ -95,6 +96,12 @@ export function login(
 
   const normalizedUsername = username.trim().toLowerCase();
   if (!normalizedUsername || !password) {
+    writeLocalAuditLog({
+      username: username.trim() || "(blank)",
+      action: "auth.login",
+      outcome: "FAILURE",
+      summary: "Invalid credentials",
+    });
     return { error: "Invalid username or password." };
   }
 
@@ -111,6 +118,12 @@ export function login(
     .get(normalizedUsername) as UserRow | undefined;
 
   if (!user || user.isActive !== 1 || !verifyUserPassword(user, password)) {
+    writeLocalAuditLog({
+      username: username.trim() || "(blank)",
+      action: "auth.login",
+      outcome: "FAILURE",
+      summary: "Invalid credentials",
+    });
     return { error: "Invalid username or password." };
   }
 
@@ -122,6 +135,15 @@ export function login(
     `INSERT INTO AuthSession (id, userId, tokenHash, expiresAt)
      VALUES (?, ?, ?, ?)`,
   ).run(randomUUID(), user.id, tokenHash, expiresAt);
+
+  writeLocalAuditLog({
+    userId: user.id,
+    username: user.username,
+    role: user.role,
+    action: "auth.login",
+    outcome: "SUCCESS",
+    summary: "Signed in",
+  });
 
   return {
     token,
@@ -226,7 +248,19 @@ export function logout(token: string): void {
     return;
   }
 
+  const session = getAuthSession(token);
   getDatabase()
     .prepare("DELETE FROM AuthSession WHERE tokenHash = ?")
     .run(hashToken(token));
+
+  if (session) {
+    writeLocalAuditLog({
+      userId: session.user.id,
+      username: session.user.username,
+      role: session.user.role,
+      action: "auth.logout",
+      outcome: "SUCCESS",
+      summary: "Signed out",
+    });
+  }
 }

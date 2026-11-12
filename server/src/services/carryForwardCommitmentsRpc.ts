@@ -320,46 +320,42 @@ async function assertSourceDocumentAvailable(
   sourceDocumentNo: string,
   excludeDeliveryOrderId: string | null,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  // Original DO # is also the working delivery_order_no — block any existing DO
+  // with that number, and any other CF that already claimed it as source.
   const row = await tx.delivery_orders.findFirst({
     where: {
-      source_kind: "CARRY_FORWARD",
       status: { in: ["PENDING", "VALIDATED"] },
-      source_document_no: sourceDocumentNo,
+      OR: [
+        { delivery_order_no: sourceDocumentNo },
+        {
+          source_kind: "CARRY_FORWARD",
+          source_document_no: sourceDocumentNo,
+        },
+      ],
       ...(excludeDeliveryOrderId
         ? { NOT: { id: excludeDeliveryOrderId } }
         : {}),
     },
-    select: { id: true, delivery_order_no: true },
+    select: {
+      id: true,
+      delivery_order_no: true,
+      source_kind: true,
+      source_document_no: true,
+    },
   });
   if (row) {
+    if (row.delivery_order_no === sourceDocumentNo) {
+      return {
+        ok: false,
+        error: `DO # ${sourceDocumentNo} already exists.`,
+      };
+    }
     return {
       ok: false,
       error: `Original DO # ${sourceDocumentNo} is already registered on ${row.delivery_order_no}.`,
     };
   }
   return { ok: true };
-}
-
-async function allocateCarryForwardDeliveryOrderNo(tx: Tx): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `CF-${year}-`;
-  const rows = await tx.delivery_orders.findMany({
-    where: { delivery_order_no: { startsWith: prefix } },
-    select: { delivery_order_no: true },
-    orderBy: { delivery_order_no: "desc" },
-    take: 50,
-  });
-
-  let next = 1;
-  for (const row of rows) {
-    const match = row.delivery_order_no.match(/-(\d+)$/);
-    if (!match) continue;
-    const n = Number.parseInt(match[1], 10);
-    if (Number.isFinite(n) && n >= next) {
-      next = n + 1;
-    }
-  }
-  return `${prefix}${String(next).padStart(6, "0")}`;
 }
 
 export async function getFormOptions(): Promise<CarryForwardFormOptions> {
@@ -711,7 +707,8 @@ async function upsertCommitmentInTx(
       return { ok: false, error: "Original DO # is required." };
     }
 
-    const deliveryOrderNo = await allocateCarryForwardDeliveryOrderNo(tx);
+    // Keep the paper/original DO # as the working delivery order number.
+    const deliveryOrderNo = sourceDocumentNo;
     const id = randomUUID();
     const now = new Date();
     if (pendingValidation) {

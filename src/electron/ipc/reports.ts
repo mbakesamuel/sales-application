@@ -27,6 +27,7 @@ import type {
   DailySalesMatrixReport,
   LooseLpoStockSummaryReport,
   TransportCostReport,
+  AuditTrailReport,
 } from "../../shared/reports.types.js";
 import { requireAuthUser } from "../auth/requireUser.js";
 import { getMonthlyDeliveryReport } from "../reports/monthlyDeliveryReport.js";
@@ -54,6 +55,7 @@ import { getStockReport } from "../reports/stockReport.js";
 import { getWeeklyDeliveriesReport } from "../reports/weeklyDeliveriesReport.js";
 import { getDailySalesReport } from "../reports/dailySalesReport.js";
 import { getDailySalesMatrixReport } from "../reports/dailySalesMatrixReport.js";
+import { getAuditTrailReport } from "../reports/auditTrailReport.js";
 import { getOpenMonthWeekChoices } from "../reports/weekChoices.js";
 import {
   saveReportComments,
@@ -399,6 +401,27 @@ export function registerReportsHandlers(): void {
         Number.isFinite(pointId) ? pointId : null,
         Number.isFinite(prodId) ? prodId : null,
       );
+    },
+  );
+
+  ipcMain.handle(
+    "reports:getAuditTrail",
+    (
+      _event,
+      authToken: string,
+      fromIso: unknown,
+      toIso: unknown,
+      filterUserId?: unknown,
+    ): AuditTrailReport => {
+      const user = requireAuthUser(authToken);
+      if (typeof fromIso !== "string" || typeof toIso !== "string") {
+        throw new Error("Invalid date range.");
+      }
+      const userId =
+        filterUserId == null || filterUserId === ""
+          ? null
+          : String(filterUserId);
+      return getAuditTrailReport(user.id, fromIso, toIso, userId);
     },
   );
 
