@@ -154,14 +154,16 @@ export function transferDeliveryOrderBalance(
       ? db
           .prepare(
             `SELECT id, deliveryOrderNo, status, customerId, salesPointId,
-                    COALESCE(sourceKind, 'NORMAL') AS sourceKind
+                    COALESCE(sourceKind, 'NORMAL') AS sourceKind,
+                    COALESCE(destinationPending, 0) AS destinationPending
              FROM DeliveryOrder WHERE id = ?`,
           )
           .get(sourceKey.value)
       : db
           .prepare(
             `SELECT id, deliveryOrderNo, status, customerId, salesPointId,
-                    COALESCE(sourceKind, 'NORMAL') AS sourceKind
+                    COALESCE(sourceKind, 'NORMAL') AS sourceKind,
+                    COALESCE(destinationPending, 0) AS destinationPending
              FROM DeliveryOrder WHERE deliveryOrderNo = ?`,
           )
           .get(sourceKey.value)
@@ -173,6 +175,7 @@ export function transferDeliveryOrderBalance(
         customerId: number;
         salesPointId: number;
         sourceKind: string;
+        destinationPending: number;
       }
     | undefined;
 
@@ -397,6 +400,31 @@ export function transferDeliveryOrderBalance(
           line.otherTaxAmount,
           line.amount,
         );
+      }
+
+      // Directed child is always fulfillment-ready (not destination-pending).
+      // Clear the holding flag when no transferable remaining qty is left.
+      if (source.destinationPending === 1) {
+        const remainingRows = db
+          .prepare(
+            `SELECT dd.productId, dd.orderQty
+             FROM DeliveryOrderDetails dd
+             WHERE dd.deliveryOrderId = ?`,
+          )
+          .all(source.id) as Array<{ productId: number; orderQty: number }>;
+        let remainingTotal = 0;
+        for (const row of remainingRows) {
+          const lifted = getLiftedQtyForDoProduct(
+            source.deliveryOrderNo,
+            row.productId,
+          );
+          remainingTotal += Math.max((Number(row.orderQty) || 0) - lifted, 0);
+        }
+        if (remainingTotal <= 0) {
+          db.prepare(
+            `UPDATE DeliveryOrder SET destinationPending = 0 WHERE id = ?`,
+          ).run(source.id);
+        }
       }
 
       const transferInsert = db

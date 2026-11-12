@@ -1324,13 +1324,24 @@ export async function createSale(input: CreateSaleInput): Promise<SaveSaleResult
 
     const doRow = db
       .prepare(
-        `SELECT customerId FROM DeliveryOrder
+        `SELECT customerId, COALESCE(destinationPending, 0) AS destinationPending
+         FROM DeliveryOrder
          WHERE deliveryOrderNo = ? AND status = 'VALIDATED'`,
       )
-      .get(input.deliveryOrderNo.trim()) as { customerId: number } | undefined;
+      .get(input.deliveryOrderNo.trim()) as
+      | { customerId: number; destinationPending: number }
+      | undefined;
 
     if (!doRow) {
       return { ok: false, error: "Delivery order not found or not validated." };
+    }
+
+    if (doRow.destinationPending === 1) {
+      return {
+        ok: false,
+        error:
+          "This delivery order is pending destination. Direct it to a collection point before selling.",
+      };
     }
 
     if (doRow.customerId !== customerId) {

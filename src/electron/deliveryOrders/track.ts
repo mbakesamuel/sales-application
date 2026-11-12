@@ -47,6 +47,7 @@ export function trackDeliveryOrderByNo(
       `SELECT d.id, d.deliveryOrderNo, d.status, d.dateIssued, d.orderRef,
               d.customerId, d.salesPointId,
               COALESCE(d.sourceKind, 'NORMAL') AS sourceKind,
+              COALESCE(d.destinationPending, 0) AS destinationPending,
               d.transferredFromDeliveryOrderId,
               d.commercialServiceNameSnapshot,
               c.name AS customerName,
@@ -66,6 +67,7 @@ export function trackDeliveryOrderByNo(
         customerId: number;
         salesPointId: number;
         sourceKind: string;
+        destinationPending: number;
         transferredFromDeliveryOrderId: number | null;
         commercialServiceNameSnapshot: string | null;
         customerName: string;
@@ -248,6 +250,7 @@ export function trackDeliveryOrderByNo(
       customerName: order.customerName,
       salesPointId: order.salesPointId,
       salesPointName: order.salesPointName,
+      destinationPending: order.destinationPending === 1,
       transferredFromDeliveryOrderNo,
     },
     totals: {

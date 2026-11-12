@@ -31,9 +31,41 @@ function retailQuantityBlockedOnDoMessage(): string {
   );
 }
 
+async function assertDestinationPendingAtBota(
+  destinationPending: boolean | undefined,
+  salesPointId: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (destinationPending !== true) {
+    return { ok: true };
+  }
+  const bota = await prisma.sales_points.findFirst({
+    where: {
+      is_active: true,
+      name: { contains: "BOTA", mode: "insensitive" },
+    },
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+  if (!bota) {
+    return {
+      ok: false,
+      error:
+        "Bota collection point not found. Cannot hold a destination-pending DO.",
+    };
+  }
+  if (salesPointId !== bota.id) {
+    return {
+      ok: false,
+      error: "Destination-pending delivery orders must be held at Bota.",
+    };
+  }
+  return { ok: true };
+}
+
 export type DeliveryOrderLineInput = {
-  productId: number;
-  orderQty: number;
+  /** Thin client may send JSON numbers as strings; commands coerce. */
+  productId: number | string;
+  orderQty: number | string;
   orderUnit?: string | null;
   unitPrice?: string | null;
   amount?: string | null;
@@ -58,6 +90,7 @@ export type CreateDeliveryOrderCommandInput = {
   customerId?: number | null;
   orderRef?: string | null;
   salesPointId: number;
+  destinationPending?: boolean;
   financialYear?: number;
   financialMonth?: number;
   postingCalendarYear?: number;
@@ -139,21 +172,55 @@ async function resolvePostingPeriod(input: {
   }
 }
 
+function toPositiveInt(value: unknown): number | null {
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseInt(value.trim(), 10)
+        : Number.NaN;
+  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+}
+
+type NormalizedDeliveryOrderLine = Omit<
+  DeliveryOrderLineInput,
+  "productId" | "orderQty"
+> & {
+  productId: number;
+  orderQty: number;
+};
+
+function normalizeLines(
+  lines: DeliveryOrderLineInput[] | undefined,
+): NormalizedDeliveryOrderLine[] {
+  if (!lines?.length) return [];
+  const out: NormalizedDeliveryOrderLine[] = [];
+  for (const line of lines) {
+    const productId = toPositiveInt(line.productId);
+    const orderQty = toPositiveInt(line.orderQty);
+    if (productId == null || orderQty == null) continue;
+    out.push({
+      ...line,
+      productId,
+      orderQty,
+    });
+  }
+  return out;
+}
+
 function validateLines(
   lines: DeliveryOrderLineInput[] | undefined,
-): { ok: true } | { ok: false; error: string } {
-  if (!lines?.length) {
-    return { ok: false, error: "Add at least one line." };
+):
+  | { ok: true; lines: NormalizedDeliveryOrderLine[] }
+  | { ok: false; error: string } {
+  const normalized = normalizeLines(lines);
+  if (normalized.length === 0) {
+    return {
+      ok: false,
+      error: "Add at least one line with quantity greater than zero.",
+    };
   }
-  for (const line of lines) {
-    if (!Number.isFinite(line.productId) || line.productId <= 0) {
-      return { ok: false, error: "Each line needs a product." };
-    }
-    if (!Number.isFinite(line.orderQty) || line.orderQty <= 0) {
-      return { ok: false, error: "Each line quantity must be greater than zero." };
-    }
-  }
-  return { ok: true };
+  return { ok: true, lines: normalized };
 }
 
 async function findCustomerTypeIdByKind(
@@ -221,7 +288,7 @@ async function resolveUnitPriceExTax(input: {
 async function preparePricedLines(input: {
   customerId?: number | null;
   dateIssued: string;
-  lines: DeliveryOrderLineInput[];
+  lines: NormalizedDeliveryOrderLine[];
 }): Promise<{ ok: true; lines: PricedLine[] } | { ok: false; error: string }> {
   const dateIssued = input.dateIssued.trim().slice(0, 10);
   if (!input.customerId || !Number.isFinite(input.customerId)) {
@@ -424,13 +491,18 @@ export async function createDeliveryOrderCommand(
   if (!input.dateIssued?.trim()) {
     return { ok: false, error: "Date issued is required." };
   }
+  const holdCheck = await assertDestinationPendingAtBota(
+    input.destinationPending,
+    input.salesPointId,
+  );
+  if (!holdCheck.ok) return holdCheck;
   const linesCheck = validateLines(input.lines);
   if (!linesCheck.ok) return linesCheck;
 
   const priced = await preparePricedLines({
     customerId: input.customerId,
     dateIssued: input.dateIssued,
-    lines: input.lines,
+    lines: linesCheck.lines,
   });
   if (!priced.ok) return priced;
 
@@ -483,6 +555,7 @@ export async function createDeliveryOrderCommand(
               input.postingCalendarYear ?? period.financialYear,
             source_kind: input.sourceKind ?? "NORMAL",
             origin_device_id: input.originDeviceId ?? null,
+            destination_pending: input.destinationPending === true,
           },
         });
 
@@ -532,6 +605,11 @@ export async function updateDeliveryOrderCommand(
   if (!input.dateIssued?.trim()) {
     return { ok: false, error: "Date issued is required." };
   }
+  const holdCheck = await assertDestinationPendingAtBota(
+    input.destinationPending,
+    input.salesPointId,
+  );
+  if (!holdCheck.ok) return holdCheck;
   const linesCheck = validateLines(input.lines);
   if (!linesCheck.ok) return linesCheck;
 
@@ -555,7 +633,7 @@ export async function updateDeliveryOrderCommand(
   const priced = await preparePricedLines({
     customerId: input.customerId,
     dateIssued: input.dateIssued,
-    lines: input.lines,
+    lines: linesCheck.lines,
   });
   if (!priced.ok) return priced;
 
@@ -575,6 +653,7 @@ export async function updateDeliveryOrderCommand(
           financial_month: period.financialMonth,
           posting_calendar_year:
             input.postingCalendarYear ?? period.financialYear,
+          destination_pending: input.destinationPending === true,
         },
       });
 

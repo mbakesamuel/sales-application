@@ -179,11 +179,29 @@ export function DeliveryOrderTrackingScreen({
                   </span>
                   {" · "}
                   {sourceKindLabel(payload.order.sourceKind)}
+                  {payload.order.destinationPending ? (
+                    <>
+                      {" · "}
+                      <span
+                        class="sales-status sales-status-pending"
+                        title="Held until directed to a fulfillment collection point"
+                      >
+                        Destination pending
+                      </span>
+                    </>
+                  ) : null}
                   {payload.order.status !== "VALIDATED" ? (
                     <>
                       {" · "}
                       <span class="sales-hint">
                         Pick DO only lists validated delivery orders.
+                      </span>
+                    </>
+                  ) : payload.order.destinationPending ? (
+                    <>
+                      {" · "}
+                      <span class="sales-hint">
+                        Direct via Transfer DO balance before sales can lift.
                       </span>
                     </>
                   ) : null}

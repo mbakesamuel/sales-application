@@ -195,8 +195,9 @@ export async function listAvailableDeliveryOrders(payload: {
     where: {
       sales_point_id: salesPointId,
       customer_id: customerId,
-      status: { in: ["VALIDATED", "PARTIALLY_FULFILLED", "PENDING"] },
+      status: { in: ["VALIDATED", "PARTIALLY_FULFILLED"] },
       cancelled_at: null,
+      destination_pending: false,
     },
     include: {
       delivery_order_details: true,
@@ -267,7 +268,10 @@ export async function lookupDeliveryOrder(payload: {
       delivery_order_payment_details: true,
     },
   });
-  if (!order) return null;
+  if (!order || order.destination_pending) return null;
+  if (order.status !== "VALIDATED" && order.status !== "PARTIALLY_FULFILLED") {
+    return null;
+  }
 
   const customer =
     order.customer_id != null

@@ -156,6 +156,7 @@ model delivery_orders {
   synced_at                                                                                 DateTime                         @default(now()) @db.Timestamptz(6)
   transferred_from_delivery_order_id                                                        String?
   source_document_no                                                                        String?
+  destination_pending                                                                       Boolean                          @default(false)
   delivery_order_details                                                                    delivery_order_details[]
   delivery_order_payment_details                                                            delivery_order_payment_details[]
   delivery_order_transfers_delivery_order_transfers_from_delivery_order_idTodelivery_orders delivery_order_transfers[]       @relation("delivery_order_transfers_from_delivery_order_idTodelivery_orders")

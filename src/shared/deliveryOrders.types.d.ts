@@ -32,6 +32,8 @@ export interface DeliveryOrdersFormOptions {
     paymentMethods: DeliveryOrdersPaymentMethodOption[];
     /** When set, the signed-in user is locked to this collection point. */
     scopedSalesPointId: number | null;
+    /** Bota holding CP for destination-pending DOs, when resolvable. */
+    botaSalesPointId: number | null;
     companyName: string;
     vatRateDecimal: string;
     /** Company setting: system assigns DO-year-###### on create when true. */
@@ -69,6 +71,8 @@ export interface SaveDeliveryOrderInput {
     dateIssued: string;
     orderRef?: string;
     salesPointId: number;
+    /** When true, DO is held (usually at Bota) until directed to a fulfillment CP. */
+    destinationPending?: boolean;
     financialYear?: number;
     financialMonth?: number;
     postingCalendarYear?: number;
@@ -156,6 +160,7 @@ export interface LoadedDeliveryOrderView {
     salesPointId: number;
     salesPointName: string;
     status: DeliveryOrderStatus;
+    destinationPending: boolean;
     createdByName: string | null;
     validatedByName: string | null;
     validatedAtIso: string | null;
@@ -185,6 +190,7 @@ export interface DeliveryOrdersListRow {
     customerName: string;
     productSummary: string;
     status: DeliveryOrderStatus;
+    destinationPending: boolean;
     totalQtyLabel: string;
     totalAmountXaf: string;
 }
@@ -298,7 +304,7 @@ export interface DeliveryOrderTrackPayload {
     signatoryName: string | null;
     signatoryTitle: string;
     order: {
-        id: number;
+        id: number | string;
         deliveryOrderNo: string;
         status: DeliveryOrderStatus;
         sourceKind: DeliveryOrderSourceKind;
@@ -308,6 +314,7 @@ export interface DeliveryOrderTrackPayload {
         customerName: string;
         salesPointId: number;
         salesPointName: string;
+        destinationPending: boolean;
         transferredFromDeliveryOrderNo: string | null;
     };
     totals: {
@@ -325,7 +332,7 @@ export interface TransferDeliveryOrderBalanceLineInput {
 }
 export interface TransferDeliveryOrderBalanceInput {
     userId: string;
-    fromDeliveryOrderId?: number;
+    fromDeliveryOrderId?: number | string;
     fromDeliveryOrderNo?: string;
     toSalesPointId: number;
     lines: TransferDeliveryOrderBalanceLineInput[];
@@ -333,10 +340,10 @@ export interface TransferDeliveryOrderBalanceInput {
 }
 export type TransferDeliveryOrderBalanceResult = {
     ok: true;
-    transferId: number;
-    fromDeliveryOrderId: number;
+    transferId: number | string;
+    fromDeliveryOrderId: number | string;
     fromDeliveryOrderNo: string;
-    toDeliveryOrderId: number;
+    toDeliveryOrderId: number | string;
     toDeliveryOrderNo: string;
     toSalesPointName: string;
     lines: Array<{

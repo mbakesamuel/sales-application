@@ -250,8 +250,11 @@ export const coverageHandlers: Record<string, Handler> = {
     doExtras.loadPrintById(String(args[0] ?? "")),
   "deliveryOrders.trackByNo": async (args) =>
     doExtras.trackByNo(String(args[0] ?? "")),
-  "deliveryOrders.transferBalance": async (args) =>
-    doExtras.transferBalance(firstObject(args)),
+  "deliveryOrders.transferBalance": async (args, ctx) =>
+    doExtras.transferBalance({
+      ...firstObject(args),
+      userId: ctx.userId,
+    }),
   "deliveryOrders.listPending": async (_args, ctx) => doExtras.listPending(ctx),
   "deliveryOrders.listOrders": async (args, ctx) =>
     doExtras.listOrders(firstObject(args), ctx),

@@ -114,6 +114,7 @@ async function mapOrder(orderId: string) {
     salesPointId: order.sales_point_id,
     salesPointName: order.sales_points?.name ?? null,
     orderRef: order.order_ref,
+    destinationPending: order.destination_pending === true,
     createdByName: createdBy?.name ?? null,
     validatedByName: validatedBy?.name ?? null,
     validatedAtIso: order.validated_at
@@ -561,6 +562,7 @@ export async function trackByNo(deliveryOrderNo: string) {
       customerName: customer?.name ?? "",
       salesPointId: order.sales_point_id,
       salesPointName: order.sales_points?.name ?? "",
+      destinationPending: order.destination_pending === true,
       transferredFromDeliveryOrderNo:
         order.delivery_orders?.delivery_order_no ?? null,
     },
@@ -761,6 +763,7 @@ export async function listOrders(
         r.customer_id != null ? customerName.get(r.customer_id) ?? "" : "",
       productSummary: formatProductSummary(details),
       status: r.status,
+      destinationPending: r.destination_pending === true,
       totalQtyLabel: rowQty.toLocaleString(),
       totalAmountXaf:
         rowAmount > 0
@@ -933,9 +936,24 @@ export async function previewStockOnHand(payload: {
   return { ok: true as const, onHand: qtyStr(onHand) };
 }
 
-export async function transferBalance(_input: unknown) {
-  return {
-    ok: false as const,
-    error: "DO balance transfer is not yet available on the shared API.",
-  };
+export async function transferBalance(input: Record<string, unknown>) {
+  const { transferDeliveryOrderBalanceCommand } = await import(
+    "./deliveryOrderTransferCommand.js"
+  );
+  return transferDeliveryOrderBalanceCommand({
+    userId: String(input.userId ?? ""),
+    fromDeliveryOrderId:
+      input.fromDeliveryOrderId == null || input.fromDeliveryOrderId === ""
+        ? undefined
+        : (input.fromDeliveryOrderId as string | number),
+    fromDeliveryOrderNo:
+      input.fromDeliveryOrderNo == null
+        ? undefined
+        : String(input.fromDeliveryOrderNo),
+    toSalesPointId: Number(input.toSalesPointId),
+    lines: Array.isArray(input.lines)
+      ? (input.lines as Array<{ productId: number; qtyKg: number }>)
+      : [],
+    notes: input.notes == null ? undefined : String(input.notes),
+  });
 }

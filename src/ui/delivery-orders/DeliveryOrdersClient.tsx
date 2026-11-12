@@ -165,6 +165,7 @@ export function DeliveryOrdersClient({
   );
   const [orderRef, setOrderRef] = useState("");
   const [salesPointId, setSalesPointId] = useState("");
+  const [destinationPending, setDestinationPending] = useState(false);
   const [lines, setLines] = useState<LineRow[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([emptyPayment()]);
   const [pendingDos, setPendingDos] = useState<PendingDeliveryOrderRow[]>([]);
@@ -194,6 +195,15 @@ export function DeliveryOrdersClient({
       isValidBookletSerial(deliveryOrderNo));
   const isAwaitingOrder = !orderId && !orderReady;
   const isFormEditable = !isReadOnly && orderReady;
+  const botaSalesPointId = options?.botaSalesPointId ?? null;
+  const canHoldAtBota =
+    botaSalesPointId != null &&
+    (options?.scopedSalesPointId == null ||
+      options.scopedSalesPointId === botaSalesPointId);
+  const collectionPointLocked =
+    !isFormEditable ||
+    options?.scopedSalesPointId != null ||
+    destinationPending;
   const canValidate = canPerformActionFromSnapshot(
     permissions,
     "validate_delivery_orders",
@@ -492,6 +502,7 @@ export function DeliveryOrdersClient({
     setCustomerId("");
     setDateIssued(todayIsoDate());
     setOrderRef("");
+    setDestinationPending(false);
     setSalesPointId(
       options.scopedSalesPointId != null
         ? String(options.scopedSalesPointId)
@@ -505,11 +516,17 @@ export function DeliveryOrdersClient({
   }
 
   useEffect(() => {
-    if (!options || !isFormEditable || options.scopedSalesPointId == null) {
+    if (!options || !isFormEditable) {
       return;
     }
-    setSalesPointId(String(options.scopedSalesPointId));
-  }, [options, isFormEditable]);
+    if (destinationPending && options.botaSalesPointId != null) {
+      setSalesPointId(String(options.botaSalesPointId));
+      return;
+    }
+    if (options.scopedSalesPointId != null) {
+      setSalesPointId(String(options.scopedSalesPointId));
+    }
+  }, [options, isFormEditable, destinationPending]);
 
   async function loadOrder(
     rawNo?: string,
@@ -533,6 +550,7 @@ export function DeliveryOrdersClient({
           setOrderId(null);
           setDocStatus(null);
           setValidatedByName("");
+          setDestinationPending(false);
           setConfirmedDeliveryOrderNo(no);
         }
         return;
@@ -546,6 +564,7 @@ export function DeliveryOrdersClient({
       setCustomerId(String(data.customerId));
       setDateIssued(data.dateIssued);
       setOrderRef(data.orderRef ?? "");
+      setDestinationPending(data.destinationPending === true);
       setSalesPointId(String(data.salesPointId));
       setAllowAutoUnitPrice(false);
       setLinePriceErrors({});
@@ -638,6 +657,22 @@ export function DeliveryOrdersClient({
         setBanner({ type: "error", text: "Select a collection point." });
         return;
       }
+      if (destinationPending) {
+        if (botaSalesPointId == null) {
+          setBanner({
+            type: "error",
+            text: "Bota collection point not found. Cannot hold a destination-pending DO.",
+          });
+          return;
+        }
+        if (spId !== botaSalesPointId) {
+          setBanner({
+            type: "error",
+            text: "Destination-pending delivery orders must be held at Bota.",
+          });
+          return;
+        }
+      }
       if (paymentsMissingTraiteDetails(payments, paymentMethods)) {
         setBanner({
           type: "error",
@@ -712,14 +747,18 @@ export function DeliveryOrdersClient({
         dateIssued,
         orderRef: orderRef || undefined,
         salesPointId: spId,
+        destinationPending,
         financialYear: postingPeriod.financialYear,
         financialMonth: postingPeriod.calendarMonth,
         postingCalendarYear: postingPeriod.financialYear,
         lines: lines
-          .filter((line) => line.productId)
+          .filter(
+            (line) =>
+              line.productId && Number.parseInt(line.orderQty, 10) > 0,
+          )
           .map((line) => ({
             productId: Number.parseInt(line.productId, 10),
-            orderQty: String(Number.parseInt(line.orderQty, 10) || 0),
+            orderQty: String(Number.parseInt(line.orderQty, 10)),
             orderUnit: line.orderUnit,
             unitPrice: line.unitPrice || undefined,
           })),
@@ -939,6 +978,14 @@ export function DeliveryOrdersClient({
               ) : (
                 <span class="sales-status-pill">New</span>
               )}
+              {destinationPending ? (
+                <span
+                  class="sales-status-pill is-pending"
+                  title="Held until directed to a fulfillment collection point"
+                >
+                  Destination pending
+                </span>
+              ) : null}
               {canValidate && pendingDos.length > 0 ? (
                 <button
                   type="button"
@@ -1059,7 +1106,7 @@ export function DeliveryOrdersClient({
             <span>Collection point</span>
             <select
               value={salesPointId}
-              disabled={!isFormEditable || options.scopedSalesPointId != null}
+              disabled={collectionPointLocked}
               onChange={(event) =>
                 setSalesPointId(
                   (event.currentTarget as HTMLSelectElement).value,
@@ -1073,6 +1120,11 @@ export function DeliveryOrdersClient({
                 </option>
               ))}
             </select>
+            {destinationPending ? (
+              <span class="sales-hint">
+                Held at Bota until directed to a fulfillment collection point.
+              </span>
+            ) : null}
             {bookletStatus ? (
               <span
                 class={
@@ -1086,6 +1138,38 @@ export function DeliveryOrdersClient({
               </span>
             ) : null}
           </label>
+
+          {canHoldAtBota || destinationPending ? (
+            <label class="sales-field sales-field-span-full">
+              <span class="sales-checkbox-inline">
+                <input
+                  type="checkbox"
+                  checked={destinationPending}
+                  disabled={!isFormEditable || !canHoldAtBota}
+                  onChange={(event) => {
+                    const next = (event.currentTarget as HTMLInputElement)
+                      .checked;
+                    if (next && botaSalesPointId == null) {
+                      setBanner({
+                        type: "error",
+                        text: "Bota collection point not found.",
+                      });
+                      return;
+                    }
+                    setDestinationPending(next);
+                    if (next && botaSalesPointId != null) {
+                      setSalesPointId(String(botaSalesPointId));
+                    }
+                  }}
+                />
+                Destination pending (hold at Bota)
+              </span>
+              <span class="sales-hint sales-checkbox-hint">
+                Raise now and direct to a collection point later via Transfer DO
+                balance. Sales cannot lift until directed.
+              </span>
+            </label>
+          ) : null}
 
           <div class="sales-field sales-field-span-full sales-tax-hint-row">
             <span

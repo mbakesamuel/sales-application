@@ -291,6 +291,17 @@ export function DeliveryOrdersList({
                     <span class={`sales-status sales-status-${row.status.toLowerCase()}`}>
                       {row.status}
                     </span>
+                    {row.destinationPending ? (
+                      <>
+                        {" "}
+                        <span
+                          class="sales-status sales-status-pending"
+                          title="Held until directed to a fulfillment collection point"
+                        >
+                          Destination pending
+                        </span>
+                      </>
+                    ) : null}
                   </td>
                   <td class="sales-num">{row.totalQtyLabel}</td>
                   <td class="sales-num">{row.totalAmountXaf}</td>

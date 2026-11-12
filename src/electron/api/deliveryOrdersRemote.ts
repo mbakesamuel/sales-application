@@ -7,6 +7,7 @@ export type RemoteCreateDeliveryOrderPayload = {
   customerId?: number | null;
   orderRef?: string | null;
   salesPointId: number;
+  destinationPending?: boolean;
   financialYear: number;
   financialMonth: number;
   postingCalendarYear?: number;

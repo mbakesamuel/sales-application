@@ -85,6 +85,7 @@ export function listAvailableDeliveryOrders(
        WHERE d.salesPointId = ?
          AND d.customerId = ?
          AND d.status = 'VALIDATED'
+         AND COALESCE(d.destinationPending, 0) = 0
        ORDER BY d.dateIssued DESC, d.deliveryOrderNo DESC
        LIMIT 100`,
     )
@@ -154,7 +155,8 @@ export function lookupDeliveryOrder(
     .prepare(
       `SELECT d.id, d.deliveryOrderNo, d.dateIssued, d.customerId, c.name AS customerName,
               COALESCE(d.sourceKind, 'NORMAL') AS sourceKind,
-              d.sourceDocumentNo
+              d.sourceDocumentNo,
+              COALESCE(d.destinationPending, 0) AS destinationPending
        FROM DeliveryOrder d
        INNER JOIN Customer c ON c.id = d.customerId
        WHERE d.deliveryOrderNo = ? AND d.salesPointId = ? AND d.status = 'VALIDATED'`,
@@ -168,10 +170,11 @@ export function lookupDeliveryOrder(
         customerName: string;
         sourceKind: string;
         sourceDocumentNo: string | null;
+        destinationPending: number;
       }
     | undefined;
 
-  if (!order) {
+  if (!order || order.destinationPending === 1) {
     return null;
   }
 

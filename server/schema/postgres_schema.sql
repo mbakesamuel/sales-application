@@ -347,6 +347,7 @@ CREATE TABLE IF NOT EXISTS delivery_orders (
   cancel_reason TEXT,
   source_kind TEXT NOT NULL DEFAULT 'NORMAL',
   origin_device_id TEXT,
+  destination_pending BOOLEAN NOT NULL DEFAULT false,
   synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

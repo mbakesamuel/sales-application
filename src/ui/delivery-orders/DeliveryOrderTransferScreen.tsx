@@ -76,6 +76,7 @@ export function DeliveryOrderTransferScreen({
     useState<Extract<TransferDeliveryOrderBalanceResult, { ok: true }> | null>(
       null,
     );
+  const [completedAsDirect, setCompletedAsDirect] = useState(false);
 
   useEffect(() => {
     void getElectronApi()
@@ -93,6 +94,8 @@ export function DeliveryOrderTransferScreen({
     return points.filter((point) => Number(point.id) !== sourceId);
   }, [options, payload]);
 
+  const isDirectPending = payload?.order.destinationPending === true;
+
   async function loadSource(rawNo?: string) {
     const no = (rawNo ?? lookupNo).trim();
     if (!no) {
@@ -105,6 +108,7 @@ export function DeliveryOrderTransferScreen({
     setBusy(true);
     setError(null);
     setResult(null);
+    setCompletedAsDirect(false);
 
     try {
       const data = await getElectronApi().deliveryOrders.trackByNo(no);
@@ -115,7 +119,11 @@ export function DeliveryOrderTransferScreen({
       }
       if (data.order.status !== "VALIDATED") {
         setPayload(null);
-        setError("Only validated delivery orders can transfer remaining balance.");
+        setError(
+          data.order.destinationPending
+            ? "Only validated delivery orders can be directed to a collection point."
+            : "Only validated delivery orders can transfer remaining balance.",
+        );
         return;
       }
       const remainingProducts = data.products.filter(
@@ -123,7 +131,11 @@ export function DeliveryOrderTransferScreen({
       );
       if (remainingProducts.length === 0) {
         setPayload(null);
-        setError("This delivery order has no remaining balance to transfer.");
+        setError(
+          data.order.destinationPending
+            ? "This delivery order has no remaining balance to direct."
+            : "This delivery order has no remaining balance to transfer.",
+        );
         return;
       }
 
@@ -131,9 +143,15 @@ export function DeliveryOrderTransferScreen({
       setPayload(data);
       setToSalesPointId("");
       setNotes("");
+      const pending = data.order.destinationPending === true;
       setQtyByProduct(
         Object.fromEntries(
-          remainingProducts.map((product) => [String(product.productId), ""]),
+          remainingProducts.map((product) => [
+            String(product.productId),
+            pending
+              ? String(Math.trunc(Number.parseFloat(product.remainingQty) || 0))
+              : "",
+          ]),
         ),
       );
     } catch (loadError) {
@@ -153,6 +171,7 @@ export function DeliveryOrderTransferScreen({
     setPayload(null);
     setError(null);
     setResult(null);
+    setCompletedAsDirect(false);
     setToSalesPointId("");
     setQtyByProduct({});
     setNotes("");
@@ -177,7 +196,11 @@ export function DeliveryOrderTransferScreen({
       .filter((line) => line.qtyKg > 0);
 
     if (lines.length === 0) {
-      setError("Enter at least one product quantity to transfer.");
+      setError(
+        isDirectPending
+          ? "Enter at least one product quantity to direct."
+          : "Enter at least one product quantity to transfer.",
+      );
       return;
     }
 
@@ -211,6 +234,7 @@ export function DeliveryOrderTransferScreen({
         return;
       }
 
+      setCompletedAsDirect(payload.order.destinationPending === true);
       setResult(response);
       setPayload(null);
       setQtyByProduct({});
@@ -220,7 +244,9 @@ export function DeliveryOrderTransferScreen({
       setError(
         transferError instanceof Error
           ? transferError.message
-          : "Transfer failed.",
+          : isDirectPending
+            ? "Direct failed."
+            : "Transfer failed.",
       );
     } finally {
       setBusy(false);
@@ -240,8 +266,9 @@ export function DeliveryOrderTransferScreen({
           <div>
             <h2>Transfer DO balance</h2>
             <p class="sales-muted">
-              Move remaining commitment from one collection point to another. Creates
-              a new validated DO (<code>DT-…</code>) at the destination.
+              Move remaining commitment from one collection point to another, or
+              direct a destination-pending DO held at Bota. Creates a new
+              validated DO (<code>DT-…</code>) at the destination.
             </p>
           </div>
         </div>
@@ -297,7 +324,7 @@ export function DeliveryOrderTransferScreen({
         <div class="sales-panel">
           <div class="sales-section-header">
             <div>
-              <h3>Transfer complete</h3>
+              <h3>{completedAsDirect ? "Direct complete" : "Transfer complete"}</h3>
               <p class="sales-muted">
                 Remaining balance moved to{" "}
                 <strong>{result.toSalesPointName}</strong>.
@@ -371,16 +398,25 @@ export function DeliveryOrderTransferScreen({
           <div class="sales-panel">
             <div class="sales-section-header">
               <div>
-                <h3>Source delivery order</h3>
+                <h3>
+                  {isDirectPending
+                    ? "Direct pending destination"
+                    : "Source delivery order"}
+                </h3>
                 <p class="sales-muted">
                   {payload.order.customerName} · {payload.order.salesPointName} ·{" "}
                   remaining {formatQty(payload.totals.remainingKg)} kg
+                  {isDirectPending ? " · destination pending" : ""}
                 </p>
               </div>
             </div>
 
             <label class="sales-field">
-              <span>Destination collection point</span>
+              <span>
+                {isDirectPending
+                  ? "Fulfillment collection point"
+                  : "Destination collection point"}
+              </span>
               <select
                 value={toSalesPointId}
                 disabled={!canTransfer || busy || destinationPoints.length === 0}
@@ -403,7 +439,8 @@ export function DeliveryOrderTransferScreen({
               </select>
               {options && destinationPoints.length === 0 ? (
                 <span class="sales-hint sales-hint-error">
-                  Add another active collection point to transfer this balance.
+                  Add another active collection point to{" "}
+                  {isDirectPending ? "direct" : "transfer"} this balance.
                 </span>
               ) : null}
             </label>
@@ -414,7 +451,11 @@ export function DeliveryOrderTransferScreen({
                 type="text"
                 value={notes}
                 disabled={!canTransfer || busy}
-                placeholder="Reason for transfer"
+                placeholder={
+                  isDirectPending
+                    ? "Reason for directing"
+                    : "Reason for transfer"
+                }
                 onInput={(event) =>
                   setNotes((event.currentTarget as HTMLInputElement).value)
                 }
@@ -425,10 +466,15 @@ export function DeliveryOrderTransferScreen({
           <div class="sales-panel">
             <div class="sales-section-header">
               <div>
-                <h3>Quantities to transfer</h3>
+                <h3>
+                  {isDirectPending
+                    ? "Quantities to direct"
+                    : "Quantities to transfer"}
+                </h3>
                 <p class="sales-muted">
-                  Enter kg per product up to the remaining balance. Leave blank
-                  or 0 to skip.
+                  {isDirectPending
+                    ? "Remaining kg is prefilled. Adjust if you only want to direct part of the balance."
+                    : "Enter kg per product up to the remaining balance. Leave blank or 0 to skip."}
                 </p>
               </div>
             </div>
@@ -439,7 +485,9 @@ export function DeliveryOrderTransferScreen({
                   <tr>
                     <th>Product</th>
                     <th class="sales-num">Remaining kg</th>
-                    <th class="sales-num">Transfer kg</th>
+                    <th class="sales-num">
+                      {isDirectPending ? "Direct kg" : "Transfer kg"}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -484,7 +532,13 @@ export function DeliveryOrderTransferScreen({
                 disabled={!canTransfer || busy}
                 onClick={() => void submitTransfer()}
               >
-                {busy ? "Transferring…" : "Transfer balance"}
+                {busy
+                  ? isDirectPending
+                    ? "Directing…"
+                    : "Transferring…"
+                  : isDirectPending
+                    ? "Direct to collection point"
+                    : "Transfer balance"}
               </button>
             </div>
           </div>
