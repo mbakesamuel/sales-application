@@ -776,8 +776,9 @@ export async function getOpenPostingPeriodForUser(
 }
 
 export async function getOpenPostingPeriodForActor(
-  userId: string,
+  userId: string | null | undefined,
 ): Promise<OpenPostingPeriod | null> {
+  if (!userId) return null;
   const salesPointId = await postingScopeForUser(userId);
   if (salesPointId != null) {
     return getOpenPostingPeriod(salesPointId);

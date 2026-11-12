@@ -534,6 +534,7 @@ export function listDeliveryOrders(
 
   const { fromIso, toIso, periodLabel } = resolveListDateRange(
     period === "year" || period === "all" ? period : "month",
+    typeof filters.userId === "string" ? filters.userId : undefined,
   );
   if (fromIso && toIso) {
     whereParts.push(`substr(d.dateIssued, 1, 10) >= ?`);

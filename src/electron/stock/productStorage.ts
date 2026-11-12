@@ -40,6 +40,29 @@ export function productOmitsStorageLocationById(
   return Number(row?.omitsStorageLocation ?? 0) !== 0;
 }
 
+function productHasNonStockableColumn(db: Database.Database): boolean {
+  const columns = db
+    .prepare(`PRAGMA table_info(Product)`)
+    .all() as Array<{ name: string }>;
+  return columns.some((column) => column.name === "nonStockable");
+}
+
+/** Sold without inventory — sales skip stock checks and movements. */
+export function productNonStockableById(
+  db: Database.Database,
+  productId: number,
+): boolean {
+  if (!productHasNonStockableColumn(db)) {
+    return false;
+  }
+
+  const row = db
+    .prepare(`SELECT nonStockable FROM Product WHERE productId = ?`)
+    .get(productId) as { nonStockable: number } | undefined;
+
+  return Number(row?.nonStockable ?? 0) !== 0;
+}
+
 export function productHasStockBalance(
   db: Database.Database,
   productId: number,

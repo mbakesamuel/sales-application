@@ -142,6 +142,7 @@ function roundMoney2(value: number): string {
 }
 
 async function resolvePostingPeriod(input: {
+  userId: string;
   financialYear?: number;
   financialMonth?: number;
   salesPointId?: number | null;

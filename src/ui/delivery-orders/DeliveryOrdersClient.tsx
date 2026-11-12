@@ -1382,7 +1382,8 @@ export function DeliveryOrdersClient({
                             <input
                               type="number"
                               min="0"
-                              step="1"
+                              step="0.01"
+                              inputMode="decimal"
                               value={line.unitPrice}
                               disabled={!isFormEditable}
                               placeholder="Enter negotiated price"

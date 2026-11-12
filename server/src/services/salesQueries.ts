@@ -425,7 +425,17 @@ export async function validateSaleCommand(input: {
           const qty = isBottle
             ? String(line.qty_units ?? line.qty_kg)
             : String(line.qty_kg);
+          const catalog = await tx.products.findUnique({
+            where: { product_id: line.product_id },
+            select: { non_stockable: true },
+          });
+          if (catalog?.non_stockable) continue;
           const productId = await resolveStockProductId(tx, line.product_id);
+          const stockProduct = await tx.products.findUnique({
+            where: { product_id: productId },
+            select: { non_stockable: true },
+          });
+          if (stockProduct?.non_stockable) continue;
           let storageLocationId = line.storage_location_id;
           if (isBottle && storageLocationId == null) {
             storageLocationId = await resolveSaleLineStorageLocationId(tx, {

@@ -509,7 +509,17 @@ export async function createSaleCommand(
             ? String(line.qtyUnits ?? line.qtyKg)
             : String(line.qtyKg);
           if (parseMoney(qty) <= 0) continue;
+          const catalog = await tx.products.findUnique({
+            where: { product_id: line.productId },
+            select: { non_stockable: true },
+          });
+          if (catalog?.non_stockable) continue;
           const productId = await resolveStockProductId(tx, line.productId);
+          const stockProduct = await tx.products.findUnique({
+            where: { product_id: productId },
+            select: { non_stockable: true },
+          });
+          if (stockProduct?.non_stockable) continue;
           await applyMovement(tx, {
             salesPointId,
             productId,

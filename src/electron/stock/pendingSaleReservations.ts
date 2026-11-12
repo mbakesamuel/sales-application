@@ -3,6 +3,7 @@ import { parseQty } from "./decimal.js";
 import { getSellableBalanceAsOf } from "./asOfBalance.js";
 import {
   loadStockIntakeOilGrouping,
+  productNonStockableById,
   resolveStockProductId,
 } from "./productStorage.js";
 
@@ -99,6 +100,12 @@ export function pendingReservedQty(
       groupingEnabled,
     );
     if (lineStockProductId !== stockProductId) {
+      continue;
+    }
+    if (
+      productNonStockableById(db, row.productId) ||
+      productNonStockableById(db, lineStockProductId)
+    ) {
       continue;
     }
     const qty = parseQty(isBottle ? (row.qtyUnits ?? row.qtyKg) : row.qtyKg);

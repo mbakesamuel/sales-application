@@ -64,41 +64,14 @@ export async function getTaxRatesAsOf(asOfDate: string) {
   };
 }
 
-export async function previewUnitPrice(payload: {
-  productId?: number;
-  asOfDate?: string;
-  customerId?: number | null;
-}) {
-  const productId = Number(payload.productId);
-  const asOf = String(payload.asOfDate ?? "").trim().slice(0, 10);
-  if (!Number.isFinite(productId)) {
-    return { ok: false as const, error: "Product is required." };
-  }
-  let customerTypeId: string | null = null;
-  if (payload.customerId != null) {
-    const customer = await prisma.customers.findUnique({
-      where: { id: Number(payload.customerId) },
-      select: { customer_type_id: true },
-    });
-    customerTypeId = customer?.customer_type_id ?? null;
-  }
-  const schedules = await prisma.product_unit_price_schedules.findMany({
-    where: {
-      product_id: productId,
-      ...(asOf ? { effective_from: { lte: asOf } } : {}),
-    },
-    orderBy: { effective_from: "desc" },
-  });
-  const typed = customerTypeId
-    ? schedules.find((s) => s.customer_type_id === customerTypeId)
-    : null;
-  const generic = schedules.find((s) => s.customer_type_id == null);
-  const hit = typed ?? generic ?? schedules[0];
-  if (!hit) {
-    return { ok: false as const, error: "No unit price schedule found." };
-  }
-  return { ok: true as const, unitPriceExTax: hit.unit_price_ex_tax };
-}
+type SaleDisposition =
+  | "NORMAL"
+  | "RATION"
+  | "PUBLIC_RELATION"
+  | "RETAIL"
+  | string
+  | null
+  | undefined;
 
 function isLooseLpoProduct(product: {
   product_code: string | null;
@@ -108,6 +81,135 @@ function isLooseLpoProduct(product: {
   if (product.is_bottled) return false;
   if ((product.product_code ?? "").trim().toUpperCase() === "LPO") return true;
   return product.product_name.trim().toLowerCase() === "loose palm oil";
+}
+
+async function findActiveCustomerTypeIdByNeedles(
+  needles: string[],
+): Promise<string | null> {
+  const rows = await prisma.customer_type_definitions.findMany({
+    where: { is_active: true },
+    orderBy: { sort_order: "asc" },
+  });
+  const hit = rows.find((row) => {
+    const text = `${row.code} ${row.name}`.toUpperCase();
+    return needles.some((needle) => text.includes(needle));
+  });
+  return hit?.id ?? null;
+}
+
+/** Staff/Worker (CDC workers) type — used for Ration disposition pricing. */
+async function getStaffWorkerCustomerTypeId(): Promise<string | null> {
+  return findActiveCustomerTypeIdByNeedles(["STAFF", "WORKER", "RATION"]);
+}
+
+/** Retail type — used for Public relation / Retail disposition pricing. */
+async function getRetailCustomerTypeId(): Promise<string | null> {
+  return findActiveCustomerTypeIdByNeedles(["RETAIL"]);
+}
+
+async function getCustomerTypeLabel(customerTypeId: string): Promise<string> {
+  const row = await prisma.customer_type_definitions.findUnique({
+    where: { id: customerTypeId },
+    select: { name: true, code: true },
+  });
+  return row?.name ?? row?.code ?? customerTypeId;
+}
+
+/**
+ * Electron parity: disposition + customer type select the schedule.
+ * Loose LPO requires a typed schedule; bottled / other products use direct (null type).
+ */
+export async function previewUnitPrice(payload: {
+  productId?: number;
+  asOfDate?: string;
+  customerId?: number | null;
+  saleDisposition?: SaleDisposition;
+}) {
+  const productId = Number(payload.productId);
+  const asOf = String(payload.asOfDate ?? "").trim().slice(0, 10);
+  if (!Number.isFinite(productId) || productId <= 0) {
+    return { ok: false as const, error: "Product is required." };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) {
+    return { ok: false as const, error: "Transaction date must be YYYY-MM-DD." };
+  }
+
+  const disposition = String(payload.saleDisposition ?? "NORMAL").toUpperCase();
+  let customerTypeId: string | null = null;
+
+  if (payload.customerId != null && Number.isFinite(Number(payload.customerId))) {
+    const customer = await prisma.customers.findUnique({
+      where: { id: Number(payload.customerId) },
+      select: { id: true, customer_type_id: true },
+    });
+    if (!customer) {
+      return { ok: false as const, error: "Customer not found." };
+    }
+    customerTypeId =
+      disposition === "RETAIL"
+        ? await getRetailCustomerTypeId()
+        : (customer.customer_type_id ?? null);
+  } else if (disposition === "RATION") {
+    customerTypeId = await getStaffWorkerCustomerTypeId();
+  } else if (disposition === "PUBLIC_RELATION" || disposition === "RETAIL") {
+    customerTypeId = await getRetailCustomerTypeId();
+  } else {
+    customerTypeId = null;
+  }
+
+  const product = await prisma.products.findUnique({
+    where: { product_id: productId },
+    include: {
+      product_cats: { select: { is_bottled: true } },
+    },
+  });
+  if (!product) {
+    return { ok: false as const, error: `Product ${productId} was not found.` };
+  }
+
+  const isBottled = product.product_cats?.is_bottled === true;
+  const isLooseLpo = isLooseLpoProduct({
+    product_code: product.product_code,
+    product_name: product.product_name,
+    is_bottled: isBottled,
+  });
+
+  if (isLooseLpo && !isBottled && !customerTypeId) {
+    return {
+      ok: false as const,
+      error: `Select a registered customer to resolve the price for "${product.product_name}".`,
+    };
+  }
+
+  const schedules = await prisma.product_unit_price_schedules.findMany({
+    where: {
+      product_id: productId,
+      effective_from: { lte: asOf },
+      ...(isBottled || !isLooseLpo
+        ? { customer_type_id: null }
+        : { customer_type_id: customerTypeId }),
+    },
+    orderBy: { effective_from: "desc" },
+    take: 1,
+  });
+  const hit = schedules[0];
+  if (!hit) {
+    if (isBottled || !isLooseLpo) {
+      return {
+        ok: false as const,
+        error: `No unit price scheduled for "${product.product_name}" on or before ${asOf}. Add a price in Product pricing (setup).`,
+      };
+    }
+    const typeLabel = customerTypeId
+      ? await getCustomerTypeLabel(customerTypeId)
+      : "customer type";
+    return {
+      ok: false as const,
+      error: `No unit price scheduled for "${product.product_name}" (${typeLabel}) on or before ${asOf}. Add a price in Product pricing (setup).`,
+    };
+  }
+
+  return { ok: true as const, unitPriceExTax: hit.unit_price_ex_tax };
 }
 
 /**

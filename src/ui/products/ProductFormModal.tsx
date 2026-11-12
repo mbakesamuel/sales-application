@@ -27,6 +27,7 @@ interface FormData {
   omitsStorageLocation: boolean;
   excludeFromDeliveryOrders: boolean;
   requiresManualUnitPrice: boolean;
+  nonStockable: boolean;
 }
 
 const UOM_OPTIONS = ["Kg", "Unit", "Litre", "Ton", "Bag"] as const;
@@ -56,6 +57,7 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
       omitsStorageLocation: false,
       excludeFromDeliveryOrders: false,
       requiresManualUnitPrice: false,
+      nonStockable: false,
     };
   }
 
@@ -69,6 +71,7 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
     omitsStorageLocation: readBoolean(row.omitsStorageLocation),
     excludeFromDeliveryOrders: readBoolean(row.excludeFromDeliveryOrders),
     requiresManualUnitPrice: readBoolean(row.requiresManualUnitPrice),
+    nonStockable: readBoolean(row.nonStockable),
   };
 }
 
@@ -183,6 +186,7 @@ export function ProductFormModal({
       omitsStorageLocation: form.omitsStorageLocation ? 1 : 0,
       excludeFromDeliveryOrders: form.excludeFromDeliveryOrders ? 1 : 0,
       requiresManualUnitPrice: form.requiresManualUnitPrice ? 1 : 0,
+      nonStockable: form.nonStockable ? 1 : 0,
     };
 
     try {
@@ -413,6 +417,26 @@ export function ProductFormModal({
               When checked, sales and delivery orders require a manually entered
               unit price (no price schedule). Use for products priced by
               consultation with the customer.
+            </p>
+            <label class="form-dialog-checkbox-label" style={{ marginTop: "0.75rem" }}>
+              <input
+                id="product-non-stockable"
+                type="checkbox"
+                checked={form.nonStockable}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  updateField(
+                    "nonStockable",
+                    (event.currentTarget as HTMLInputElement).checked,
+                  )
+                }
+              />
+              Non-stockable
+            </label>
+            <p class="form-dialog-hint">
+              When checked, sales invoices do not require stock availability and
+              do not post stock movements (typical for negotiated / service-like
+              products).
             </p>
           </div>
         </div>

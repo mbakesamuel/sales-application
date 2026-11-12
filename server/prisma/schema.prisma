@@ -273,6 +273,7 @@ model products {
   omits_storage_location        Boolean                         @default(false)
   exclude_from_delivery_orders  Boolean                         @default(false)
   requires_manual_unit_price    Boolean                         @default(false)
+  non_stockable                 Boolean                         @default(false)
   delivery_order_transfer_lines delivery_order_transfer_lines[]
   product_unit_price_schedules  product_unit_price_schedules[]
   commercial_services           commercial_services?            @relation(fields: [commercial_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)

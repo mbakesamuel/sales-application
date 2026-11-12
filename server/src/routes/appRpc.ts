@@ -157,7 +157,10 @@ const handlers: Record<string, Handler> = {
           : ctx.salesPointId;
     return listSales({
       ...filters,
-      userId: filters.userId ?? ctx.userId,
+      userId:
+        typeof filters.userId === "string" && filters.userId.trim()
+          ? filters.userId
+          : ctx.userId,
       salesPointId,
     });
   },

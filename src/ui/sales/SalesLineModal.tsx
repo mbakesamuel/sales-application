@@ -89,10 +89,12 @@ export function SalesLineModal({
   const requiresManualUnitPrice = Boolean(
     selectedProduct?.requiresManualUnitPrice,
   );
+  const nonStockable = Boolean(selectedProduct?.nonStockable);
   const isLoosePalmOil = Boolean(selectedProduct?.isMain);
-  const needsStorageLocation = !isBottleMode && !omitsStorage;
+  const needsStorageLocation =
+    !isBottleMode && !omitsStorage && !nonStockable;
   /** Bottle still checks Bottle Oil Store qty even though the picker stays hidden. */
-  const needsStockCheck = !omitsStorage;
+  const needsStockCheck = !omitsStorage && !nonStockable;
   const subtitle = isBottleMode
     ? "Enter the bottled product and number of units."
     : omitsStorage
@@ -500,6 +502,7 @@ export function SalesLineModal({
                 <option key={product.productId} value={String(product.productId)}>
                   {product.productName}
                   {product.requiresManualUnitPrice ? " · negotiated price" : ""}
+                  {product.nonStockable ? " · non-stockable" : ""}
                 </option>
               ))}
             </select>
@@ -582,7 +585,8 @@ export function SalesLineModal({
             class="form-dialog-input"
             type="number"
             min="0"
-            step="1"
+            step="0.01"
+            inputMode="decimal"
             readOnly={lockPriceFromSchedule}
             value={
               isBottleMode ? draft.unitPricePerUnit : draft.unitPricePerKg
@@ -604,7 +608,16 @@ export function SalesLineModal({
           />
           {requiresManualUnitPrice && draft.productId ? (
             <p class="form-dialog-hint">
-              Negotiated price — enter the agreed unit price for this sale.
+              Negotiated price — enter the agreed unit price (decimals allowed,
+              same as delivery orders / schedule prices).
+              {nonStockable
+                ? " Non-stockable — stock availability is not required."
+                : ""}
+            </p>
+          ) : nonStockable && draft.productId ? (
+            <p class="form-dialog-hint">
+              Non-stockable — stock availability is not required for this
+              product.
             </p>
           ) : priceLoading ? (
             <p class="form-dialog-hint">Resolving price from schedule…</p>

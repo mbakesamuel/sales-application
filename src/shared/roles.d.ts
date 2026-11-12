@@ -32,7 +32,7 @@ export declare function bypassesTransferInitiateScope(_role: string): boolean;
 export declare function isSupervisorOverviewRole(role: string): boolean;
 export declare const SYSTEM_ROLE_LABELS: Record<SystemUserRole, string>;
 /** @deprecated Prefer SYSTEM_ROLE_LABELS or Role.label from the database. */
-export declare const ROLE_LABELS: Record<"STORE_KEEPER" | "ADMIN" | "MANAGER" | "SENIOR_SALES_SUPERVISOR" | "STATISTICS_CLERK", string>;
+export declare const ROLE_LABELS: Record<"ADMIN" | "MANAGER" | "SENIOR_SALES_SUPERVISOR" | "STATISTICS_CLERK" | "STORE_KEEPER", string>;
 export declare function isSystemUserRole(role: string): role is SystemUserRole;
 export declare function formatRoleLabel(role: string, labels?: Record<string, string>): string;
 /** Normalize to a system role id, or null if not a built-in role. */

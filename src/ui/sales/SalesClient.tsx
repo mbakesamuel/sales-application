@@ -148,17 +148,6 @@ function cashOnlyPaymentMethods(
   return cash.length > 0 ? cash : methods;
 }
 
-function nonCashPaymentMethods(
-  methods: SalesPaymentMethodOption[],
-): SalesPaymentMethodOption[] {
-  const nonCash = methods.filter(
-    (method) =>
-      method.code.toUpperCase() !== "CASH" &&
-      method.name.trim().toUpperCase() !== "CASH",
-  );
-  return nonCash.length > 0 ? nonCash : methods;
-}
-
 function defaultPaymentMethodId(
   methods: SalesPaymentMethodOption[],
   preferCash = true,
@@ -432,9 +421,8 @@ export function SalesClient({
     useState<SaleProductMode>(defaultProductMode);
   const [saleDisposition, setSaleDisposition] =
     useState<SaleDisposition>("NORMAL");
-  const [dispositionChosen, setDispositionChosen] = useState(
-    Boolean(initialInvoiceNo.trim()),
-  );
+  /** Normal is the implicit default — no explicit pick required to continue. */
+  const [dispositionChosen, setDispositionChosen] = useState(true);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [deliveryOrderNo, setDeliveryOrderNo] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
@@ -501,16 +489,12 @@ export function SalesClient({
     if (isBottleMode) {
       return cashOnlyPaymentMethods(methods);
     }
-    // Retail may use Cash (cash receipt); other loose sales hide Cash.
-    if (saleDisposition === "RETAIL") {
-      return methods;
-    }
-    return nonCashPaymentMethods(methods);
+    // Loose Normal / Retail: allow Cash alongside cheque, traite, bank transfer, etc.
+    return methods;
   }, [
     options?.paymentMethods,
     isBottleMode,
     isSpecialDisposition,
-    saleDisposition,
   ]);
   const dispositionPaymentMethodId = useMemo(() => {
     if (!options || !isSpecialDisposition) {
@@ -686,45 +670,6 @@ export function SalesClient({
     totals.gross,
   ]);
 
-  // Loose (non-Retail) sales: drop Cash if it was selected (Cash is hidden from the list).
-  useEffect(() => {
-    if (
-      !options ||
-      !isFormEditable ||
-      isBottleMode ||
-      isSpecialDisposition ||
-      saleDisposition === "RETAIL"
-    ) {
-      return;
-    }
-    const allowed = new Set(
-      nonCashPaymentMethods(options.paymentMethods).map((method) => method.id),
-    );
-    setPayments((current) => {
-      let changed = false;
-      const next = current.map((payment) => {
-        if (
-          payment.paymentMethodId &&
-          !allowed.has(payment.paymentMethodId)
-        ) {
-          changed = true;
-          return {
-            ...payment,
-            paymentMethodId: "",
-            ...emptyPaymentExtras(),
-          };
-        }
-        return payment;
-      });
-      return changed ? next : current;
-    });
-  }, [
-    options,
-    isFormEditable,
-    isBottleMode,
-    isSpecialDisposition,
-    saleDisposition,
-  ]);
 
   useEffect(() => {
     async function bootstrap() {
@@ -1075,7 +1020,7 @@ export function SalesClient({
     );
     setSaleProductMode(defaultProductMode);
     setSaleDisposition("NORMAL");
-    setDispositionChosen(false);
+    setDispositionChosen(true);
     setReferenceNumber("");
     setDeliveryOrderNo("");
     setVehicleNumber("");
@@ -1216,7 +1161,7 @@ export function SalesClient({
               paymentMethodId: defaultPaymentMethodId(
                 isBottleMode
                   ? cashOnlyPaymentMethods(options?.paymentMethods ?? [])
-                  : nonCashPaymentMethods(options?.paymentMethods ?? []),
+                  : (options?.paymentMethods ?? []),
                 isBottleMode,
               ),
               amount: "0",
@@ -1893,19 +1838,22 @@ export function SalesClient({
           disabled={!canEditDisposition}
         >
           <legend>Disposition</legend>
-          <label class="sales-chip">
-            <input
-              type="radio"
-              name="sale-disposition"
-              checked={dispositionChosen && saleDisposition === "NORMAL"}
-              disabled={!canEditDisposition}
-              onChange={() => {
-                setSaleDisposition("NORMAL");
-                setDispositionChosen(true);
-              }}
-            />
-            <span>Normal</span>
-          </label>
+          {/* Normal is the default and stays hidden; shown only to switch back while editing. */}
+          {canEditDisposition && saleDisposition !== "NORMAL" ? (
+            <label class="sales-chip">
+              <input
+                type="radio"
+                name="sale-disposition"
+                checked={false}
+                disabled={!canEditDisposition}
+                onChange={() => {
+                  setSaleDisposition("NORMAL");
+                  setDispositionChosen(true);
+                }}
+              />
+              <span>Normal</span>
+            </label>
+          ) : null}
           {!isBottleVariant || options.bottleOilAllowRation ? (
             <label class="sales-chip">
               <input
@@ -1954,11 +1902,6 @@ export function SalesClient({
             </label>
           ) : null}
         </fieldset>
-        {!dispositionChosen && !isReadOnly ? (
-          <p class="sales-hint">
-            Select disposition before entering the {docNoLabel}.
-          </p>
-        ) : null}
         {!isBottleVariant && isSpecialDisposition ? (
           <p class="sales-hint">Limited to Loose Palm Oil.</p>
         ) : null}
@@ -1975,11 +1918,9 @@ export function SalesClient({
                 pattern={autoGenerateInvoiceNo ? undefined : "\\d*"}
                 value={invoiceNo}
                 placeholder={
-                  !dispositionChosen
-                    ? "Select disposition first"
-                    : autoGenerateInvoiceNo
-                      ? `${docNoLabel} (or leave blank)`
-                      : docNoLabel
+                  autoGenerateInvoiceNo
+                    ? `${docNoLabel} (or leave blank)`
+                    : docNoLabel
                 }
                 aria-label={docNoLabel}
                 disabled={!canEnterInvoiceNo}
@@ -2284,11 +2225,9 @@ export function SalesClient({
                     <span>
                       {isReadOnly
                         ? "This invoice has no line items."
-                        : !dispositionChosen
-                          ? `Select disposition first, then enter the ${docNoLabel}.`
-                          : isAwaitingInvoice
-                            ? `Enter ${docNoLabel} and press Enter to add items.`
-                            : "Use Add line to enter products for this sale."}
+                        : isAwaitingInvoice
+                          ? `Enter ${docNoLabel} and press Enter to add items.`
+                          : "Use Add line to enter products for this sale."}
                     </span>
                   </td>
                 </tr>

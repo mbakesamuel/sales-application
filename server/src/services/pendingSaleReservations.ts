@@ -86,6 +86,13 @@ export async function pendingReservedQty(
       if (lineStockProductId !== stockProductId) {
         continue;
       }
+      const lineProduct = await tx.products.findUnique({
+        where: { product_id: line.product_id },
+        select: { non_stockable: true },
+      });
+      if (lineProduct?.non_stockable) {
+        continue;
+      }
       const qty = parseQty(
         isBottle ? (line.qty_units ?? line.qty_kg) : line.qty_kg,
       );

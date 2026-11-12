@@ -132,7 +132,8 @@ function isBooleanColumn(name: string, type: string): boolean {
     name === "omitsStorageLocation" ||
     name === "excludeFromSales" ||
     name === "excludeFromDeliveryOrders" ||
-    name === "requiresManualUnitPrice"
+    name === "requiresManualUnitPrice" ||
+    name === "nonStockable"
   );
 }
 

@@ -51,6 +51,12 @@ WHERE y.status = 'OPEN' AND m.status = 'OPEN'
     WHERE spm.sales_point_id IS NULL
       AND spm.financial_year_period_id = m.financial_year_period_id
       AND spm.calendar_month = m.calendar_month
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM sales_point_posting_months spm
+    WHERE spm.sales_point_id IS NULL
+      AND spm.financial_year_period_id = m.financial_year_period_id
+      AND spm.status = 'OPEN'
   );
 
 INSERT INTO sales_point_posting_months (
@@ -73,4 +79,9 @@ WHERE y.status = 'OPEN' AND m.status = 'OPEN'
     WHERE spm.sales_point_id = sp.id
       AND spm.financial_year_period_id = m.financial_year_period_id
       AND spm.calendar_month = m.calendar_month
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM sales_point_posting_months spm
+    WHERE spm.sales_point_id = sp.id
+      AND spm.status = 'OPEN'
   );

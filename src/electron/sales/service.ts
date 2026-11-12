@@ -456,7 +456,8 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
               pc.productCode AS productCatCode, pc.isBottled,
               COALESCE(p.excludeFromSales, 0) AS excludeFromSales,
               COALESCE(p.omitsStorageLocation, 0) AS omitsStorageLocation,
-              COALESCE(p.requiresManualUnitPrice, 0) AS requiresManualUnitPrice
+              COALESCE(p.requiresManualUnitPrice, 0) AS requiresManualUnitPrice,
+              COALESCE(p.nonStockable, 0) AS nonStockable
        FROM Product p
        INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE COALESCE(p.excludeFromSales, 0) = 0
@@ -472,11 +473,12 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
     isBottled: number;
     omitsStorageLocation: number;
     requiresManualUnitPrice: number;
+    nonStockable: number;
   }>;
 
   const looseProducts = products
     .filter((product) => product.isBottled !== 1)
-    .map(({ productId, productName, productCat, productCode, productCatCode, isBottled, omitsStorageLocation, requiresManualUnitPrice }) => ({
+    .map(({ productId, productName, productCat, productCode, productCatCode, isBottled, omitsStorageLocation, requiresManualUnitPrice, nonStockable }) => ({
       productId,
       productName,
       productCat,
@@ -488,11 +490,12 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
       }),
       omitsStorageLocation: omitsStorageLocation === 1,
       requiresManualUnitPrice: requiresManualUnitPrice === 1,
+      nonStockable: nonStockable === 1,
     }));
 
   const bottledProducts = products
     .filter((product) => product.isBottled === 1)
-    .map(({ productId, productName, productCat, productCode, productCatCode, isBottled, omitsStorageLocation, requiresManualUnitPrice }) => ({
+    .map(({ productId, productName, productCat, productCode, productCatCode, isBottled, omitsStorageLocation, requiresManualUnitPrice, nonStockable }) => ({
       productId,
       productName,
       productCat,
@@ -504,6 +507,7 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
       }),
       omitsStorageLocation: omitsStorageLocation === 1,
       requiresManualUnitPrice: requiresManualUnitPrice === 1,
+      nonStockable: nonStockable === 1,
     }));
 
   const paymentMethods = db

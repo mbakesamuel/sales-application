@@ -8,6 +8,7 @@ import { applyMovement } from "./post.js";
 import {
   productRequiresSalesTankForLooseSale,
   productOmitsStorageLocationById,
+  productNonStockableById,
   resolveStockProductId,
   loadStockIntakeOilGrouping,
 } from "./productStorage.js";
@@ -159,6 +160,12 @@ export function assertSaleLinesStockAsOf(
       line.productId,
       groupingEnabled,
     );
+    if (
+      productNonStockableById(db, line.productId) ||
+      productNonStockableById(db, stockProductId)
+    ) {
+      continue;
+    }
     const omitsStorage = productOmitsStorageLocationById(db, stockProductId);
     const storageLocationId = omitsStorage
       ? null
@@ -294,6 +301,12 @@ export function deductStockForValidatedSale(
       line.productId,
       groupingEnabled,
     );
+    if (
+      productNonStockableById(db, line.productId) ||
+      productNonStockableById(db, stockProductId)
+    ) {
+      continue;
+    }
     const omitsStorage = productOmitsStorageLocationById(db, stockProductId);
     const storageLocationId = omitsStorage
       ? null

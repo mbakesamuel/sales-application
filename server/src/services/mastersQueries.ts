@@ -1,19 +1,110 @@
 import { prisma } from "../db/prisma.js";
 import { getOpenPostingPeriod as getOpenFinancialPostingPeriod } from "./financialYearsService.js";
 
-export async function listCustomers() {
-  const rows = await prisma.customers.findMany({
-    orderBy: { name: "asc" },
-    take: 2000,
+const FALLBACK_TAX = {
+  vatRate: 0.1925,
+  salesActual: 0.02,
+  salesSimplified: 0.05,
+  salesNoTaxpayer: 0.1,
+};
+
+function parseTaxRate(value: string | null | undefined): number {
+  const n = Number.parseFloat(String(value ?? "").trim());
+  if (!Number.isFinite(n)) return 0;
+  return n > 1 ? n / 100 : n;
+}
+
+async function loadCustomerListTaxRates(asOfDate: string) {
+  const asOf = asOfDate.trim().slice(0, 10);
+  const rows = await prisma.tax_rate_schedules.findMany({
+    where: {
+      is_active: true,
+      ...(asOf ? { effective_from: { lte: asOf } } : {}),
+    },
+    orderBy: { effective_from: "desc" },
   });
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    taxRegimeId: row.tax_regime_id,
-    customerTypeId: row.customer_type_id,
-    residency: row.residency,
-    taxpayerId: row.taxpayer_id,
-  }));
+  const pick = (kind: string) =>
+    rows.find((r) => r.rate_kind === kind)?.rate ?? null;
+  return {
+    vatRate: parseTaxRate(pick("VAT")) || FALLBACK_TAX.vatRate,
+    salesActual: parseTaxRate(pick("SALES_ACTUAL")) || FALLBACK_TAX.salesActual,
+    salesSimplified:
+      parseTaxRate(pick("SALES_SIMPLIFIED")) || FALLBACK_TAX.salesSimplified,
+    salesNoTaxpayer:
+      parseTaxRate(pick("SALES_NO_TAXPAYER")) || FALLBACK_TAX.salesNoTaxpayer,
+  };
+}
+
+function resolveCustomerTaxFields(input: {
+  residency: string | null | undefined;
+  taxRegimeKind: string | null | undefined;
+  taxpayerId: string | null | undefined;
+  salesTaxExempt: boolean;
+  rates: {
+    vatRate: number;
+    salesActual: number;
+    salesSimplified: number;
+    salesNoTaxpayer: number;
+  };
+}): { vatApplies: boolean; salesTaxRate: number } {
+  const residency = String(input.residency ?? "LOCAL").toUpperCase();
+  const vatApplies = residency === "LOCAL";
+  if (input.salesTaxExempt) {
+    return { vatApplies, salesTaxRate: 0 };
+  }
+  const hasTaxpayer = String(input.taxpayerId ?? "").trim().length > 0;
+  const regime = String(input.taxRegimeKind ?? "SIMPLIFIED").toUpperCase();
+  const salesTaxRate = !hasTaxpayer
+    ? input.rates.salesNoTaxpayer
+    : regime === "REAL"
+      ? input.rates.salesActual
+      : input.rates.salesSimplified;
+  return { vatApplies, salesTaxRate };
+}
+
+/** Sales / DO form customers with tax profile fields (Electron parity). */
+export async function listCustomers() {
+  const [rows, rates] = await Promise.all([
+    prisma.customers.findMany({
+      where: { is_pos_placeholder: false },
+      orderBy: { name: "asc" },
+      take: 2000,
+      include: {
+        tax_regimes: { select: { id: true, name: true, kind: true } },
+        customer_type_definitions: {
+          select: { id: true, exempt_from_sales_tax: true },
+        },
+      },
+    }),
+    loadCustomerListTaxRates(new Date().toISOString().slice(0, 10)).catch(
+      () => ({ ...FALLBACK_TAX }),
+    ),
+  ]);
+
+  return rows.map((row) => {
+    const salesTaxExempt =
+      row.customer_type_definitions?.exempt_from_sales_tax === true;
+    const tax = resolveCustomerTaxFields({
+      residency: row.residency,
+      taxRegimeKind: row.tax_regimes?.kind,
+      taxpayerId: row.taxpayer_id,
+      salesTaxExempt,
+      rates,
+    });
+    return {
+      id: row.id,
+      name: row.name,
+      taxRegimeId: row.tax_regime_id,
+      taxRegimeName: row.tax_regimes?.name ?? null,
+      taxRegimeKind: row.tax_regimes?.kind ?? null,
+      customerTypeId: row.customer_type_id,
+      residency: row.residency,
+      taxpayerId: row.taxpayer_id,
+      vatApplies: tax.vatApplies,
+      salesTaxExempt,
+      salesTaxRate: tax.salesTaxRate,
+    };
+  });
 }
 
 export async function listProducts() {
@@ -42,6 +133,7 @@ export type SalesFormProductOption = {
   isMain: boolean;
   omitsStorageLocation: boolean;
   requiresManualUnitPrice: boolean;
+  nonStockable: boolean;
 };
 
 function isLooseLpoSalesProduct(args: {
@@ -91,6 +183,7 @@ export async function listSalesFormProducts(): Promise<{
       }),
       omitsStorageLocation: Boolean(row.omits_storage_location),
       requiresManualUnitPrice: Boolean(row.requires_manual_unit_price),
+      nonStockable: Boolean(row.non_stockable),
     };
     if (isBottled) {
       bottledProducts.push(option);

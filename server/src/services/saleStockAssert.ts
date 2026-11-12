@@ -53,8 +53,22 @@ export async function assertSaleLinesStockAsOf(
       select: {
         product_name: true,
         omits_storage_location: true,
+        non_stockable: true,
       },
     });
+    if (Boolean(product?.non_stockable)) {
+      continue;
+    }
+    // Also honor the flag on the catalog line product (before pool remap).
+    if (stockProductId !== line.productId) {
+      const lineProduct = await tx.products.findUnique({
+        where: { product_id: line.productId },
+        select: { non_stockable: true },
+      });
+      if (Boolean(lineProduct?.non_stockable)) {
+        continue;
+      }
+    }
     const omitsStorage = Boolean(product?.omits_storage_location);
     const storageLocationId = omitsStorage
       ? null

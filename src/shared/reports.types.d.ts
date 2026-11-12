@@ -989,3 +989,32 @@ export interface TransportCostReport {
     totals: TransportCostReportTotals;
     comments: string | null;
 }
+export type AuditTrailOutcome = "SUCCESS" | "FAILURE";
+export interface AuditTrailUserOption {
+    userId: string;
+    username: string;
+    role: string | null;
+}
+export interface AuditTrailEventRow {
+    id: string;
+    occurredAtIso: string;
+    userId: string | null;
+    username: string;
+    role: string | null;
+    action: string;
+    outcome: AuditTrailOutcome;
+    summary: string | null;
+    entityKind: string | null;
+    entityId: string | null;
+    ip: string | null;
+}
+export interface AuditTrailReport {
+    settings: ReportCompanySettings;
+    fromIso: string;
+    toIso: string;
+    userIdFilter: string | null;
+    generatedAtIso: string;
+    users: AuditTrailUserOption[];
+    events: AuditTrailEventRow[];
+    comments: string | null;
+}

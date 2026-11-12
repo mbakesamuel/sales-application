@@ -2,7 +2,7 @@ import { prisma } from "../db/prisma.js";
 import { getBalanceQty } from "./stockMovements.js";
 import { previewUnitPrice, getTaxRatesAsOf } from "./salesRpcExtras.js";
 import { getCompanySettings } from "./mastersQueries.js";
-import { getOpenPostingPeriod } from "./financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "./financialYearsService.js";
 import { getReportSignatory } from "./reportCompany.js";
 
 function qtyStr(n: number): string {
@@ -627,15 +627,10 @@ function formatProductSummary(lines: Array<{ productName: string }>): string {
   return `${lines[0].productName} +${lines.length - 1} more`;
 }
 
-function localTodayIso(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-async function resolveListDateRange(period: string): Promise<{
+async function resolveListDateRange(
+  period: string,
+  userId?: string | null,
+): Promise<{
   fromIso: string | null;
   toIso: string | null;
   periodLabel: string;
@@ -644,35 +639,37 @@ async function resolveListDateRange(period: string): Promise<{
     return { fromIso: null, toIso: null, periodLabel: "All time" };
   }
 
-  const open = await getOpenPostingPeriod();
+  const actorId = userId?.trim();
+  if (!actorId) {
+    throw new Error("Open a financial month before listing documents.");
+  }
+
+  // Match sales list: HO personal open month / CP open month for the actor.
+  const open = await getOpenPostingPeriodForActor(actorId);
   if (!open) {
     throw new Error("Open a financial month before listing documents.");
   }
 
-  const today = localTodayIso();
-  const asAtIso = today < open.endDate ? today : open.endDate;
-
   if (period === "year") {
     const yearStart = `${open.financialYear}-01-01`;
     const yearEnd = `${open.financialYear}-12-31`;
-    const toIso = asAtIso < yearEnd ? asAtIso : yearEnd;
     return {
       fromIso: yearStart,
-      toIso,
-      periodLabel: `FY ${open.financialYear} (through ${toIso})`,
+      toIso: yearEnd,
+      periodLabel: `FY ${open.financialYear}`,
     };
   }
 
   return {
     fromIso: open.startDate,
-    toIso: asAtIso,
+    toIso: open.endDate,
     periodLabel: `${open.monthName} ${open.financialYear}`,
   };
 }
 
 export async function listOrders(
   filters: Record<string, unknown> | undefined,
-  ctx: { salesPointId: number | null },
+  ctx: { userId: string; salesPointId: number | null },
 ) {
   const q = String(filters?.q ?? "").trim();
   const periodRaw = String(filters?.period ?? "month");
@@ -688,7 +685,14 @@ export async function listOrders(
         ? filterSp
         : null;
 
-  const { fromIso, toIso, periodLabel } = await resolveListDateRange(period);
+  const actorUserId =
+    typeof filters?.userId === "string" && filters.userId.trim()
+      ? filters.userId.trim()
+      : ctx.userId;
+  const { fromIso, toIso, periodLabel } = await resolveListDateRange(
+    period,
+    actorUserId,
+  );
 
   const rows = await prisma.delivery_orders.findMany({
     where: {
@@ -907,6 +911,8 @@ export async function previewUnitPriceDo(payload: Record<string, unknown>) {
     asOfDate: String(payload.dateIssued ?? payload.asOfDate ?? ""),
     customerId:
       payload.customerId == null ? null : Number(payload.customerId),
+    // DOs are always registered-customer pricing (no Ration disposition).
+    saleDisposition: "NORMAL",
   });
 }
 
