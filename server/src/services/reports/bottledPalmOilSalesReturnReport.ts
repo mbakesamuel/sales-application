@@ -127,10 +127,11 @@ function subtractPackQty(left: Cell[], right: Cell[]): Cell[] {
 function convertQtyRow(
   source: Cell[],
   convert: (qty: number, packId: PackId) => number,
+  preserveAmount = false,
 ): Cell[] {
   return source.map((cell, index) => ({
     qty: convert(cell.qty, PACK_IDS[index]!),
-    amount: 0,
+    amount: preserveAmount ? cell.amount : 0,
   }));
 }
 function receptionLabel(supplierLabel: string): string {
@@ -367,15 +368,15 @@ export async function getBottledPalmOilSalesReturnReport(userId: string) {
     "issues-litres",
     "TOTAL ISSUES IN LITRES",
     "issuesLitres",
-    convertQtyRow(totalIssuesPacks, litresForPack),
-    { totalKg: 0, grandTotalFcfa: 0 },
+    convertQtyRow(totalIssuesPacks, litresForPack, true),
+    { totalKg: 0 },
   );
   const issuesKgRow = makeRow(
     "issues-kg",
     "TOTAL ISSUES IN KGS",
     "issuesKg",
-    convertQtyRow(totalIssuesPacks, kgForPack),
-    { totalKg: 0, grandTotalFcfa: 0 },
+    convertQtyRow(totalIssuesPacks, kgForPack, true),
+    { totalKg: 0 },
   );
   const balancePacks = subtractPackQty(totalStockPacks, totalIssuesPacks);
   const balanceRow = makeRow(

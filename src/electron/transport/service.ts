@@ -8,7 +8,7 @@ import { assertRouteRead } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
 import { listActiveSalesPoints } from "../salesPoints/active.js";
 import {
-  getOpenPostingPeriod,
+  getOpenPostingPeriodForActor,
   resolveReportAsAt,
 } from "../financialYears/service.js";
 import { loadLiftedSaleLines } from "./liftedQuantities.js";
@@ -66,9 +66,11 @@ function buildLineCost(
   };
 }
 
-export function getTransportCostFormOptions(): TransportCostFormOptions {
+export function getTransportCostFormOptions(
+  userId?: string | null,
+): TransportCostFormOptions {
   const db = getDatabase();
-  const openPeriod = getOpenPostingPeriod();
+  const openPeriod = userId ? getOpenPostingPeriodForActor(userId) : null;
   const transportCostMoliweOnlyPolicy = loadTransportCostMoliweOnlyPolicy(db);
   const moliweSalesPointId = resolveMoliweSalesPointId(db);
   const scrMayCustomerId = resolveTransportCostCustomerId(db);
@@ -156,7 +158,7 @@ export function computeTransportCost(
     scrMayCustomerId,
   );
 
-  const { asAtIso, period } = resolveReportAsAt();
+  const { asAtIso, period } = resolveReportAsAt(userId ?? undefined);
   const liftedLines = loadLiftedSaleLines(period.startDate, asAtIso, {
     customerId: input.customerId,
     salesPointId: input.salesPointId,

@@ -16,7 +16,7 @@ import {
 } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
 import { listActiveSalesPoints, requireActiveSalesPoint } from "../salesPoints/active.js";
-import { getOpenPostingPeriod } from "../financialYears/service.js";
+import { getOpenPostingPeriodForActor } from "../financialYears/service.js";
 import { resolveDoLineUnitPrice } from "../pricing/doPricingCustomerType.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
 import {
@@ -475,7 +475,7 @@ export function upsertCarryForwardCommitment(
     };
   }
 
-  const openPeriod = getOpenPostingPeriod();
+  const openPeriod = getOpenPostingPeriodForActor(input.userId);
   if (!openPeriod) {
     return {
       ok: false,

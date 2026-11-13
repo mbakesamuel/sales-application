@@ -1,5 +1,9 @@
 .bposr-document {
   overflow-x: auto;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding-left: 24px;
+  padding-right: 24px;
 }
 
 .bposr-document .report-footer {
@@ -16,28 +20,96 @@
   margin-bottom: 4px;
 }
 
+.bposr-routing {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 8px 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.bposr-routing-from {
+  text-align: left;
+}
+
+.bposr-routing-to {
+  text-align: right;
+}
+
+.bposr-routing-date {
+  margin-top: 2px;
+  font-weight: 700;
+}
+
 .bposr-section {
   overflow-x: auto;
-  margin-top: 12px;
+  margin-top: 8px;
+  max-width: 100%;
 }
 
 .bposr-table {
-  min-width: 920px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   table-layout: fixed;
+  box-sizing: border-box;
 }
 
 .bposr-table.scr-table th,
 .bposr-table.scr-table td {
-  padding: 7px 5px;
+  padding: 7px 2px;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .bposr-label-col,
+.bposr-table thead th.bposr-label-col,
 .bposr-table tbody td.bposr-label-col {
-  width: 220px;
-  min-width: 180px;
-  max-width: 260px;
+  width: 22%;
   white-space: normal;
   word-break: break-word;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.bposr-table th.bposr-qty,
+.bposr-table td.bposr-qty {
+  width: 3.5%;
+  text-align: center;
+  padding-left: 1px;
+  padding-right: 1px;
+}
+
+.bposr-table th.bposr-amount,
+.bposr-table td.bposr-amount {
+  width: 10.5%;
+  text-align: center;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+.bposr-table th.bposr-total-kg,
+.bposr-table td.bposr-total-kg {
+  width: 7%;
+  text-align: center;
+}
+
+.bposr-table th.bposr-grand-total,
+.bposr-table td.bposr-grand-total {
+  width: 7.5%;
+  text-align: center;
+  padding-left: 2px;
+  padding-right: 4px;
+  white-space: normal;
+  line-height: 1.15;
+}
+
+.bposr-table tbody td.scr-num {
+  font-variant-numeric: tabular-nums;
 }
 
 .bposr-footnote {
@@ -48,13 +120,18 @@
 }
 
 @media print {
+  /* Keep side margins modest so the wide pack grid fits on A4 landscape. */
   @page {
     size: A4 landscape;
-    margin: 4mm;
+    margin: 4mm 5mm;
   }
 
-  body.bposr-print-landscape .bposr-document {
-    overflow: visible;
+  body.bposr-print-landscape .bposr-document,
+  body.scr-print-mode .bposr-document {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    max-width: 100% !important;
+    overflow: visible !important;
   }
 
   body.bposr-print-landscape .bposr-document .report-footer,
@@ -74,34 +151,79 @@
     margin-bottom: 2px !important;
   }
 
+  body.bposr-print-landscape .bposr-routing,
+  body.scr-print-mode .bposr-routing {
+    margin: 4px 0 2px !important;
+    font-size: 11px !important;
+  }
+
   body.bposr-print-landscape .bposr-footnote,
   body.scr-print-mode .bposr-footnote {
     margin-top: 4px !important;
   }
 
-  body.bposr-print-landscape .bposr-section {
-    overflow: visible;
+  body.bposr-print-landscape .bposr-section,
+  body.scr-print-mode .bposr-section {
+    overflow: visible !important;
+    max-width: 100% !important;
     page-break-inside: avoid;
   }
 
-  body.bposr-print-landscape .bposr-table {
-    font-size: 10px;
-    min-width: 0;
-    width: 100%;
+  body.bposr-print-landscape .bposr-table,
+  body.scr-print-mode .bposr-table {
+    font-size: 14px;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  body.bposr-print-landscape .bposr-table th.bposr-qty,
+  body.bposr-print-landscape .bposr-table td.bposr-qty,
+  body.scr-print-mode .bposr-table th.bposr-qty,
+  body.scr-print-mode .bposr-table td.bposr-qty {
+    width: 3.5% !important;
+    text-align: center !important;
+  }
+
+  body.bposr-print-landscape .bposr-table th.bposr-amount,
+  body.bposr-print-landscape .bposr-table td.bposr-amount,
+  body.scr-print-mode .bposr-table th.bposr-amount,
+  body.scr-print-mode .bposr-table td.bposr-amount {
+    width: 10.5% !important;
+    text-align: center !important;
   }
 
   body.bposr-print-landscape .bposr-table th,
-  body.bposr-print-landscape .bposr-table td {
-    padding: 5px 5px !important;
-  }
-
-  body.scr-print-mode .bposr-table {
-    min-width: 0;
+  body.bposr-print-landscape .bposr-table td,
+  body.scr-print-mode .bposr-table th,
+  body.scr-print-mode .bposr-table td {
+    padding: 4px 2px !important;
   }
 
   body.scr-print-mode .bposr-label-col,
-  body.scr-print-mode .bposr-table tbody td.bposr-label-col {
-    width: 120px;
-    min-width: 120px;
+  body.scr-print-mode .bposr-table thead th.bposr-label-col,
+  body.scr-print-mode .bposr-table tbody td.bposr-label-col,
+  body.bposr-print-landscape .bposr-label-col,
+  body.bposr-print-landscape .bposr-table thead th.bposr-label-col,
+  body.bposr-print-landscape .bposr-table tbody td.bposr-label-col {
+    width: 22% !important;
+    min-width: 0 !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  body.scr-print-mode .bposr-table th.bposr-total-kg,
+  body.scr-print-mode .bposr-table td.bposr-total-kg,
+  body.bposr-print-landscape .bposr-table th.bposr-total-kg,
+  body.bposr-print-landscape .bposr-table td.bposr-total-kg {
+    width: 7% !important;
+  }
+
+  body.scr-print-mode .bposr-table th.bposr-grand-total,
+  body.scr-print-mode .bposr-table td.bposr-grand-total,
+  body.bposr-print-landscape .bposr-table th.bposr-grand-total,
+  body.bposr-print-landscape .bposr-table td.bposr-grand-total {
+    width: 7.5% !important;
+    text-align: center !important;
   }
 }

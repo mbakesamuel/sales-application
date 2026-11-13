@@ -709,7 +709,7 @@ export function SalesClient({
     void bootstrap();
   }, [user.id, user.salesPointId, isBottleVariant, initialInvoiceNo]);
 
-  // Head office (null): central open month. Sales-point user: their own open month.
+  // Actor open month: HO → personal UserPostingMonth; CP user → sales-point month.
   useEffect(() => {
     let cancelled = false;
     const scope = user.salesPointId == null ? null : user.salesPointId;

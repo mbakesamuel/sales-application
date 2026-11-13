@@ -32,7 +32,7 @@ async function resolveListDateRange(
   }
 
   // Match createSale: list the actor's open month (HO personal / CP month),
-  // not a separate central window that can hide newly posted invoices.
+  // not a separate company window that can hide newly posted invoices.
   const open = await getOpenPostingPeriodForActor(actorId);
   if (!open) {
     throw new Error("Open a financial month before listing documents.");

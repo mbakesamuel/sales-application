@@ -11,7 +11,7 @@ import {
   listProducts,
   listSalesPoints,
 } from "./mastersQueries.js";
-import { getOpenPostingPeriod } from "./financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "./financialYearsService.js";
 import {
   queryTable,
   getCompanySettingsRow,
@@ -411,12 +411,12 @@ export const coverageHandlers: Record<string, Handler> = {
   // carryForward.* / carryForwardStock.* — appRpc via thinClientStubs
 
   // ---- transport cost ----
-  "transportCost.getFormOptions": async () => {
+  "transportCost.getFormOptions": async (_args, ctx) => {
     const [customers, salesPoints, products, openPeriod] = await Promise.all([
       listCustomers(),
       listSalesPoints(),
       listProducts(),
-      getOpenPostingPeriod(),
+      getOpenPostingPeriodForActor(ctx.userId),
     ]);
     return {
       customers,
@@ -431,9 +431,9 @@ export const coverageHandlers: Record<string, Handler> = {
       policyNotice: null,
     };
   },
-  "transportCost.compute": async (args) => {
+  "transportCost.compute": async (args, ctx) => {
     const input = firstObject(args.length > 1 ? args.slice(1) : args);
-    const openPeriod = await getOpenPostingPeriod();
+    const openPeriod = await getOpenPostingPeriodForActor(ctx.userId);
     if (!openPeriod) {
       return { ok: false, error: "Open a financial month first." };
     }

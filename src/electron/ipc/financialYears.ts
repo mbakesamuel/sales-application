@@ -23,7 +23,7 @@ import {
 
 /**
  * Collection-point actors always use their SP scope.
- * Head-office actors use personal UserPostingMonth (ignore client central/null).
+ * Head-office actors use personal UserPostingMonth (ignore client null scope).
  */
 function resolveActorMonthAccess(authToken: string): {
   userId: string;

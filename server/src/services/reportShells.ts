@@ -2,7 +2,7 @@
  * Valid empty report payloads so thin-client UI can render instead of 501.
  * Full Postgres query ports land per-report after cutover.
  */
-import { getOpenPostingPeriod } from "./financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "./financialYearsService.js";
 import {
   loadReportComments,
   loadReportCompanySettings,
@@ -70,11 +70,11 @@ async function baseMeta(
   asAtIso?: string | null,
   commentsReportId?: string,
 ) {
-  const asAt = await resolveReportAsAt(asAtIso);
+  const asAt = await resolveReportAsAt(asAtIso, ctx.userId);
   const [settings, comments, period] = await Promise.all([
     loadReportCompanySettings(ctx.userId, asAt),
     commentsReportId ? loadReportComments(commentsReportId) : Promise.resolve(null),
-    getOpenPostingPeriod(),
+    getOpenPostingPeriodForActor(ctx.userId),
   ]);
   return {
     settings,
@@ -166,8 +166,9 @@ export async function emptyBottleOilStockSales(ctx: Ctx) {
 }
 
 export async function emptyWeekChoices(ctx: Ctx) {
-  const period = await getOpenPostingPeriod();
+  const period = await getOpenPostingPeriodForActor(ctx.userId);
   const asAt = period?.endDate ?? todayIso();
+  void asAt;
   return [] as Array<{
     weekMondayIso: string;
     weekFromIso: string;

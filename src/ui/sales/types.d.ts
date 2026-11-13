@@ -26,7 +26,7 @@ export interface SalesProductOption {
     omitsStorageLocation: boolean;
     /** When true, unit price is entered manually (negotiated); schedule is not used. */
     requiresManualUnitPrice: boolean;
-    /** When true, sales do not require stock availability / deduction. */
+    /** When true, sales skip stock availability checks and do not post stock movements. */
     nonStockable: boolean;
 }
 export interface SalesPaymentMethodOption {

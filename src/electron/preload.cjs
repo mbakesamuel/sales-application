@@ -116,7 +116,8 @@ contextBridge.exposeInMainWorld("api", {
     upsertBatch: (input) => ipcRenderer.invoke("carryForwardStock:upsertBatch", input),
   },
   transportCost: {
-    getFormOptions: () => ipcRenderer.invoke("transportCost:getFormOptions"),
+    getFormOptions: (authToken) =>
+      ipcRenderer.invoke("transportCost:getFormOptions", authToken),
     compute: (authToken, input) =>
       ipcRenderer.invoke("transportCost:compute", authToken, input),
   },

@@ -1,5 +1,5 @@
 import { prisma } from "../db/prisma.js";
-import { getOpenPostingPeriod } from "./financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "./financialYearsService.js";
 import { loadRpcActor } from "./rpcActor.js";
 
 const MONTH_LABELS = [
@@ -558,10 +558,10 @@ async function buildSupervisorQueueTiles(
 }
 
 async function getCommercialDashboardSummary(
-  salesPointId: number | null,
+  userId: string,
 ): Promise<CommercialDashboardSummary> {
   const asAtIso = localTodayIso();
-  const period = await getOpenPostingPeriod(salesPointId);
+  const period = await getOpenPostingPeriodForActor(userId);
   if (!period) return emptyCommercial(asAtIso);
 
   const monthEnd = minIso(period.endDate, asAtIso);
@@ -609,10 +609,11 @@ async function getCommercialDashboardSummary(
 }
 
 async function getBottleOilDashboardSummary(
+  userId: string,
   salesPointId: number | null,
 ): Promise<BottleOilDashboardSummary> {
   const todayIso = localTodayIso();
-  const period = await getOpenPostingPeriod(salesPointId);
+  const period = await getOpenPostingPeriodForActor(userId);
   const asAtIso = period ? minIso(period.endDate, todayIso) : todayIso;
   const [stock, pendingReceives] = await Promise.all([
     loadStockOnHandByBottled(true, asAtIso),
@@ -677,10 +678,11 @@ async function getBottleOilDashboardSummary(
 }
 
 async function getSupervisorDashboardSummary(
+  userId: string,
   salesPointId: number | null,
 ): Promise<SupervisorDashboardSummary> {
   const asAtIso = localTodayIso();
-  const period = await getOpenPostingPeriod(salesPointId);
+  const period = await getOpenPostingPeriodForActor(userId);
   const [looseStock, bottleStock, queueTiles] = await Promise.all([
     loadStockOnHandByBottled(false, asAtIso),
     loadStockOnHandByBottled(true, asAtIso),
@@ -731,10 +733,10 @@ export async function getDashboardSummary(
 ): Promise<DashboardSummary> {
   const actor = await loadRpcActor(userId);
   if (isStoreKeeperRole(actor.role)) {
-    return getBottleOilDashboardSummary(actor.salesPointId);
+    return getBottleOilDashboardSummary(userId, actor.salesPointId);
   }
   if (isSupervisorOverviewRole(actor.role)) {
-    return getSupervisorDashboardSummary(actor.salesPointId);
+    return getSupervisorDashboardSummary(userId, actor.salesPointId);
   }
-  return getCommercialDashboardSummary(actor.salesPointId);
+  return getCommercialDashboardSummary(userId);
 }

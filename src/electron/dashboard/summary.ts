@@ -6,7 +6,9 @@ import type {
 } from "../../shared/dashboard.types.js";
 import { isStoreKeeperRole, isSupervisorOverviewRole } from "../../shared/roles.js";
 import { getDatabase } from "../db/index.js";
-import { getOpenPostingPeriod } from "../financialYears/service.js";
+import {
+  getOpenPostingPeriodForActor,
+} from "../financialYears/service.js";
 import { parseAmount } from "../sales/money.js";
 import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
 import { listStockValidationQueue } from "../stock/validationQueue.js";
@@ -231,7 +233,7 @@ function buildSupervisorQueueTiles(userId: string): SupervisorDashboardSummary["
 
 function getSupervisorDashboardSummary(userId: string): SupervisorDashboardSummary {
   const asAtIso = localTodayIso();
-  const period = getOpenPostingPeriod(getScopedSalesPointId(userId));
+  const period = getOpenPostingPeriodForActor(userId);
   const looseStock = loadStockOnHandByBottled(0);
   const bottleStock = loadStockOnHandByBottled(1);
   const queueTiles = buildSupervisorQueueTiles(userId);
@@ -613,9 +615,9 @@ function loadBottledStockOnHand(asAtIso: string): {
   return { rows: mapped, sellableUnitsTotal };
 }
 
-function getCommercialDashboardSummary(): CommercialDashboardSummary {
+function getCommercialDashboardSummary(userId: string): CommercialDashboardSummary {
   const asAtIso = localTodayIso();
-  const period = getOpenPostingPeriod();
+  const period = getOpenPostingPeriodForActor(userId);
 
   if (!period) {
     return emptyCommercial(asAtIso);
@@ -661,7 +663,7 @@ function getCommercialDashboardSummary(): CommercialDashboardSummary {
 
 function getBottleOilDashboardSummary(userId: string): BottleOilDashboardSummary {
   const todayIso = localTodayIso();
-  const period = getOpenPostingPeriod(getScopedSalesPointId(userId));
+  const period = getOpenPostingPeriodForActor(userId);
   const asAtIso = period ? minIso(period.endDate, todayIso) : todayIso;
   const stock = loadBottledStockOnHand(asAtIso);
   const pendingReceives = countPendingReceives(userId);
@@ -729,5 +731,8 @@ export function getDashboardSummary(
   if (role && isSupervisorOverviewRole(role) && userId) {
     return getSupervisorDashboardSummary(userId);
   }
-  return getCommercialDashboardSummary();
+  if (!userId) {
+    return emptyCommercial(localTodayIso());
+  }
+  return getCommercialDashboardSummary(userId);
 }

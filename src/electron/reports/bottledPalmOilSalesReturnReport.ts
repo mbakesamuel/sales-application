@@ -169,10 +169,11 @@ function subtractPackQty(
 function convertQtyRow(
   source: BottledPalmOilSalesReturnCell[],
   convert: (qty: number, packId: BottledPalmOilSalesReturnPackId) => number,
+  preserveAmount = false,
 ): BottledPalmOilSalesReturnCell[] {
   return source.map((cell, index) => ({
     qty: convert(cell.qty, PACK_IDS[index] as BottledPalmOilSalesReturnPackId),
-    amount: 0,
+    amount: preserveAmount ? cell.amount : 0,
   }));
 }
 
@@ -462,7 +463,11 @@ export function getBottledPalmOilSalesReturnReport(
     totalIssuesPacks,
   );
 
-  const issuesLitresPacks = convertQtyRow(totalIssuesPacks, litresForPack);
+  const issuesLitresPacks = convertQtyRow(
+    totalIssuesPacks,
+    litresForPack,
+    true,
+  );
   const issuesLitresRow = makeRow(
     "issues-litres",
     "TOTAL ISSUES IN LITRES",
@@ -470,11 +475,10 @@ export function getBottledPalmOilSalesReturnReport(
     issuesLitresPacks,
     {
       totalKg: 0,
-      grandTotalFcfa: 0,
     },
   );
 
-  const issuesKgPacks = convertQtyRow(totalIssuesPacks, kgForPack);
+  const issuesKgPacks = convertQtyRow(totalIssuesPacks, kgForPack, true);
   const issuesKgRow = makeRow(
     "issues-kg",
     "TOTAL ISSUES IN KGS",
@@ -482,7 +486,6 @@ export function getBottledPalmOilSalesReturnReport(
     issuesKgPacks,
     {
       totalKg: 0,
-      grandTotalFcfa: 0,
     },
   );
 

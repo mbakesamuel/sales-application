@@ -186,7 +186,13 @@ export function TransportCostComputeScreen({
       setLoading(true);
       setError(null);
       try {
-        const formOptions = await getElectronApi().transportCost.getFormOptions();
+        const token = getAuthToken();
+        if (!token) {
+          throw new Error("Login required.");
+        }
+        const formOptions = await getElectronApi().transportCost.getFormOptions(
+          token,
+        );
         if (!cancelled) {
           setOptions(formOptions);
         }

@@ -6,7 +6,7 @@ import { getTaxRatesAsOf } from "./salesRpcExtras.js";
 import { resolveOpenPeriodReportContext } from "./reports/openPeriodReportContext.js";
 import { parseQty } from "./reports/reportShared.js";
 import { canAccessRoute, loadRpcActor } from "./rpcActor.js";
-import { getOpenPostingPeriod } from "./financialYearsService.js";
+import { getOpenPostingPeriodForActor } from "./financialYearsService.js";
 
 const COMPUTE_ROUTE_ID = "transport-cost-compute";
 const MOLIWE_SALES_POINT_NAME = "Moliwe";
@@ -36,13 +36,13 @@ export type TransportCostFormOptions = {
     productName: string;
     productCode: string;
   }>;
-  openPeriod: Awaited<ReturnType<typeof getOpenPostingPeriod>>;
+  openPeriod: Awaited<ReturnType<typeof getOpenPostingPeriodForActor>>;
   transportCostMoliweOnlyPolicy: boolean;
   policyNotice: string | null;
 };
 
 export type TransportCostComputeResult = {
-  period: NonNullable<Awaited<ReturnType<typeof getOpenPostingPeriod>>>;
+  period: NonNullable<Awaited<ReturnType<typeof getOpenPostingPeriodForActor>>>;
   asAtIso: string;
   customerId: number;
   customerName: string;
@@ -244,7 +244,9 @@ async function loadLiftedSaleLines(
   }));
 }
 
-export async function getTransportCostFormOptions(): Promise<TransportCostFormOptions> {
+export async function getTransportCostFormOptions(
+  userId?: string | null,
+): Promise<TransportCostFormOptions> {
   const [
     openPeriod,
     transportCostMoliweOnlyPolicy,
@@ -254,7 +256,7 @@ export async function getTransportCostFormOptions(): Promise<TransportCostFormOp
     salesPointRows,
     productRows,
   ] = await Promise.all([
-    getOpenPostingPeriod(),
+    userId ? getOpenPostingPeriodForActor(userId) : Promise.resolve(null),
     loadTransportCostMoliweOnlyPolicy(),
     resolveMoliweSalesPointId(),
     resolveTransportCostCustomerId(),

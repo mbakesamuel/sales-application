@@ -24,7 +24,7 @@ const MONTH_NAMES = [
   "December",
 ] as const;
 
-/** null = central / head-office posting month. */
+/** Collection-point posting scope. Null means no CP (invalid for SP posting helpers). */
 export type PostingScopeId = number | null;
 
 function pad2(value: number): string {
@@ -322,99 +322,62 @@ function closeAllOpenYearsAndPostingMonths(): void {
   ).run(timestamp);
 }
 
-function closeOpenPostingForScope(salesPointId: PostingScopeId): void {
+function closeOpenPostingForScope(salesPointId: number): void {
   const db = getDatabase();
   const timestamp = nowIso();
-  if (salesPointId == null) {
-    db.prepare(
-      `UPDATE SalesPointPostingMonth
-       SET status = 'CLOSED', closedAt = ?
-       WHERE salesPointId IS NULL AND status = 'OPEN'`,
-    ).run(timestamp);
-  } else {
-    db.prepare(
-      `UPDATE SalesPointPostingMonth
-       SET status = 'CLOSED', closedAt = ?
-       WHERE salesPointId = ? AND status = 'OPEN'`,
-    ).run(timestamp, salesPointId);
-  }
+  db.prepare(
+    `UPDATE SalesPointPostingMonth
+     SET status = 'CLOSED', closedAt = ?
+     WHERE salesPointId = ? AND status = 'OPEN'`,
+  ).run(timestamp, salesPointId);
 }
 
 function upsertOpenPostingMonth(
   periodId: string,
   calendarMonth: number,
-  salesPointId: PostingScopeId,
+  salesPointId: number,
 ): void {
+  if (!Number.isFinite(salesPointId)) {
+    throw new Error("Collection-point id is required to open a posting month.");
+  }
   const db = getDatabase();
   const timestamp = nowIso();
   closeOpenPostingForScope(salesPointId);
 
-  if (salesPointId == null) {
-    const existing = db
-      .prepare(
-        `SELECT id, openedAt FROM SalesPointPostingMonth
-         WHERE salesPointId IS NULL
-           AND financialYearPeriodId = ?
-           AND calendarMonth = ?`,
-      )
-      .get(periodId, calendarMonth) as
-      | { id: string; openedAt: string | null }
-      | undefined;
-    if (existing) {
-      db.prepare(
-        `UPDATE SalesPointPostingMonth
-         SET status = 'OPEN',
-             openedAt = COALESCE(?, openedAt, ?),
-             closedAt = NULL
-         WHERE id = ?`,
-      ).run(
-        sanitizeStoredTimestamp(existing.openedAt),
-        timestamp,
-        existing.id,
-      );
-    } else {
-      db.prepare(
-        `INSERT INTO SalesPointPostingMonth (
-          id, salesPointId, financialYearPeriodId, calendarMonth, status, openedAt, closedAt
-        ) VALUES (?, NULL, ?, ?, 'OPEN', ?, NULL)`,
-      ).run(createTextPrimaryKey(), periodId, calendarMonth, timestamp);
-    }
+  const existing = db
+    .prepare(
+      `SELECT id, openedAt FROM SalesPointPostingMonth
+       WHERE salesPointId = ?
+         AND financialYearPeriodId = ?
+         AND calendarMonth = ?`,
+    )
+    .get(salesPointId, periodId, calendarMonth) as
+    | { id: string; openedAt: string | null }
+    | undefined;
+  if (existing) {
+    db.prepare(
+      `UPDATE SalesPointPostingMonth
+       SET status = 'OPEN',
+           openedAt = COALESCE(?, openedAt, ?),
+           closedAt = NULL
+       WHERE id = ?`,
+    ).run(
+      sanitizeStoredTimestamp(existing.openedAt),
+      timestamp,
+      existing.id,
+    );
   } else {
-    const existing = db
-      .prepare(
-        `SELECT id, openedAt FROM SalesPointPostingMonth
-         WHERE salesPointId = ?
-           AND financialYearPeriodId = ?
-           AND calendarMonth = ?`,
-      )
-      .get(salesPointId, periodId, calendarMonth) as
-      | { id: string; openedAt: string | null }
-      | undefined;
-    if (existing) {
-      db.prepare(
-        `UPDATE SalesPointPostingMonth
-         SET status = 'OPEN',
-             openedAt = COALESCE(?, openedAt, ?),
-             closedAt = NULL
-         WHERE id = ?`,
-      ).run(
-        sanitizeStoredTimestamp(existing.openedAt),
-        timestamp,
-        existing.id,
-      );
-    } else {
-      db.prepare(
-        `INSERT INTO SalesPointPostingMonth (
-          id, salesPointId, financialYearPeriodId, calendarMonth, status, openedAt, closedAt
-        ) VALUES (?, ?, ?, ?, 'OPEN', ?, NULL)`,
-      ).run(
-        createTextPrimaryKey(),
-        salesPointId,
-        periodId,
-        calendarMonth,
-        timestamp,
-      );
-    }
+    db.prepare(
+      `INSERT INTO SalesPointPostingMonth (
+        id, salesPointId, financialYearPeriodId, calendarMonth, status, openedAt, closedAt
+      ) VALUES (?, ?, ?, ?, 'OPEN', ?, NULL)`,
+    ).run(
+      createTextPrimaryKey(),
+      salesPointId,
+      periodId,
+      calendarMonth,
+      timestamp,
+    );
   }
 
   // Keep catalog row in sync for legacy readers / openMonthCount fallbacks.
@@ -434,14 +397,29 @@ function seedOpenMonthForAllScopes(
   periodId: string,
   calendarMonth: number,
 ): void {
-  // Keep central row for legacy/backfill; HO posting uses UserPostingMonth.
-  upsertOpenPostingMonth(periodId, calendarMonth, null);
+  // CP months + personal HO UserPostingMonth only (no central null-scope row).
   for (const salesPointId of listActiveSalesPointIds()) {
     upsertOpenPostingMonth(periodId, calendarMonth, salesPointId);
   }
   for (const userId of listUnscopedUserIds()) {
     upsertOpenPostingMonthForUser(periodId, calendarMonth, userId);
   }
+}
+
+/** Open-scope count: distinct CP months + open HO user months (no central). */
+function openMonthCountSql(alias = "y"): string {
+  return `(
+    (SELECT COUNT(DISTINCT CAST(spm.salesPointId AS TEXT))
+     FROM SalesPointPostingMonth spm
+     WHERE spm.financialYearPeriodId = ${alias}.id
+       AND spm.status = 'OPEN'
+       AND spm.salesPointId IS NOT NULL)
+    +
+    (SELECT COUNT(*)
+     FROM UserPostingMonth upm
+     WHERE upm.financialYearPeriodId = ${alias}.id
+       AND upm.status = 'OPEN')
+  )`;
 }
 
 function pickInitialMonth(financialYear: number): number {
@@ -457,9 +435,7 @@ function getYearById(id: string): FinancialYearRow | null {
     .prepare(
       `SELECT y.*,
               (SELECT COUNT(*) FROM FinancialMonth m WHERE m.financialYearPeriodId = y.id) AS monthCount,
-              (SELECT COUNT(DISTINCT COALESCE(CAST(spm.salesPointId AS TEXT), 'central'))
-               FROM SalesPointPostingMonth spm
-               WHERE spm.financialYearPeriodId = y.id AND spm.status = 'OPEN') AS openMonthCount
+              ${openMonthCountSql("y")} AS openMonthCount
        FROM FinancialYearPeriod y
        WHERE y.id = ?`,
     )
@@ -473,9 +449,7 @@ export function listYears(): FinancialYearRow[] {
     .prepare(
       `SELECT y.*,
               (SELECT COUNT(*) FROM FinancialMonth m WHERE m.financialYearPeriodId = y.id) AS monthCount,
-              (SELECT COUNT(DISTINCT COALESCE(CAST(spm.salesPointId AS TEXT), 'central'))
-               FROM SalesPointPostingMonth spm
-               WHERE spm.financialYearPeriodId = y.id AND spm.status = 'OPEN') AS openMonthCount
+              ${openMonthCountSql("y")} AS openMonthCount
        FROM FinancialYearPeriod y
        ORDER BY y.financialYear DESC`,
     )
@@ -498,18 +472,7 @@ function listMonthsForPeriodScoped(
 
   const postingRows =
     salesPointId == null
-      ? (db
-          .prepare(
-            `SELECT calendarMonth, status, openedAt, closedAt
-             FROM SalesPointPostingMonth
-             WHERE financialYearPeriodId = ? AND salesPointId IS NULL`,
-          )
-          .all(periodId) as Array<{
-            calendarMonth: number;
-            status: string;
-            openedAt: string | null;
-            closedAt: string | null;
-          }>)
+      ? []
       : (db
           .prepare(
             `SELECT calendarMonth, status, openedAt, closedAt
@@ -555,9 +518,7 @@ export function listMonthsForOpenYear(salesPointId?: number | null): {
     .prepare(
       `SELECT y.*,
               (SELECT COUNT(*) FROM FinancialMonth m WHERE m.financialYearPeriodId = y.id) AS monthCount,
-              (SELECT COUNT(DISTINCT COALESCE(CAST(spm.salesPointId AS TEXT), 'central'))
-               FROM SalesPointPostingMonth spm
-               WHERE spm.financialYearPeriodId = y.id AND spm.status = 'OPEN') AS openMonthCount
+              ${openMonthCountSql("y")} AS openMonthCount
        FROM FinancialYearPeriod y
        WHERE y.status = 'OPEN'
        ORDER BY y.financialYear DESC
@@ -595,52 +556,60 @@ function mapOpenPeriodRow(row: OpenPeriodRow): OpenPostingPeriod {
 }
 
 /**
- * Open posting period for a collection point, or central when salesPointId is null.
- * Prefer getOpenPostingPeriodForActor for document posting by a logged-in user.
+ * Open posting period for a collection point.
+ * Prefer getOpenPostingPeriodForActor for document posting by a logged-in user
+ * (HO → personal UserPostingMonth; CP → this helper).
  */
 export function getOpenPostingPeriod(
   salesPointId?: number | null,
 ): OpenPostingPeriod | null {
   const scope = normalizeScope(salesPointId);
-  const db = getDatabase();
+  if (scope == null) {
+    return null;
+  }
+  const row = getDatabase()
+    .prepare(
+      `SELECT y.id AS financialYearPeriodId, y.financialYear,
+              m.id AS monthId, spm.calendarMonth, m.name AS monthName
+       FROM FinancialYearPeriod y
+       INNER JOIN SalesPointPostingMonth spm
+         ON spm.financialYearPeriodId = y.id
+        AND spm.salesPointId = ?
+        AND spm.status = 'OPEN'
+       INNER JOIN FinancialMonth m
+         ON m.financialYearPeriodId = y.id
+        AND m.calendarMonth = spm.calendarMonth
+       WHERE y.status = 'OPEN'
+       ORDER BY y.financialYear DESC, spm.calendarMonth DESC
+       LIMIT 1`,
+    )
+    .get(scope) as OpenPeriodRow | undefined;
 
-  const row =
-    scope == null
-      ? (db
-          .prepare(
-            `SELECT y.id AS financialYearPeriodId, y.financialYear,
-                    m.id AS monthId, spm.calendarMonth, m.name AS monthName
-             FROM FinancialYearPeriod y
-             INNER JOIN SalesPointPostingMonth spm
-               ON spm.financialYearPeriodId = y.id
-              AND spm.salesPointId IS NULL
-              AND spm.status = 'OPEN'
-             INNER JOIN FinancialMonth m
-               ON m.financialYearPeriodId = y.id
-              AND m.calendarMonth = spm.calendarMonth
-             WHERE y.status = 'OPEN'
-             ORDER BY y.financialYear DESC, spm.calendarMonth DESC
-             LIMIT 1`,
-          )
-          .get() as OpenPeriodRow | undefined)
-      : (db
-          .prepare(
-            `SELECT y.id AS financialYearPeriodId, y.financialYear,
-                    m.id AS monthId, spm.calendarMonth, m.name AS monthName
-             FROM FinancialYearPeriod y
-             INNER JOIN SalesPointPostingMonth spm
-               ON spm.financialYearPeriodId = y.id
-              AND spm.salesPointId = ?
-              AND spm.status = 'OPEN'
-             INNER JOIN FinancialMonth m
-               ON m.financialYearPeriodId = y.id
-              AND m.calendarMonth = spm.calendarMonth
-             WHERE y.status = 'OPEN'
-             ORDER BY y.financialYear DESC, spm.calendarMonth DESC
-             LIMIT 1`,
-          )
-          .get(scope) as OpenPeriodRow | undefined);
+  return row ? mapOpenPeriodRow(row) : null;
+}
 
+/** Any open CP or HO-user posting month in the open financial year (budgets). */
+function findAnyOpenPostingPeriod(): OpenPostingPeriod | null {
+  for (const salesPointId of listActiveSalesPointIds()) {
+    const period = getOpenPostingPeriod(salesPointId);
+    if (period) return period;
+  }
+  const row = getDatabase()
+    .prepare(
+      `SELECT y.id AS financialYearPeriodId, y.financialYear,
+              m.id AS monthId, upm.calendarMonth, m.name AS monthName
+       FROM FinancialYearPeriod y
+       INNER JOIN UserPostingMonth upm
+         ON upm.financialYearPeriodId = y.id
+        AND upm.status = 'OPEN'
+       INNER JOIN FinancialMonth m
+         ON m.financialYearPeriodId = y.id
+        AND m.calendarMonth = upm.calendarMonth
+       WHERE y.status = 'OPEN'
+       ORDER BY y.financialYear DESC, upm.calendarMonth DESC
+       LIMIT 1`,
+    )
+    .get() as OpenPeriodRow | undefined;
   return row ? mapOpenPeriodRow(row) : null;
 }
 
@@ -802,13 +771,8 @@ export function assertDateInOpenMonthForActor(
 }
 
 export function assertBudgetYear(financialYear: unknown): void {
-  // Budgets are year-scoped; any open scope in the open year is enough.
-  const period =
-    getOpenPostingPeriod(null) ??
-    listActiveSalesPointIds()
-      .map((id) => getOpenPostingPeriod(id))
-      .find(Boolean) ??
-    null;
+  // Budgets are year-scoped; any open CP or HO-user month in the open year is enough.
+  const period = findAnyOpenPostingPeriod();
   if (!period) {
     throw new Error("Open a financial month before editing budgets.");
   }
@@ -821,8 +785,8 @@ export function assertBudgetYear(financialYear: unknown): void {
 }
 
 /**
- * As-at for reports: viewer scope (user → personal HO month or collection point).
- * Pass userId when available; otherwise salesPointId; otherwise central fallback.
+ * As-at for reports: acting userId (string) → personal HO / CP month;
+ * or collection-point id (number). No central fallback.
  */
 export function resolveReportAsAt(userIdOrScope?: string | number | null): {
   asAtIso: string;
@@ -830,11 +794,9 @@ export function resolveReportAsAt(userIdOrScope?: string | number | null): {
 } {
   let period: OpenPostingPeriod | null = null;
   if (typeof userIdOrScope === "number") {
-    period = getOpenPostingPeriod(normalizeScope(userIdOrScope));
+    period = getOpenPostingPeriod(userIdOrScope);
   } else if (typeof userIdOrScope === "string" && userIdOrScope) {
     period = getOpenPostingPeriodForActor(userIdOrScope);
-  } else {
-    period = getOpenPostingPeriod(null);
   }
 
   if (!period) {
@@ -859,13 +821,13 @@ export function resolveListDateRange(
     return { fromIso: null, toIso: null, periodLabel: "All time" };
   }
 
-  // string → acting userId (HO personal / CP month). number|null → legacy SP scope.
+  // string → acting userId (HO personal / CP month). number → CP scope only.
   const open =
     typeof scope === "string" && scope.trim()
       ? getOpenPostingPeriodForActor(scope.trim())
-      : getOpenPostingPeriod(
-          normalizeScope(typeof scope === "number" ? scope : null),
-        );
+      : typeof scope === "number"
+        ? getOpenPostingPeriod(scope)
+        : null;
   if (!open) {
     throw new Error("Open a financial month before listing documents.");
   }
@@ -1002,6 +964,11 @@ export function setMonthStatus(
   salesPointId?: number | null,
 ): FinancialMonthRow {
   const scope = normalizeScope(salesPointId);
+  if (scope == null) {
+    throw new Error(
+      "Collection-point scope is required. Head-office users manage months via their personal posting month.",
+    );
+  }
   const db = getDatabase();
   const month = db
     .prepare(`SELECT * FROM FinancialMonth WHERE id = ?`)
@@ -1024,23 +991,13 @@ export function setMonthStatus(
     upsertOpenPostingMonth(periodId, calendarMonth, scope);
   } else {
     const timestamp = nowIso();
-    if (scope == null) {
-      db.prepare(
-        `UPDATE SalesPointPostingMonth
-         SET status = 'CLOSED', closedAt = ?
-         WHERE salesPointId IS NULL
-           AND financialYearPeriodId = ?
-           AND calendarMonth = ?`,
-      ).run(timestamp, periodId, calendarMonth);
-    } else {
-      db.prepare(
-        `UPDATE SalesPointPostingMonth
-         SET status = 'CLOSED', closedAt = ?
-         WHERE salesPointId = ?
-           AND financialYearPeriodId = ?
-           AND calendarMonth = ?`,
-      ).run(timestamp, scope, periodId, calendarMonth);
-    }
+    db.prepare(
+      `UPDATE SalesPointPostingMonth
+       SET status = 'CLOSED', closedAt = ?
+       WHERE salesPointId = ?
+         AND financialYearPeriodId = ?
+         AND calendarMonth = ?`,
+    ).run(timestamp, scope, periodId, calendarMonth);
   }
 
   return listMonthsForPeriodScoped(periodId, scope).find(

@@ -14,7 +14,7 @@ import {
 } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
 import { requireActiveSalesPoint } from "../salesPoints/active.js";
-import { getOpenPostingPeriod } from "../financialYears/service.js";
+import { getOpenPostingPeriodForActor } from "../financialYears/service.js";
 import { parseAmount } from "../sales/money.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
 import { allocateTransferDeliveryOrderNo } from "./doNo.js";
@@ -217,7 +217,7 @@ export function transferDeliveryOrderBalance(
     };
   }
 
-  const openPeriod = getOpenPostingPeriod();
+  const openPeriod = getOpenPostingPeriodForActor(input.userId);
   if (!openPeriod) {
     return {
       ok: false,

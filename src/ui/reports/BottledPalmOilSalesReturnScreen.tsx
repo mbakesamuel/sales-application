@@ -6,6 +6,7 @@ import type {
   BottledPalmOilSalesReturnRow,
   BottledPalmOilSalesReturnRowKind,
 } from "../../shared/reports.types.ts";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import {
@@ -19,6 +20,8 @@ const AMOUNT_KINDS = new Set<BottledPalmOilSalesReturnRowKind>([
   "cashSales",
   "publicRelation",
   "totalIssues",
+  "issuesLitres",
+  "issuesKg",
 ]);
 
 const TOTAL_KG_KINDS = new Set<BottledPalmOilSalesReturnRowKind>([
@@ -110,6 +113,15 @@ function ReportDocument({ report }: { report: BottledPalmOilSalesReturnReport })
         />
       }
     >
+      <div class="bposr-routing">
+        <div class="bposr-routing-from">FROM MPOS</div>
+        <div class="bposr-routing-to">
+          <div>TO MSS.</div>
+          <div class="bposr-routing-date">
+            DATE {formatDisplayDate(report.generatedAtIso)}
+          </div>
+        </div>
+      </div>
       <div class="bposr-section">
         <table class="scr-table bposr-table">
           <thead>
@@ -120,13 +132,21 @@ function ReportDocument({ report }: { report: BottledPalmOilSalesReturnReport })
                   {column.label}
                 </th>
               ))}
-              <th rowSpan={2}>TOTAL IN KGS</th>
-              <th rowSpan={2}>GRAND TOTAL IN FCFA</th>
+              <th rowSpan={2} class="bposr-total-kg">
+                TOTAL IN KGS
+              </th>
+              <th rowSpan={2} class="bposr-grand-total">
+                GRAND TOTAL IN FCFA
+              </th>
             </tr>
             <tr>
               {report.packColumns.flatMap((column) => [
-                <th key={`${column.id}-qty`}>QUANTITY</th>,
-                <th key={`${column.id}-amount`}>AMOUNT WITHOUT T.</th>,
+                <th key={`${column.id}-qty`} class="bposr-qty">
+                  QUANTITY
+                </th>,
+                <th key={`${column.id}-amount`} class="bposr-amount">
+                  AMOUNT WITHOUT T.
+                </th>,
               ])}
             </tr>
           </thead>
@@ -152,18 +172,24 @@ function ReportDocument({ report }: { report: BottledPalmOilSalesReturnReport })
                   {row.packs.flatMap((cell, index) => {
                     const packId = report.packColumns[index]?.id ?? index;
                     return [
-                      <td key={`${row.id}-${packId}-qty`} class="scr-num">
+                      <td
+                        key={`${row.id}-${packId}-qty`}
+                        class="scr-num bposr-qty"
+                      >
                         {packQtyAsKg ? formatKg(cell.qty) : formatQty(cell.qty)}
                       </td>,
-                      <td key={`${row.id}-${packId}-amount`} class="scr-num">
+                      <td
+                        key={`${row.id}-${packId}-amount`}
+                        class="scr-num bposr-amount"
+                      >
                         {showAmount ? formatAmount(cell.amount) : "—"}
                       </td>,
                     ];
                   })}
-                  <td class="scr-num">
+                  <td class="scr-num bposr-total-kg">
                     {showTotalKg ? formatKg(row.totalKg) : "—"}
                   </td>
-                  <td class="scr-num">
+                  <td class="scr-num bposr-grand-total">
                     {showAmount ? formatAmount(row.grandTotalFcfa) : "—"}
                   </td>
                 </tr>

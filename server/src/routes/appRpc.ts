@@ -808,7 +808,8 @@ const handlers: Record<string, Handler> = {
       userId: ctx.userId,
     });
   },
-  "transportCost.getFormOptions": async () => getTransportCostFormOptions(),
+  "transportCost.getFormOptions": async (_args, ctx) =>
+    getTransportCostFormOptions(ctx.userId),
   "transportCost.compute": async (args, ctx) =>
     computeTransportCost(parseTransportCostComputeArgs(args), ctx.userId),
   "backup.getInfo": async () => backupStubs.getInfo(),

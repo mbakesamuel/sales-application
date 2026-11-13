@@ -428,7 +428,7 @@ export interface ElectronAppApi {
     ): Promise<import("../../shared/carryForwardStock.types.ts").CarryForwardStockBatchResult>;
   };
   transportCost: {
-    getFormOptions(): Promise<
+    getFormOptions(authToken: string): Promise<
       import("../../shared/transportCost.types.ts").TransportCostFormOptions
     >;
     compute(

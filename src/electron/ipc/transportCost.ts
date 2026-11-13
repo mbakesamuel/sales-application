@@ -13,7 +13,10 @@ import { requireAuthUser } from "../auth/requireUser.js";
 export function registerTransportCostHandlers(): void {
   ipcMain.handle(
     "transportCost:getFormOptions",
-    (): TransportCostFormOptions => getTransportCostFormOptions(),
+    (_event, authToken: string): TransportCostFormOptions => {
+      const user = requireAuthUser(authToken);
+      return getTransportCostFormOptions(user.id);
+    },
   );
 
   ipcMain.handle(

@@ -1,7 +1,7 @@
 /**
- * Omit salesPointId so HTTP JSON does not coerce `undefined` → `null`
- * (central scope). Server/Electron then resolve to the actor's collection point.
- * Pass `null` explicitly for company/head-office scope.
+ * Omit salesPointId so HTTP JSON does not coerce `undefined` → `null`.
+ * Server/Electron resolve to the actor's open month (CP posting month or
+ * personal HO UserPostingMonth).
  */
 export declare function getAuthenticatedFinancialYears(): {
     listYears: () => Promise<import("../../shared/financialYears.types.ts").FinancialYearRow[]>;

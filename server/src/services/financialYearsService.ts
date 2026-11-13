@@ -42,7 +42,7 @@ export type OpenYearResult = {
   months: FinancialMonthRow[];
 };
 
-/** null = central / head-office posting month. */
+/** Collection-point posting scope. Null means no CP (invalid for SP posting helpers). */
 export type PostingScopeId = number | null;
 
 const MONTH_NAMES = [
@@ -139,16 +139,26 @@ export async function postingScopeForUser(
 }
 
 async function countOpenScopes(periodId: string): Promise<number> {
-  const rows = await prisma.sales_point_posting_months.findMany({
-    where: { financial_year_period_id: periodId, status: "OPEN" },
-    select: { sales_point_id: true },
-  });
-  const keys = new Set(
-    rows.map((row) =>
-      row.sales_point_id == null ? "central" : String(row.sales_point_id),
-    ),
+  const [spRows, userOpenCount] = await Promise.all([
+    prisma.sales_point_posting_months.findMany({
+      where: {
+        financial_year_period_id: periodId,
+        status: "OPEN",
+        sales_point_id: { not: null },
+      },
+      select: { sales_point_id: true },
+    }),
+    prisma.user_posting_months.count({
+      where: { financial_year_period_id: periodId, status: "OPEN" },
+    }),
+  ]);
+  const spKeys = new Set(
+    spRows
+      .map((row) => row.sales_point_id)
+      .filter((id): id is number => id != null)
+      .map((id) => String(id)),
   );
-  return keys.size;
+  return spKeys.size + userOpenCount;
 }
 
 async function getYearById(id: string): Promise<FinancialYearRow | null> {
@@ -232,14 +242,11 @@ async function listActiveSalesPointIds(): Promise<number[]> {
 
 async function closeOpenPostingForScope(
   tx: typeof prisma,
-  salesPointId: PostingScopeId,
+  salesPointId: number,
 ): Promise<void> {
   const timestamp = nowDate();
   await tx.sales_point_posting_months.updateMany({
-    where:
-      salesPointId == null
-        ? { sales_point_id: null, status: "OPEN" }
-        : { sales_point_id: salesPointId, status: "OPEN" },
+    where: { sales_point_id: salesPointId, status: "OPEN" },
     data: { status: "CLOSED", closed_at: timestamp },
   });
 }
@@ -248,24 +255,20 @@ async function upsertOpenPostingMonth(
   tx: typeof prisma,
   periodId: string,
   calendarMonth: number,
-  salesPointId: PostingScopeId,
+  salesPointId: number,
 ): Promise<void> {
+  if (!Number.isFinite(salesPointId)) {
+    throw new Error("Collection-point id is required to open a posting month.");
+  }
   const timestamp = nowDate();
   await closeOpenPostingForScope(tx, salesPointId);
 
   const existing = await tx.sales_point_posting_months.findFirst({
-    where:
-      salesPointId == null
-        ? {
-            sales_point_id: null,
-            financial_year_period_id: periodId,
-            calendar_month: calendarMonth,
-          }
-        : {
-            sales_point_id: salesPointId,
-            financial_year_period_id: periodId,
-            calendar_month: calendarMonth,
-          },
+    where: {
+      sales_point_id: salesPointId,
+      financial_year_period_id: periodId,
+      calendar_month: calendarMonth,
+    },
   });
 
   if (existing) {
@@ -389,7 +392,7 @@ async function seedOpenMonthForAllScopes(
   periodId: string,
   calendarMonth: number,
 ): Promise<void> {
-  await upsertOpenPostingMonth(tx, periodId, calendarMonth, null);
+  // CP months + personal HO UserPostingMonth only (no central null-scope row).
   for (const salesPointId of await listActiveSalesPointIds()) {
     await upsertOpenPostingMonth(tx, periodId, calendarMonth, salesPointId);
   }
@@ -419,12 +422,15 @@ export async function listMonthsForPeriod(
     where: { financial_year_period_id: periodId },
     orderBy: { calendar_month: "asc" },
   });
-  const posting = await prisma.sales_point_posting_months.findMany({
-    where:
-      scope == null
-        ? { financial_year_period_id: periodId, sales_point_id: null }
-        : { financial_year_period_id: periodId, sales_point_id: scope },
-  });
+  const posting =
+    scope == null
+      ? []
+      : await prisma.sales_point_posting_months.findMany({
+          where: {
+            financial_year_period_id: periodId,
+            sales_point_id: scope,
+          },
+        });
   const byMonth = new Map(
     posting.map((row) => [row.calendar_month, row] as const),
   );
@@ -464,6 +470,9 @@ export async function getOpenPostingPeriod(
   salesPointId?: number | null,
 ): Promise<OpenPostingPeriod | null> {
   const scope = normalizePostingScope(salesPointId);
+  if (scope == null) {
+    return null;
+  }
   const posting = await prisma.sales_point_posting_months.findFirst({
     where: {
       status: "OPEN",
@@ -660,6 +669,11 @@ export async function setMonthStatus(
   salesPointId?: number | null,
 ): Promise<FinancialMonthRow> {
   const scope = normalizePostingScope(salesPointId);
+  if (scope == null) {
+    throw new Error(
+      "Collection-point scope is required. Head-office users manage months via their personal posting month.",
+    );
+  }
   const month = await prisma.financial_months.findUnique({
     where: { id: monthId },
   });
@@ -684,18 +698,11 @@ export async function setMonthStatus(
     });
   } else {
     await prisma.sales_point_posting_months.updateMany({
-      where:
-        scope == null
-          ? {
-              sales_point_id: null,
-              financial_year_period_id: month.financial_year_period_id,
-              calendar_month: month.calendar_month,
-            }
-          : {
-              sales_point_id: scope,
-              financial_year_period_id: month.financial_year_period_id,
-              calendar_month: month.calendar_month,
-            },
+      where: {
+        sales_point_id: scope,
+        financial_year_period_id: month.financial_year_period_id,
+        calendar_month: month.calendar_month,
+      },
       data: { status: "CLOSED", closed_at: nowDate() },
     });
   }
